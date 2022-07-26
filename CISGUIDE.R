@@ -7,15 +7,19 @@ library(openxlsx)
 
 #The data should be "pre-treated" by running the script "Reverse TRANSGUIDE primary script" in bash. This performs some filtering like removing supplemental reads and requiring reads to start with the primer sequence. 
 #change the chromosome names of the fasta file to add Chr, and remove all the other crap, also change - to _
-sample_info = read.csv("Sample_information.txt", sep = "\t", header=T, stringsAsFactors = FALSE)
-
-NF_NUMBER = as.integer(-99999999)
-ERROR_NUMBER = as.integer(99999999)
-MINLEN = as.integer(90)
-MINBASEQUAL = 0.75
+input_dir= "C:/Users/lejon/Documents/Scripts/CISGUIDE/input/"
+output_dir= "C:/Users/lejon/Documents/Scripts/CISGUIDE/output/"
+version_no="6.15"
+NF_NUMBER = as.integer(-99999999) #don't change
+ERROR_NUMBER = as.integer(99999999) #don't change
+MINLEN = as.integer(90) #minimum length of a read
+MINBASEQUAL = 0.75 #minimum base quality
 MAX_DIST_FLANK_B_END = 10000 #distance from end of flank B to DSB, determines max deletion size and also affects maximum insertion size
-FLANK_B_LEN_MIN = 15
+FLANK_B_LEN_MIN = 15 #minimum length of flank B
 LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick to determine locus info
+
+#Reads information you provide about the samples
+sample_info = read.csv(paste0(input_dir, "Sample_information.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
 
 #note that below the flank A is the flank that starts with the primer until the DSB, with optional deletion.
 #flank B starts with the DSB, and ends wherever the read 1 sequence ends.
@@ -44,16 +48,17 @@ matcher_skipper <-function(ref, seq1){
   }
 }
 
-sample_list = str_replace_all(str_replace_all(list.files(pattern = "\\_A.txt"), ".txt", ""), "_A", "") 
+sample_list = str_replace_all(str_replace_all(list.files(path=input_dir, pattern = "\\_A.txt"), ".txt", ""), "_A", "") 
 
 for (i in sample_list){
   
-  data = read.csv(paste0(i, "_A.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
+  data = read.csv(paste0(input_dir, i, "_A.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
   FOCUS_CONTIG = as.character(sample_info %>% filter(Sample==i) %>% select(DSB_chrom))
   FOCUS_LOCUS = as.character(sample_info %>% filter(Sample==i) %>% select(Locus_name))
+  Genotype = as.character(sample_info %>% filter(Sample==i) %>% select(Genotype))
   PLASMID = str_replace_all(as.character(sample_info %>% filter(Sample==i) %>% select(Plasmid)), "-", "_")
   DSB_pos = as.integer(sample_info %>% filter(Sample==i) %>% select(DSB_pos))
-  genomeseq = readDNAStringSet(paste0(str_replace_all(PLASMID,"_", "-"),".fa") , format="fasta")
+  genomeseq = readDNAStringSet(paste0(input_dir, str_replace_all(PLASMID,"_", "-"),".fa") , format="fasta")
   contig_seq = as.character(eval(parse(text = paste0("genomeseq$", FOCUS_CONTIG))))
   LB_pos = as.integer(sample_info %>% filter(Sample==i) %>% select(LB_END_POS))
   RB_pos = as.integer(sample_info %>% filter(Sample==i) %>% select(RB_END_POS))
@@ -1284,18 +1289,23 @@ for (i in sample_list){
   
   data_improved10 = left_join(data_improved8, data_improved9, by = c("Alias", "PRIMER_SEQ")) %>%
     mutate(fraction = countEvents / SumCountEvents) %>%
-    mutate(SumCountEvents = NULL)
+    mutate(SumCountEvents = NULL,
+           DSB_pos = DSB_pos,
+           FLANK_A_ORIENT = FLANK_A_ORIENT,
+           FOCUS_CONTIG = FOCUS_CONTIG,
+           Genotype = Genotype,
+           program_version = version_no)
   
   
   #write an excel sheet as output
   work_book <- createWorkbook()
   addWorksheet(work_book, "rawData")
   writeData(work_book, sheet = 1, data_improved10)
-  saveWorkbook(work_book, file = paste0(i, "_CISGUIDE_V6_15.xlsx"), overwrite = TRUE)
+  saveWorkbook(work_book, file = paste0(output_dir, i, "_CISGUIDE_V", version_no, ".xlsx"), overwrite = TRUE)
   
 }
 
-sample_list = list.files(pattern = "\\.xlsx")
+sample_list = list.files(path=output_dir, pattern = "\\.xlsx")
 wb = tibble()
 
 for (i in sample_list){
@@ -1304,4 +1314,4 @@ for (i in sample_list){
 work_book2 <- createWorkbook()
 addWorksheet(work_book2, "rawData")
 writeData(work_book2, sheet = 1, wb)
-saveWorkbook(work_book2, file = paste0("CISGUIDE_V6_15.xlsx"), overwrite = TRUE)
+saveWorkbook(work_book2, file = paste0(output_dir, "CISGUIDE_V", version_no, ".xlsx"), overwrite = TRUE)

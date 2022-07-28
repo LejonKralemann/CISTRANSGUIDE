@@ -21,8 +21,8 @@ LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick
 #Reads information you provide about the samples
 sample_info = read.csv(paste0(input_dir, "Sample_information.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
 
-#note that below the flank A is the flank that starts with the primer until the DSB, with optional deletion.
-#flank B starts with the DSB, and ends wherever the read 1 sequence ends.
+#note that below the flank A is the flank that starts with the primer until the break, with optional deletion.
+#flank B starts with the break, and ends wherever the read 1 sequence ends.
 
 #this function matches from the end until it encounters a mismatch. If the continuing sequence is longer than 9, then it jumps over this mismatch, and continues matching until a second mismatch is encountered. Then it outputs the matching sequence.  
 matcher_skipper <-function(ref, seq1){
@@ -47,33 +47,39 @@ matcher_skipper <-function(ref, seq1){
     return(flank_match)
   }
 }
+i="2C2_FW_104596_pCAS-PPO"
 
-sample_list = str_replace_all(str_replace_all(list.files(path=input_dir, pattern = "\\_A.txt"), ".txt", ""), "_A", "") 
-
-for (i in sample_list){
+#for (i in sample_info$Sample){
+  
+  if (file.exists(paste0(input_dir, i, "_A.txt"))==FALSE){
+    message("Primary processed file not found")
+    next
+  }
   
   data = read.csv(paste0(input_dir, i, "_A.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
   FOCUS_CONTIG = as.character(sample_info %>% filter(Sample==i) %>% select(DSB_chrom))
   FOCUS_LOCUS = as.character(sample_info %>% filter(Sample==i) %>% select(Locus_name))
   Genotype = as.character(sample_info %>% filter(Sample==i) %>% select(Genotype))
   PLASMID = str_replace_all(as.character(sample_info %>% filter(Sample==i) %>% select(Plasmid)), "-", "_")
-  DSB_pos = as.integer(sample_info %>% filter(Sample==i) %>% select(DSB_pos))
+  FlankAUltEnd = as.integer(sample_info %>% filter(Sample==i) %>% select(FlankAUltEnd))
+  FlankBUltStart = as.integer(sample_info %>% filter(Sample==i) %>% select(FlankBUltStart))
   genomeseq = readDNAStringSet(paste0(input_dir, str_replace_all(PLASMID,"_", "-"),".fa") , format="fasta")
   contig_seq = as.character(eval(parse(text = paste0("genomeseq$", FOCUS_CONTIG))))
-  LB_pos = as.integer(sample_info %>% filter(Sample==i) %>% select(LB_END_POS))
-  RB_pos = as.integer(sample_info %>% filter(Sample==i) %>% select(RB_END_POS))
-  
   Primer_seq = str_replace_all(as.character(sample_info %>% filter(Sample==i) %>% select(Primer)), "TCAGACGTGTGCTCTTCCGATCT", "")
   Primer_match = as.data.frame(matchPattern(pattern = Primer_seq, subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))
   Primer_RC_match = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(Primer_seq))), subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))
-  FLANK_A_ORIENT = as.character(sample_info %>% filter(Sample==i) %>% select(Type))
-  DSB_AREA_SEQ = if (FLANK_A_ORIENT == "FW"){
-    substr(contig_seq, start= DSB_pos - 15, stop= DSB_pos + 14)
+  FLANK_A_ORIENT = as.character(sample_info %>% filter(Sample==i) %>% select(FLANK_A_ORIENT))
+  PrimerType = as.character(sample_info %>% filter(Sample==i) %>% select(PrimerType))
+
+  
+  DSB_AREA_SEQ = (if (FLANK_A_ORIENT == "FW"){
+    substr(contig_seq, start= FlankAUltEnd - 15, stop= FlankAUltEnd + 14)
   }else if (FLANK_A_ORIENT == "RV"){
-    as.character(reverseComplement(DNAString(substr(contig_seq, start= DSB_pos - 15, stop= DSB_pos + 14))))
+    as.character(reverseComplement(DNAString(substr(contig_seq, start= FlankAUltEnd - 15, stop= FlankAUltEnd + 14))))
   }else{
     ""
-  }
+  })
+  
   if (FLANK_A_ORIENT == "FW"){
     Primer_match = as.data.frame(matchPattern(pattern = Primer_seq, subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))  
     if (nrow(Primer_match) > 0 & nrow(Primer_match) < 2){
@@ -101,19 +107,19 @@ for (i in sample_list){
   }
   
   PRIMER_TO_DSB = if (FLANK_A_ORIENT == "FW"){
-    DSB_pos - Primer_pos
+    FlankAUltEnd - (Primer_pos -1)
   }else if (FLANK_A_ORIENT=="RV"){
-    Primer_pos-(DSB_pos-1)
+    Primer_pos - (FlankAUltEnd -1)
   }else{
     ERROR_NUMBER
   }
   
   #get the REF seq for flank A. from primer start to DSB +3 if RV primer, not if FW primer. Because CAS9 can cut further away from the PAM, but not closer. So the FLANK_A_REF is going as far as FLANK A is allowed to go.
   FLANK_A_REF = if (FLANK_A_ORIENT == "FW"){
-    substr(contig_seq, start= Primer_pos, stop= DSB_pos-1)
+    substr(contig_seq, start= Primer_pos, stop= FlankAUltEnd)
   }else if (FLANK_A_ORIENT=="RV"){
     as.character(reverseComplement(DNAString(
-      substr(contig_seq, start= DSB_pos-3, stop= Primer_pos))
+      substr(contig_seq, start= FlankAUltEnd, stop= Primer_pos))
     ))
   }else{
     ""
@@ -581,11 +587,11 @@ for (i in sample_list){
     
     mutate(
       FLANK_B_START_POS = case_when(
-        CIGAR_1_LEN == 1 ~ DSB_pos,
+        CIGAR_1_LEN == 1 & FLANK_A_ORIENT=="FW" ~ FlankBUltStart,
+        CIGAR_1_LEN == 1 & FLANK_A_ORIENT=="RV" ~ as.integer(FlankAUltEnd-1),
         head(CIGAR_1_L, 1) == "M" &
           tail(CIGAR_1_L, 1) == "M" &
-          SEQ_RCed_1 == TRUE ~ as.integer(POS_1 + as.integer(head(CIGAR_1_N, 1)) -
-                                            1),
+          SEQ_RCed_1 == TRUE ~ as.integer(POS_1 + as.integer(head(CIGAR_1_N, 1)) -1),
         head(CIGAR_1_L, 1) == "M" &
           tail(CIGAR_1_L, 1) == "M" &
           SEQ_RCed_1 == FALSE ~ as.integer(POS_1 + READ_SPAN_MINUS_I - as.integer(tail(CIGAR_1_N, 1))),
@@ -947,7 +953,7 @@ for (i in sample_list){
     mutate(FLANK_B_REF =
              if (FLANK_B_CHROM == "NOT_FOUND" | FLANK_B_START_POS == ERROR_NUMBER | FLANK_B_END_POS == ERROR_NUMBER | CASE_WT == TRUE) {
                "NA"
-             }else if (FLANK_B_CHROM == FOCUS_CONTIG & (abs(DSB_pos - FLANK_B_END_POS) < MAX_DIST_FLANK_B_END) & FLANK_A_ORIENT == FLANK_B_ORIENT){
+             }else if (FLANK_B_CHROM == FOCUS_CONTIG & (abs(FlankAUltEnd - FLANK_B_END_POS) < MAX_DIST_FLANK_B_END) & FLANK_A_ORIENT == FLANK_B_ORIENT){
                if (FLANK_B_ORIENT == "FW" & FLANK_A_START_POS < FLANK_B_START_POS & FLANK_A_END_POS < FLANK_B_END_POS) {
                  substr(TOTAL_REF, start = 1, stop = (FLANK_B_END_POS-(FLANK_A_START_POS-1)))
                }else if (FLANK_B_ORIENT == "RV" & FLANK_A_START_POS > FLANK_B_START_POS & FLANK_A_END_POS > FLANK_B_END_POS){
@@ -985,7 +991,7 @@ for (i in sample_list){
                                     FLANK_B_START_POS_MH-(FLANK_B_END_POS-1))) %>%
     #Extract the MH sequence
     mutate(MH = if (CASE_WT == FALSE & FLANK_B_CHROM != "NOT_FOUND" & FLANK_B_CHROM != "ERROR") {
-      if (FLANK_B_CHROM == FOCUS_CONTIG & (abs(DSB_pos - FLANK_B_END_POS) < MAX_DIST_FLANK_B_END) & FLANK_A_ORIENT == FLANK_B_ORIENT & (FLANK_A_LEN > (SEQ_1_LEN - FLANK_B_LEN_MH))) {
+      if (FLANK_B_CHROM == FOCUS_CONTIG & (abs(FlankAUltEnd - FLANK_B_END_POS) < MAX_DIST_FLANK_B_END) & FLANK_A_ORIENT == FLANK_B_ORIENT & (FLANK_A_LEN > (SEQ_1_LEN - FLANK_B_LEN_MH))) {
         if (FLANK_B_ORIENT == "FW") {
           if (FLANK_A_END_POS >= FLANK_B_START_POS_MH) {
             ""
@@ -1049,9 +1055,9 @@ for (i in sample_list){
                0
              }else if (FLANK_B_REF!="NA"){
                if (FLANK_B_ORIENT == "FW"){
-                 as.integer((1 + FLANK_B_END_POS - FLANK_B_LEN_DEL) - DSB_pos)
+                 as.integer(FLANK_B_START_POS_DEL - FlankBUltStart)
                }else {
-                 as.integer(DSB_pos - (FLANK_B_END_POS + FLANK_B_LEN_DEL))
+                 as.integer(FlankBUltStart - FLANK_B_START_POS_DEL)
                }
              }else{
                ERROR_NUMBER
@@ -1165,9 +1171,9 @@ for (i in sample_list){
     #fix the FLANK_B_START_POS again if the event is wt
     mutate(FLANK_B_START_POS = if (delSize == 0 & insSize == 0){
       if (FLANK_A_ORIENT == "FW"){
-        DSB_pos
+        FlankAUltEnd + 1
       }else{
-        DSB_pos - 1
+        FlankAUltEnd - 1
       }
     }else{
       FLANK_B_START_POS_DEL
@@ -1227,12 +1233,11 @@ for (i in sample_list){
     ) %>%
     
     #Add a subject and type column. Also add two extra columns for SIQplotter that are equal to the other del columns.
-    #check whether the check FLANK_B_START_POS != DSB_pos is correct. could be that the 3bp shift are causing a problem
     mutate(
       Subject = FOCUS_LOCUS,
       Type = case_when(
         delSize == 0 & insSize == 0 & mismatch_found == FALSE & FAKE_DELIN_CHECK == FALSE & DSB_AREA_1MM==FALSE ~ "WT",
-        (delSize == 0 & insSize == 0 & mismatch_found == TRUE) | FAKE_DELIN_CHECK==TRUE | DSB_AREA_1MM==TRUE | (DSB_AREA_INTACT == TRUE & FLANK_B_START_POS != DSB_pos)  ~ "SNV",
+        (delSize == 0 & insSize == 0 & mismatch_found == TRUE) | FAKE_DELIN_CHECK==TRUE | DSB_AREA_1MM==TRUE | (DSB_AREA_INTACT == TRUE & FLANK_A_ORIENT=="FW" & FLANK_B_START_POS != FlankAUltEnd+1) | (DSB_AREA_INTACT == TRUE & FLANK_A_ORIENT=="RV" & FLANK_B_START_POS != FlankAUltEnd-1)  ~ "SNV",
         delSize != 0 & delSize != ERROR_NUMBER & insSize == 0 ~ "DELETION",
         insSize != 0 & delSize == 0 ~ "INSERTION",
         delSize != 0 & delSize != ERROR_NUMBER & insSize != 0 ~ "DELINS",
@@ -1272,13 +1277,6 @@ for (i in sample_list){
       DSB_AREA_1MM
     ) %>%
     
-    #add some locus info, note this is very situation dependent, may want to change.
-    mutate(LOCUS=case_when(FLANK_B_CHROM==PLASMID & FLANK_B_START_POS < LB_pos+(LOCUS_WINDOW/2) & FLANK_B_START_POS > LB_pos-(LOCUS_WINDOW/2) ~ "LB",
-                           FLANK_B_CHROM==PLASMID & FLANK_B_START_POS < RB_pos+(LOCUS_WINDOW/2) & FLANK_B_START_POS > RB_pos-(LOCUS_WINDOW/2) ~ "RB",
-                           FLANK_B_CHROM==FOCUS_CONTIG & FLANK_B_START_POS < DSB_pos+(LOCUS_WINDOW/2) & FLANK_B_START_POS > DSB_pos-(LOCUS_WINDOW/2) ~ FOCUS_LOCUS,
-                           TRUE ~ "other"))%>%
-    
-    
     #rename column for SIQplotter
     rename(Alias = FILE_NAME)
   
@@ -1290,7 +1288,7 @@ for (i in sample_list){
   data_improved10 = left_join(data_improved8, data_improved9, by = c("Alias", "PRIMER_SEQ")) %>%
     mutate(fraction = countEvents / SumCountEvents) %>%
     mutate(SumCountEvents = NULL,
-           DSB_pos = DSB_pos,
+           FlankAUltEnd = FlankAUltEnd,
            FLANK_A_ORIENT = FLANK_A_ORIENT,
            FOCUS_CONTIG = FOCUS_CONTIG,
            Genotype = Genotype,
@@ -1309,7 +1307,7 @@ sample_list = list.files(path=output_dir, pattern = "\\.xlsx")
 wb = tibble()
 
 for (i in sample_list){
-  wb=rbind(wb, read.xlsx(i))
+  wb=rbind(wb, read.xlsx(paste0(output_dir, i)))
 }
 work_book2 <- createWorkbook()
 addWorksheet(work_book2, "rawData")

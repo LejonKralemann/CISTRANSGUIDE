@@ -57,7 +57,7 @@ for (i in sample_info$Sample){
   }
   
   data = read.csv(paste0(input_dir, i, "_A.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
-  FOCUS_CONTIG = as.character(sample_info %>% filter(Sample==i) %>% select(DSB_chrom))
+  FOCUS_CONTIG = str_replace_all(as.character(sample_info %>% filter(Sample==i) %>% select(DSB_chrom)), "-", "_")
   FOCUS_LOCUS = as.character(sample_info %>% filter(Sample==i) %>% select(Locus_name))
   Genotype = as.character(sample_info %>% filter(Sample==i) %>% select(Genotype))
   PLASMID = str_replace_all(as.character(sample_info %>% filter(Sample==i) %>% select(Plasmid)), "-", "_")

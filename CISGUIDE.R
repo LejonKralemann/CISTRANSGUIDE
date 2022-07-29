@@ -47,9 +47,9 @@ matcher_skipper <-function(ref, seq1){
     return(flank_match)
   }
 }
-i="2C2_FW_104596_pCAS-PPO"
 
-#for (i in sample_info$Sample){
+
+for (i in sample_info$Sample){
   
   if (file.exists(paste0(input_dir, i, "_A.txt"))==FALSE){
     message("Primary processed file not found")
@@ -73,7 +73,7 @@ i="2C2_FW_104596_pCAS-PPO"
 
   
   DSB_AREA_SEQ = (if (FLANK_A_ORIENT == "FW"){
-    substr(contig_seq, start= FlankAUltEnd - 15, stop= FlankAUltEnd + 14)
+    substr(contig_seq, start= FlankAUltEnd - 14, stop= FlankAUltEnd + 15)
   }else if (FLANK_A_ORIENT == "RV"){
     as.character(reverseComplement(DNAString(substr(contig_seq, start= FlankAUltEnd - 15, stop= FlankAUltEnd + 14))))
   }else{
@@ -136,7 +136,7 @@ i="2C2_FW_104596_pCAS-PPO"
   
   data_improved  = data %>%
     
-    #filter(QNAME == "A00379:436:H3CHWDMXY:1:2164:16740:21809") %>%
+    #filter(QNAME == "A00379:436:H3CHWDMXY:2:1110:10131:22138") %>%
     #remove reads with Ns
     rowwise() %>%
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
@@ -587,7 +587,7 @@ i="2C2_FW_104596_pCAS-PPO"
     
     mutate(
       FLANK_B_START_POS = case_when(
-        CIGAR_1_LEN == 1 & FLANK_A_ORIENT=="FW" ~ FlankBUltStart,
+        CIGAR_1_LEN == 1 & FLANK_A_ORIENT=="FW" ~ as.integer(FlankAUltEnd+1),
         CIGAR_1_LEN == 1 & FLANK_A_ORIENT=="RV" ~ as.integer(FlankAUltEnd-1),
         head(CIGAR_1_L, 1) == "M" &
           tail(CIGAR_1_L, 1) == "M" &
@@ -1055,9 +1055,9 @@ i="2C2_FW_104596_pCAS-PPO"
                0
              }else if (FLANK_B_REF!="NA"){
                if (FLANK_B_ORIENT == "FW"){
-                 as.integer(FLANK_B_START_POS_DEL - FlankBUltStart)
+                 as.integer(FLANK_B_START_POS_DEL - (FlankAUltEnd+1))
                }else {
-                 as.integer(FlankBUltStart - FLANK_B_START_POS_DEL)
+                 as.integer((FlankAUltEnd-1) - FLANK_B_START_POS_DEL)
                }
              }else{
                ERROR_NUMBER

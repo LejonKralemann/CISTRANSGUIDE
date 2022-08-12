@@ -452,7 +452,7 @@ for (i in sample_info$Sample){
       )), "-", "_")
     ) %>%
     mutate(FLANK_B_CHROM =if_else(
-      FLANK_B_CHROM != "Mt" & FLANK_B_CHROM != "Pt" & FLANK_B_CHROM != PLASMID & FLANK_B_CHROM != "NOT_FOUND",
+      FLANK_B_CHROM == "1" | FLANK_B_CHROM == "2" |FLANK_B_CHROM == "3" |FLANK_B_CHROM == "4" |FLANK_B_CHROM == "5",
       paste0("Chr", FLANK_B_CHROM),
       FLANK_B_CHROM)) %>%
     ungroup() %>%

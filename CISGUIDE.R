@@ -55,6 +55,7 @@ for (i in sample_info$Sample){
     message("Primary processed file not found")
     next
   }
+ 
   
   data = read.csv(paste0(input_dir, i, "_A.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
   FOCUS_CONTIG = str_replace_all(as.character(sample_info %>% filter(Sample==i) %>% select(DSB_chrom)), "-", "_")
@@ -63,6 +64,12 @@ for (i in sample_info$Sample){
   PLASMID = str_replace_all(as.character(sample_info %>% filter(Sample==i) %>% select(Plasmid)), "-", "_")
   FlankAUltEnd = as.integer(sample_info %>% filter(Sample==i) %>% select(FlankAUltEnd))
   FlankBUltStart = as.integer(sample_info %>% filter(Sample==i) %>% select(FlankBUltStart))
+  
+  if (file.exists(paste0(input_dir, str_replace_all(PLASMID,"_", "-"), ".fa"))==FALSE){
+    message("Reference fasta not found")
+    next
+  }
+  
   genomeseq = readDNAStringSet(paste0(input_dir, str_replace_all(PLASMID,"_", "-"),".fa") , format="fasta")
   contig_seq = as.character(eval(parse(text = paste0("genomeseq$", FOCUS_CONTIG))))
   Primer_seq = str_replace_all(as.character(sample_info %>% filter(Sample==i) %>% select(Primer)), "TCAGACGTGTGCTCTTCCGATCT", "")

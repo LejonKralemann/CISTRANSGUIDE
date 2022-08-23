@@ -6,7 +6,7 @@ library(tidyverse)
 library(openxlsx)
 
 #The data should be "pre-treated" by running the script "Reverse TRANSGUIDE primary script" in bash. This performs some filtering like removing supplemental reads and requiring reads to start with the primer sequence. 
-#change the chromosome names of the fasta file to add Chr, and remove all the other crap, also change - to _
+#make sure that the chromosome names start with Chr in the fasta reference, and that all minus signs in plasmids names are changed to _. Keep the "-"in the filename if it is like this in the sample information file.
 input_dir= "C:/Users/lejon/Documents/Scripts/CISGUIDE/input/"
 output_dir= "C:/Users/lejon/Documents/Scripts/CISGUIDE/output/"
 version_no="6.15"

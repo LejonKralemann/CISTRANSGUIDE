@@ -62,6 +62,7 @@ for (i in sample_info$Sample){
   FOCUS_LOCUS = as.character(sample_info %>% filter(Sample==i) %>% select(Locus_name))
   Genotype = as.character(sample_info %>% filter(Sample==i) %>% select(Genotype))
   PLASMID = str_replace_all(as.character(sample_info %>% filter(Sample==i) %>% select(Plasmid)), "-", "_")
+  PLASMID_ALT = str_replace_all(as.character(sample_info %>% filter(Sample==i) %>% select(Plasmid_alt)), "-", "_")
   FlankAUltEnd = as.integer(sample_info %>% filter(Sample==i) %>% select(FlankAUltEnd))
   FlankBUltStart = as.integer(sample_info %>% filter(Sample==i) %>% select(FlankBUltStart))
   
@@ -143,7 +144,7 @@ for (i in sample_info$Sample){
   
   data_improved  = data %>%
     
-    #filter(QNAME == "A00379:436:H3CHWDMXY:2:1110:10131:22138") %>%
+    #filter(QNAME == "M02948:227:000000000-KHF2C:1:1102:19902:23404") %>%
     #remove reads with Ns
     rowwise() %>%
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
@@ -901,7 +902,7 @@ for (i in sample_info$Sample){
       )), "-", "_")
     ) %>%
     mutate(MATE_FLANK_B_CHROM =if_else(
-      MATE_FLANK_B_CHROM != "Mt" & MATE_FLANK_B_CHROM != "Pt" & MATE_FLANK_B_CHROM != PLASMID & MATE_FLANK_B_CHROM != "NOT_FOUND",
+      MATE_FLANK_B_CHROM != "Mt" & MATE_FLANK_B_CHROM != "Pt" & MATE_FLANK_B_CHROM != PLASMID & MATE_FLANK_B_CHROM != PLASMID_ALT & MATE_FLANK_B_CHROM != "NOT_FOUND",
       paste0("Chr", MATE_FLANK_B_CHROM),
       MATE_FLANK_B_CHROM)) %>%
     ungroup()

@@ -152,7 +152,7 @@ echo "DEDUPNO: ${DEDUPNO}"
 #rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.dedup.sam
 PREPRONO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt | sort | uniq | wc -l)
 echo "PREPRONO: ${PREPRONO}"
-cat ${WORKPATH}/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v RAWNO="${RAWNO}" -v MAPNO="${MAPNO}" -v DEDUPNO="${DEDUPNO}" -v PREPRONO="${PREPRONO}" '{print CURRENTSAMPLE, RAWNO / 4, MAPNO, DEDUPNO, PREPRONO - 1}' >> ${WORKPATH}/read_numbers.txt
+cat ${WORKPATH}/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v RAWNO="${RAWNO}" -v MAPNO="${MAPNO}" -v DEDUPNO="${DEDUPNO}" -v PREPRONO="${PREPRONO}" ' END{print CURRENTSAMPLE, RAWNO / 4, MAPNO, DEDUPNO, PREPRONO - 1}' >> ${WORKPATH}/read_numbers.txt
 
 now=$(date)
 echo "Finished at $now"

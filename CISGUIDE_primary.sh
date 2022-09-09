@@ -12,15 +12,6 @@ else
 	exit 1
 fi
 
-#check for presence of adapter file
-if [[ -f "${WORKPATH}/Illumina_adapters.fa" ]]
-then
-	echo "Found Illumina_adapters.fa"
-else
-	echo "Did not find Illumina_adapters.fa, exiting";
-	exit 1
-fi
-
 #get a list of refs and create indices
 
 readarray -t LIST_REFS  < <(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" 'FNR>1{print $12}' | sort | uniq)
@@ -78,9 +69,17 @@ else
 	mkdir ${WORKPATH}/${CURRENTSAMPLE}
 	mkdir ${WORKPATH}/${CURRENTSAMPLE}/temp
 fi
+echo ">p5" >> ${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa
+cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($11==i) {print $14}}' >> ${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa
+echo ">p5_RC" >> ${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa
+cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($11==i) {print $14}}' | tr ACGTacgt TGCAtgca | rev >> ${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa
+echo ">p7" >> ${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa
+cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($11==i) {print $15}}' >> ${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa
+echo ">p7_RC" >> ${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa
+cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($11==i) {print $15}}' | tr ACGTacgt TGCAtgca | rev >> ${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa
 
 echo "Trimming" ${i}
-trimmomatic PE ${WORKPATH}/${i}_R1_001.fastq.gz ${WORKPATH}/${i}_R2_001.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_paired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_unpaired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_paired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_unpaired.fastq.gz ILLUMINACLIP:${WORKPATH}/Illumina_adapters.fa:2:30:10:1:TRUE CROP:150 -phred33
+trimmomatic PE ${WORKPATH}/${i}_R1_001.fastq.gz ${WORKPATH}/${i}_R2_001.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_paired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_unpaired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_paired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_unpaired.fastq.gz ILLUMINACLIP:${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa:2:30:10:1:TRUE CROP:150 -phred33
 
 echo "Unzipping" ${i}
 gunzip ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_paired.fastq.gz 
@@ -144,10 +143,10 @@ join -j 1 -o 1.1,1.3,1.4,1.6,1.10,1.11,1.12,1.13,2.3,2.4,2.6,2.10,2.11,2.12,2.13
 echo "counting reads of ${CURRENTSAMPLE}"
 RAWNO=$(gunzip -c ${WORKPATH}/${i}_R1_001.fastq.gz | wc -l)
 echo "RAWNO: ${RAWNO}"
-MAPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam | grep -Ev '^(\@)' | sort -u -t$'\t' -k1,1 | wc -l)
+MAPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam | grep -Ev '^(\@)' | awk '$3 != "*" {print $0}' | sort -u -t$'\t' -k1,1 | wc -l)
 echo "MAPNO: ${MAPNO}"
 samtools view -h -o ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.dedup.sam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
-DEDUPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.dedup.sam | grep -Ev '^(\@)' | sort -u -t$'\t' -k1,1 | wc -l)
+DEDUPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.dedup.sam | grep -Ev '^(\@)' | awk '$3 != "*" {print $0}' | sort -u -t$'\t' -k1,1 | wc -l)
 echo "DEDUPNO: ${DEDUPNO}"
 PREPRONO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt | wc -l)
 echo "PREPRONO: ${PREPRONO}"
@@ -160,7 +159,7 @@ rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam
 rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam 
 rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam 
 rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.dedup.sam 
-rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCed.txt 
+rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCseqs.txt
 rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_all.txt 
 rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_fw.txt 
 rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv.txt 

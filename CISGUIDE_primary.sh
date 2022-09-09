@@ -47,6 +47,8 @@ done
 readarray -t LIST_SAMPLES  < <(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" 'FNR>1{print $11}'  | sed 's/_R1.fastq.gz//g' | sort | uniq) 
 echo "Processing the following samples:" ${LIST_SAMPLES[*]}
 
+> ${WORKPATH}/file0.temp | awk -v OFS="\t" -v FS="\t" 'BEGIN {print "Sample", "Raw read count", "mapped count", "dedupped count", "preprocessed count"}' > ${WORKPATH}/read_numbers.txt
+
 for i in "${LIST_SAMPLES[@]}" 
 do
 #check for presence of R1 and R2
@@ -138,6 +140,19 @@ cat ${WORKPATH}/${CURRENTSAMPLE}/Mates_fw.txt ${WORKPATH}/${CURRENTSAMPLE}/Mates
 
 echo "Combining selected reads and mates of ${i}"
 join -j 1 -o 1.1,1.3,1.4,1.6,1.10,1.11,1.12,1.13,2.3,2.4,2.6,2.10,2.11,2.12,2.13 -t $'\t' ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all.txt ${WORKPATH}/${CURRENTSAMPLE}/Mates_all.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" -v PRIMERSEQ="$PRIMERSEQ" ' {print $0, i, PRIMERSEQ}'  >> ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt
+
+echo "counting reads of ${CURRENTSAMPLE}"
+RAWNO=$(gunzip -c ${WORKPATH}/${i}_R1_001.fastq.gz | wc -l)
+echo "RAWNO: ${RAWNO}"
+MAPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam | grep -Ev '^(\@)' | sort -u -k1,1 | wc -l)
+echo "MAPNO: ${MAPNO}"
+samtools view -h -o ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.dedup.sam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
+DEDUPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.dedup.sam | grep -Ev '^(\@)' | sort -u -k1,1 | wc -l)
+echo "DEDUPNO: ${DEDUPNO}"
+#rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.dedup.sam
+PREPRONO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt | sort | uniq | wc -l)
+echo "PREPRONO: ${PREPRONO}"
+cat ${WORKPATH}/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v RAWNO="${RAWNO}" -v MAPNO="${MAPNO}" -v DEDUPNO="${DEDUPNO}" -v PREPRONO="${PREPRONO}" '{print CURRENTSAMPLE, RAWNO / 4, MAPNO, DEDUPNO, PREPRONO - 1}' >> ${WORKPATH}/read_numbers.txt
 
 now=$(date)
 echo "Finished at $now"

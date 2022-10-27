@@ -43,18 +43,18 @@ echo "Processing the following samples:" ${LIST_SAMPLES[*]}
 for i in "${LIST_SAMPLES[@]}" 
 do
 #check for presence of R1 and R2
-if [[ -f "${WORKPATH}/${i}_R1_001.fastq.gz" ]]
+if [[ -f "${WORKPATH}/${i}_R1.fastq.gz" ]]
 then
-	echo "Found ${WORKPATH}/${i}_R1_001.fastq.gz"
+	echo "Found ${WORKPATH}/${i}_R1.fastq.gz"
 else
-	echo "Did not find ${WORKPATH}/${i}_R1_001.fastq.gz, moving to the next sample";
+	echo "Did not find ${WORKPATH}/${i}_R1.fastq.gz, moving to the next sample";
 	continue
 fi
-if [[ -f "${WORKPATH}/${i}_R2_001.fastq.gz" ]]
+if [[ -f "${WORKPATH}/${i}_R2.fastq.gz" ]]
 then
-	echo "Found ${WORKPATH}/${i}_R2_001.fastq.gz"
+	echo "Found ${WORKPATH}/${i}_R2.fastq.gz"
 else
-	echo "Did not find ${WORKPATH}/${i}_R2_001.fastq.gz, moving to the next sample";
+	echo "Did not find ${WORKPATH}/${i}_R2.fastq.gz, moving to the next sample";
 	continue
 fi
 
@@ -79,7 +79,7 @@ echo ">p7_RC" >> ${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa
 cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($11==i) {print $15}}' | tr ACGTacgt TGCAtgca | rev >> ${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa
 
 echo "Trimming" ${i}
-trimmomatic PE ${WORKPATH}/${i}_R1_001.fastq.gz ${WORKPATH}/${i}_R2_001.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_paired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_unpaired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_paired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_unpaired.fastq.gz ILLUMINACLIP:${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa:2:30:10:1:TRUE CROP:150 -phred33
+trimmomatic PE ${WORKPATH}/${i}_R1.fastq.gz ${WORKPATH}/${i}_R2.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_paired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_unpaired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_paired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_unpaired.fastq.gz ILLUMINACLIP:${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa:2:30:10:1:TRUE CROP:150 -phred33
 
 echo "Unzipping" ${i}
 gunzip ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_paired.fastq.gz 

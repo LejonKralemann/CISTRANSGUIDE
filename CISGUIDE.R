@@ -1302,6 +1302,12 @@ for (i in sample_info$Sample){
            Genotype = Genotype,
            program_version = version_no)
   
+  #filter out duplicate position artefacts
+  data_improved11 = data_improved10 %>% group_by(FLANK_B_CHROM, FLANK_B_START_POS) %>% summarize(countEventsPosSum = sum(countEvents))
+  data_improved12 = data_improved10 %>% group_by(FLANK_B_CHROM, FLANK_B_START_POS) %>% summarize(countEventsPosMax = max(countEvents))
+  data_improved13 = left_join(data_improved11, data_improved12, by = c("FLANK_B_CHROM", "FLANK_B_START_POS")) %>% mutate(MajorFractionAtPos = countEventsPosMax / countEventsPosSum) 
+  data_improved14 = left_join(data_improved10, data_improved13, by = c("FLANK_B_CHROM", "FLANK_B_START_POS")) %>%mutate(FractionAtPos=countEvents/countEventsPosSum) 
+  
   
   #write an excel sheet as output
   work_book <- createWorkbook()

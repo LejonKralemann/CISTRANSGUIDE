@@ -11,7 +11,7 @@ DSB_chrom:	the chromosome or plasmid on which the primer sequence is located, sh
 FlankAUltEnd:	the position on the DSB_chrom where flank A ends (if there are multiple possibilities, take the furthest downstream). Flank A is the flank starting with the primer. Flank A and Flank B may overlap.
 Locus_name: a name denoting the locus in which a DSB is created, or T-DNA border that is focused on.
 FLANK_A_ORIENT: The orientation of the primer and thus of flank A, relative to the reference genome sequence.
-FLANKBUltStart:	the position on the DSB chrom on where flank B starts (if there are multiple possibilities, take the furthest upstream). Flank B is the flank after the nick or DSB. Flank B and flank A may overlap.
+FlankBUltStart:	the position on the DSB chrom on where flank B starts (if there are multiple possibilities, take the furthest upstream). Flank B is the flank after the nick or DSB. Flank B and flank A may overlap.
 Genotype: The name of the genotype of the organism that was sampled.
 Plasmid_alt: the name of the second plasmid, if a transformation with multiple plasmids has been performed. Enter "NA" if you only used 1 plasmid.
 DNA: name of the DNA sample from which libraries were made. Often one DNA sample is used to do an LB, RB, FW, and RV reaction. Example: "7C1".
@@ -23,5 +23,10 @@ bash shared/CISGUIDE_primary.sh |& tee -a shared/primary_log.txt
 The output is a folder per library, containing a .bam and .bam.bai file so that sequences may be visualized in a genome browser, and a text file ending in "_A.txt" containing all preprocessed reads.
 
 Next, place the files that end in "_A.txt", the reference fastas, and Sample_information.txt in the CISGUIDE input folder. Then run the R script.
+Change chromosome names in the fasta so that all minus signs are changed to underscores.
 
 The output is one excel file per library showing on every row a unique event. Another excel file contains all data together.
+
+General notes:
+- The reference fasta needs to have chromosome names starting with "Chr" (e.g. "Chr4"), not just a number.
+- Make sure that the reference fastas don't contain names with minus signs.

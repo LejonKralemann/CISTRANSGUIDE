@@ -77,7 +77,6 @@ for (i in sample_info$Sample){
   Primer_match = as.data.frame(matchPattern(pattern = Primer_seq, subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))
   Primer_RC_match = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(Primer_seq))), subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))
   FLANK_A_ORIENT = as.character(sample_info %>% filter(Sample==i) %>% select(FLANK_A_ORIENT))
-  PrimerType = as.character(sample_info %>% filter(Sample==i) %>% select(PrimerType))
 
   
   DSB_AREA_SEQ = (if (FLANK_A_ORIENT == "FW"){

@@ -458,14 +458,18 @@ for (i in sample_info$Sample){
         TRUE ~ "ERROR"
       )), "-", "_")
     ) %>%
-    mutate(FLANK_B_CHROM =if_else(
-      FLANK_B_CHROM == "1" | FLANK_B_CHROM == "2" |FLANK_B_CHROM == "3" |FLANK_B_CHROM == "4" |FLANK_B_CHROM == "5",
-      paste0("Chr", FLANK_B_CHROM),
-      FLANK_B_CHROM)) %>%
+   # mutate(FLANK_B_CHROM =if_else(
+    #  FLANK_B_CHROM == "1" | FLANK_B_CHROM == "2" |FLANK_B_CHROM == "3" |FLANK_B_CHROM == "4" |FLANK_B_CHROM == "5",
+    #  paste0("Chr", FLANK_B_CHROM),
+    #  FLANK_B_CHROM)) %>%
     ungroup() %>%
     
-    #filter away cases where flank B chrom is not found
-    filter(FLANK_B_CHROM != "NOT_FOUND") %>%
+    #mark cases where flank B chrom is not found
+    
+    mutate(
+      hasPROBLEM = if_else(FLANK_B_CHROM != "NOT_FOUND",
+                           FALSE,
+                           TRUE)) %>%
     
     #write down the various potential insertions
     rowwise() %>%
@@ -900,10 +904,10 @@ for (i in sample_info$Sample){
         TRUE ~ "ERROR"
       )), "-", "_")
     ) %>%
-    mutate(MATE_FLANK_B_CHROM =if_else(
-      MATE_FLANK_B_CHROM != "Mt" & MATE_FLANK_B_CHROM != "Pt" & MATE_FLANK_B_CHROM != PLASMID & MATE_FLANK_B_CHROM != PLASMID_ALT & MATE_FLANK_B_CHROM != "NOT_FOUND",
-      paste0("Chr", MATE_FLANK_B_CHROM),
-      MATE_FLANK_B_CHROM)) %>%
+    #mutate(MATE_FLANK_B_CHROM =if_else(
+    #  MATE_FLANK_B_CHROM != "Mt" & MATE_FLANK_B_CHROM != "Pt" & MATE_FLANK_B_CHROM != PLASMID & MATE_FLANK_B_CHROM != PLASMID_ALT & MATE_FLANK_B_CHROM != "NOT_FOUND",
+    #  paste0("Chr", MATE_FLANK_B_CHROM),
+    #  MATE_FLANK_B_CHROM)) %>%
     ungroup()
   
   data_improved5 = data_improved4 %>%
@@ -931,7 +935,8 @@ for (i in sample_info$Sample){
       SEQ_2,
       QNAME_1st,
       SEQ_1_LEN,
-      FLANK_A_START_POS
+      FLANK_A_START_POS,
+      hasPROBLEM
     ) %>%
     
     rowwise() %>%
@@ -980,7 +985,11 @@ for (i in sample_info$Sample){
                               TRUE,
                               FALSE)) %>%
     
-    filter(NO_MATCH == FALSE) %>%
+    
+    mutate(
+      hasPROBLEM = if_else(NO_MATCH == FALSE,
+                           as.logical(hasPROBLEM),
+                           TRUE)) %>%
     
     #flank b start position including MH
     mutate(FLANK_B_START_POS_MH = if (FLANK_B_REF != "NA"){
@@ -1094,10 +1103,12 @@ for (i in sample_info$Sample){
                                     nchar(MH),
                                     as.integer(-1))) %>%  
     
-    #filter away cases where the FLANK_B_LEN is too short 
-    filter(FLANK_B_LEN_DEL >= FLANK_B_LEN_MIN) %>%
-    
-    
+    #mark cases where the FLANK_B_LEN is too short 
+    mutate(
+      hasPROBLEM = if_else(FLANK_B_LEN_DEL >= FLANK_B_LEN_MIN,
+                           as.logical(hasPROBLEM),
+                           TRUE)) %>%
+
     #count the number of mismatches that were ignored
     mutate(mismatch_found = if (FLANK_B_MATCH != ""){
       if ( (nrow(as.data.frame(matchPattern(pattern= FLANK_A_MATCH, subject=SEQ_1, max.mismatch=0))))>0 & (nrow(as.data.frame(matchPattern(pattern= FLANK_B_MATCH, subject=SEQ_1, max.mismatch=0))))>0){
@@ -1202,10 +1213,10 @@ for (i in sample_info$Sample){
           MATE_FLANK_B_CHROM_AGREE == FALSE |
           (CASE_WT == TRUE & FLANK_B_CHROM != FOCUS_CONTIG),
         TRUE,
-        FALSE
+        as.logical(hasPROBLEM)
       )
     ) %>%
-    filter(hasPROBLEM == FALSE) %>%
+    #filter(hasPROBLEM == FALSE) %>%
     
     #sort the rows in order to have the ones with the highest base quality at the top
     arrange(desc(SEQ_1_LEN), desc(AvgBaseQual_1_Max)) %>%
@@ -1229,7 +1240,8 @@ for (i in sample_info$Sample){
       mismatch_found,
       FAKE_DELIN_CHECK,
       DSB_AREA_INTACT,
-      DSB_AREA_1MM
+      DSB_AREA_1MM,
+      hasPROBLEM
     ) %>%
     summarize(
       countEvents = sum(NrOpticalDuplicates),
@@ -1281,7 +1293,8 @@ for (i in sample_info$Sample){
       SEQ_1_first,
       SEQ_2_first,
       DSB_AREA_INTACT,
-      DSB_AREA_1MM
+      DSB_AREA_1MM,
+      hasPROBLEM
     ) %>%
     
     #rename column for SIQplotter

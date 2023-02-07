@@ -713,12 +713,12 @@ for (i in sample_info$Sample){
           CIGAR_2_LEN > 1 &
             SEQ_RCed_2 == TRUE &
             SATAG_2_1 != "SA" & head(CIGAR_2_L, 1) == "S"
-        ) ~ "NOT_FOUND",
+        ) ~ RNAME_2,
         (
           CIGAR_2_LEN > 1 &
             SEQ_RCed_2 == FALSE &
             SATAG_2_1 != "SA" & tail(CIGAR_2_L, 1) == "S"
-        ) ~ "NOT_FOUND",
+        ) ~ RNAME_2,
         (
           SEQ_RCed_2 == TRUE &
             SATAG_2_1 == "SA" &

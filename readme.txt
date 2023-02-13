@@ -15,6 +15,7 @@ FlankBUltStart:	the position on the DSB chrom on where flank B starts (if there 
 Genotype: The name of the genotype of the organism that was sampled.
 Plasmid_alt: the name of the second plasmid, if a transformation with multiple plasmids has been performed. Enter "NA" if you only used 1 plasmid.
 DNA: name of the DNA sample from which libraries were made. Often one DNA sample is used to do an LB, RB, FW, and RV reaction. Example: "7C1".
+RunID: name of the sequencing run. This allows one to differentiate between samples that were sequenced multiple times, or to limit comparisons within runs to avoid effects of different sequencing depths between runs.
 
 Place the CISGUIDE_primary.sh script, Sample_information.txt, reference fastas ("PLASMID_NAME.fa"), raw sequencing files ("NAME_R1.fastq.gz" and "NAME_R2.fastq.gz") in your work directory.
 Then run the CISGUIDE_primary.sh script, by doing the following:

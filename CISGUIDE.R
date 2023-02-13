@@ -9,7 +9,8 @@ library(openxlsx)
 #make sure that the chromosome names start with Chr in the fasta reference, and that all minus signs in plasmids names are changed to _. Keep the "-"in the filename if it is like this in the sample information file.
 input_dir= "C:/Users/lejon/Documents/Scripts/CISGUIDE/input/"
 output_dir= "C:/Users/lejon/Documents/Scripts/CISGUIDE/output/"
-version_no="6.15"
+hash=system("git rev-parse HEAD", intern=TRUE)
+hash_little=substr(hash, 1, 8)
 NF_NUMBER = as.integer(-99999999) #don't change
 ERROR_NUMBER = as.integer(99999999) #don't change
 MINLEN = as.integer(90) #minimum length of a read
@@ -65,6 +66,9 @@ for (i in sample_info$Sample){
   PLASMID_ALT = str_replace_all(as.character(sample_info %>% filter(Sample==i) %>% select(Plasmid_alt)), "-", "_")
   FlankAUltEnd = as.integer(sample_info %>% filter(Sample==i) %>% select(FlankAUltEnd))
   FlankBUltStart = as.integer(sample_info %>% filter(Sample==i) %>% select(FlankBUltStart))
+  DNASample = as.character(sample_info %>% filter(Sample==i) %>% select(DNA))
+  RunID = as.character(sample_info %>% filter(Sample==i) %>% select(RunID))
+  Ecotype = as.character(sample_info %>% filter(Sample==i) %>% select(Ecotype))
   
   if (file.exists(paste0(input_dir, str_replace_all(PLASMID,"_", "-"), ".fa"))==FALSE){
     message("Reference fasta not found")
@@ -1312,7 +1316,10 @@ for (i in sample_info$Sample){
            FLANK_A_ORIENT = FLANK_A_ORIENT,
            FOCUS_CONTIG = FOCUS_CONTIG,
            Genotype = Genotype,
-           program_version = version_no)
+           DNASample = DNASample,
+           Ecotype = Ecotype,
+           RunID = RunID,
+           program_version = hash)
   
   #filter out duplicate position artefacts
   data_improved11 = data_improved10 %>% group_by(FLANK_B_CHROM, FLANK_B_START_POS) %>% summarize(countEventsPosSum = sum(countEvents))
@@ -1325,7 +1332,7 @@ for (i in sample_info$Sample){
   work_book <- createWorkbook()
   addWorksheet(work_book, "rawData")
   writeData(work_book, sheet = 1, data_improved10)
-  saveWorkbook(work_book, file = paste0(output_dir, i, "_CISGUIDE_V", version_no, ".xlsx"), overwrite = TRUE)
+  saveWorkbook(work_book, file = paste0(output_dir, i, "_CISGUIDE_V_", hash_little, ".xlsx"), overwrite = TRUE)
   
 }
 
@@ -1338,4 +1345,4 @@ for (i in sample_list){
 work_book2 <- createWorkbook()
 addWorksheet(work_book2, "rawData")
 writeData(work_book2, sheet = 1, wb)
-saveWorkbook(work_book2, file = paste0(output_dir, "CISGUIDE_V", version_no, ".xlsx"), overwrite = TRUE)
+saveWorkbook(work_book2, file = paste0(output_dir, "CISGUIDE_V_", hash_little, ".xlsx"), overwrite = TRUE)

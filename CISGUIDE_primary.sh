@@ -1,39 +1,70 @@
 #!/bin/sh
 
-#get workpath
-
-WORKPATH=""
+#set variables
+WORKPATH=~
+FASTASWITCH="FALSE"
 
 #Process Options
-
 Help()
 {
    # Display Help
    echo "Options:"
    echo "h     Print this Help."
-   echo "p     Set work path."
+   echo "p     Set work path. default: home directory"
+   echo "f     Switches to fasta mode if TRUE. default: FALSE."
+   echo "d     Sets deduplicate option. OFF= no dup filtering, OPT=optical dup filtering, UMI=UMI consolidation. default:OFF"
+   echo "t     Sets trimming length. Value indicate maximum number of nt to keep."
    echo
 }
-
-while getopts ":hp:" option; do
+while getopts "hp:f:d:k:t:" option; do
    case $option in
       h) # display Help
          Help
-         exit 1;;
-      p) # Enter a name
-         WORKPATH=$OPTARG;;
+         exit 1
+		 ;;
+      p) # Enter a workdir
+         WORKPATH=$OPTARG
+		 ;;
+      f) # Enter TRUE or FALSE
+         FASTASWITCH=$OPTARG
+		 ;;
+      d) #duplicate filtering options
+         DEDUPOPT=$OPTARG
+		 ;;
+      t) #duplicate filtering options
+         CURRENTTRIMLEN=$OPTARG
+		 ;;
      \?) # Invalid option
-         echo "Error: Invalid option"
-         exit 1;;
+         echo "Error: Invalid option. Exiting."
+         exit 1
+		 ;;
    esac
 done
 
+#check for correct work path
 if [[ -d "$WORKPATH" ]]; 
 then
 	echo "looking in ${WORKPATH}"
 else 
-	echo "invalid directory ${WORKPATH}"
+	echo "invalid directory ${WORKPATH}. Exiting."
 	exit 1
+fi
+
+#check whether trimlength is a number
+if [[ $CURRENTTRIMLEN =~ ^-?[0-9]+$ ]]
+then
+	echo "Trim length set at ${CURRENTTRIMLEN}."
+else
+	echo "Trim length ${CURRENTTRIMLEN} invalid, must be an integer. Exiting."
+	exit 1
+fi
+
+#check whether fasta switch is acivated
+if [[ ${FASTASWITCH} = TRUE ]]
+then
+	echo "fasta mode set"
+else 
+	echo "fastq mode set"
 fi
 
 #read the sample_information file
@@ -74,6 +105,39 @@ echo "Processing the following samples:" ${LIST_SAMPLES[*]}
 
 > ${WORKPATH}/file0.temp | awk -v OFS="\t" -v FS="\t" 'BEGIN {print "Sample", "Raw read count", "mapped count", "dedupped count", "preprocessed count"}' > ${WORKPATH}/read_numbers.txt
 
+
+#process all samples
+
+if [[ ${FASTASWITCH} = TRUE ]]
+then
+	echo "analysing samples in fasta mode";
+	#more code....
+	#sample sheet should have one fasta per row
+	#first create R1 and R2 fastq files from existing fastas
+	#then acquire the ref
+	
+	
+	
+	#get the ref and perform mapping
+	CURRENTREF=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $4}}')
+	echo "Using ref: $CURRENTREF"
+	echo "Mapping" ${i}
+	bwa-mem2 mem ${WORKPATH}/${CURRENTREF} ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_paired.fastq ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_paired.fastq >${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam
+	samtools view -1 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam
+	samtools sort -o ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam
+	cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
+	samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
+	
+	#processing reads to proper format and some filtering
+	#echo "Processing fw reads of ${i}"
+	#samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800 | samtools view -uf 0x80 |samtools view -uF 0x8 | samtools view -F 0x10 | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50 && length($10)>89){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, "FALSE"}}' > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_fw.txt
+	#echo "Processing rev reads of ${i}"
+	#samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800| samtools view -uf 0x80 |samtools view -uF 0x8 | samtools view -f 0x10 | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50 && length($10)>89){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12}}' > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv.txt
+	
+	#...........
+
+else
+	echo "analysing samples in regular fastq mode"
 for i in "${LIST_SAMPLES[@]}" 
 do
 #check for presence of R1 and R2
@@ -114,7 +178,6 @@ echo ">p7_RC" >> ${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa
 cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $6}}' | tr "[:lower:]" "[:upper:]" | tr "RYMKSWBDHV" "NNNNNNNNNN" | tr "ACGT" "TGCA" | rev >> ${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa
 
 echo "Trimming" ${i}
-CURRENTTRIMLEN=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $17}}')
 trimmomatic PE ${WORKPATH}/${i}_R1.fastq.gz ${WORKPATH}/${i}_R2.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_paired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_unpaired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_paired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_unpaired.fastq.gz ILLUMINACLIP:${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa:2:30:10:1:TRUE CROP:${CURRENTTRIMLEN} -phred33
 
 echo "Unzipping" ${i}
@@ -129,11 +192,33 @@ bwa-mem2 mem ${WORKPATH}/${CURRENTREF} ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward
 
 samtools view -1 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam
 samtools sort -o ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam
-echo "Dedupping" ${i}
-picard MarkDuplicates --INPUT ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam --OUTPUT ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam --METRICS_FILE ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted_dedup_metrics.txt --REMOVE_DUPLICATES TRUE
-samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
 
-#fastqname, primer
+#dedupping
+case $DEDUPOPT in
+	OPT) #optical duplicate filtering
+		echo "Optical duplicate filtering of ${i}"
+		picard MarkDuplicates --INPUT ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam --OUTPUT ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam --METRICS_FILE ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted_dedup_metrics.txt --REMOVE_DUPLICATES TRUE
+		samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
+		;;
+	UMI) #UMI consolidation
+		#echo "UMI consolidation of ${i}"
+		echo "UMI consolidation does not work yet, skipping filtering ${i}"
+		cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
+		samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
+		;;
+	OFF) #no duplicate filtering
+		echo "Skipping duplicate filtering of ${i}"
+		cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
+		samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
+		;;
+	*) #default, no duplicate filtering
+		echo "Skipping duplicate filtering of ${i}"
+		cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
+		samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
+		;;
+esac
+
+#getting primer sequence
 PRIMERSEQFULL=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $2}}')
 PRIMERSEQ="$( echo "$PRIMERSEQFULL" | tr "[:lower:]" "[:upper:]" | sed -e 's#^TCAGACGTGTGCTCTTCCGATCT##' )"
 
@@ -144,6 +229,7 @@ then
 else
 	echo "Using this primer sequence: ${PRIMERSEQ}"
 fi
+
 
 echo "Creating empty output files"
 > ${WORKPATH}/file1.temp | awk -v OFS="\t" -v FS="\t" ' BEGIN{print "QNAME", "RNAME_1", "POS_1", "CIGAR_1", "SEQ_1", "QUAL_1", "SATAG_1", "SEQ_RCed_1", "RNAME_2", "POS_2", "CIGAR_2", "SEQ_2", "QUAL_2", "SATAG_2", "SEQ_RCed_2", "FILE_NAME", "PRIMER_SEQ"}' > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt
@@ -190,13 +276,15 @@ PREPRONO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt | wc -l)
 echo "PREPRONO: ${PREPRONO}"
 cat ${WORKPATH}/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v RAWNO="${RAWNO}" -v MAPNO="${MAPNO}" -v DEDUPNO="${DEDUPNO}" -v PREPRONO="${PREPRONO}" ' END{print CURRENTSAMPLE, RAWNO / 4, MAPNO, DEDUPNO, PREPRONO - 1}' >> ${WORKPATH}/read_numbers.txt
 
-now=$(date)
-
 echo "removing temporary files"
 rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam 
 rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam 
 rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam 
-rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.dedup.sam 
+
+if [[ $DEDUPOPT = OPT ]]
+then
+	rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.dedup.sam 
+fi
 rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCseqs.txt
 rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_all.txt 
 rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_fw.txt 
@@ -213,14 +301,21 @@ rm ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_paired.fastq
 rm ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_paired.fastq 
 rm ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_unpaired.fastq.gz 
 rm ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_unpaired.fastq.gz 
-rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted_dedup_metrics.txt 
+if [[ $DEDUPOPT = OPT ]]
+then
+	rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted_dedup_metrics.txt 
+fi
 rm -r ${WORKPATH}/${CURRENTSAMPLE}/temp
-
-echo "Finished at $now"
+rm ${WORKPATH}/file1.temp 
 
 done
 
+fi
+
 echo "removing temporary files"
-rm ${WORKPATH}/file0.temp ${WORKPATH}/file1.temp 
+rm ${WORKPATH}/file0.temp 
+
+now=$(date)
+echo "Finished at $now"
 
 exit 0

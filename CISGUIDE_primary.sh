@@ -1,7 +1,40 @@
 #!/bin/sh
 
-WORKPATH="shared"
-echo "looking in ${WORKPATH}"
+#get workpath
+
+WORKPATH=""
+
+#Process Options
+
+Help()
+{
+   # Display Help
+   echo "Options:"
+   echo "h     Print this Help."
+   echo "p     Set work path."
+   echo
+}
+
+while getopts ":hp:" option; do
+   case $option in
+      h) # display Help
+         Help
+         exit 1;;
+      p) # Enter a name
+         WORKPATH=$OPTARG;;
+     \?) # Invalid option
+         echo "Error: Invalid option"
+         exit 1;;
+   esac
+done
+
+if [[ -d "$WORKPATH" ]]; 
+then
+	echo "looking in ${WORKPATH}"
+else 
+	echo "invalid directory ${WORKPATH}"
+	exit 1
+fi
 
 #read the sample_information file
 if [[ -f "${WORKPATH}/Sample_information.txt" ]]
@@ -81,7 +114,8 @@ echo ">p7_RC" >> ${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa
 cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $6}}' | tr "[:lower:]" "[:upper:]" | tr "RYMKSWBDHV" "NNNNNNNNNN" | tr "ACGT" "TGCA" | rev >> ${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa
 
 echo "Trimming" ${i}
-trimmomatic PE ${WORKPATH}/${i}_R1.fastq.gz ${WORKPATH}/${i}_R2.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_paired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_unpaired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_paired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_unpaired.fastq.gz ILLUMINACLIP:${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa:2:30:10:1:TRUE CROP:150 -phred33
+CURRENTTRIMLEN=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $17}}')
+trimmomatic PE ${WORKPATH}/${i}_R1.fastq.gz ${WORKPATH}/${i}_R2.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_paired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_unpaired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_paired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_unpaired.fastq.gz ILLUMINACLIP:${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa:2:30:10:1:TRUE CROP:${CURRENTTRIMLEN} -phred33
 
 echo "Unzipping" ${i}
 gunzip ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_paired.fastq.gz 

@@ -2,7 +2,7 @@ First you need to create a file named "Sample_information.txt". This file needs 
 
 Sample:	The name of the library sample. Example: "7C1_LB".
 Primer:	The secondary GUIDEseq primer sequence (GSP2).
-Fastq_name:	the part before "_R1.fastq.gz" or "_R2.fastq.gz".
+File_name:	the part before "_R1.fastq.gz" or "_R2.fastq.gz".
 Ref:	the genome reference file name, containing all the chromosomes, as well as the plasmid sequence(s). Example: "pCAS-PPO.fa".
 P5_adapter:	Enter the full P5 adapter primer, without special characters. Degenerate bases allowed but will be automatically changed to N.
 P7_adapter:	Enter the full p7 adapter primer, without special characters. Degenerate bases allowed but will be automatically changed to N.
@@ -34,3 +34,23 @@ The output is one excel file per library showing on every row a unique event. An
 General notes:
 - The reference fasta needs to have chromosome names starting with "Chr" (e.g. "Chr4"), not just a number.
 - Make sure that the reference fastas don't contain names with minus signs.
+
+
+Special notes for fasta mode:
+
+Sample:	The name of the list of sequences in fasta format.
+Primer:	Use "NA"
+File_name:	the part before ".fasta" 
+Ref:	Same as in fastq mode
+P5_adapter:	Use "NA"
+P7_adapter:	Use "NA"
+Plasmid:	Same as in fastq mode
+DSB_chrom:	Same as in fastq mode
+FlankAUltEnd:	Use "NA"
+Locus_name: Use "NA"
+FLANK_A_ORIENT: Use "NA"
+FlankBUltStart:	Use "NA"
+Genotype: Same as in fastq mode
+Plasmid_alt: Same as in fastq mode
+DNA: 
+RunID: Same as in fastq mode

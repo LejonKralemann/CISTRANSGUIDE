@@ -1,4 +1,30 @@
 #!/bin/sh
+#first check whether dependent programs have been installed
+if ! command -v picard &> /dev/null
+then
+    echo "Please first install picardTools before running the CISGUIDE program"
+    exit 1
+fi
+if ! command -v bwa-mem2 &> /dev/null
+then
+    echo "Please first install bwa-mem2 before running the CISGUIDE program"
+    exit 1
+fi
+if ! command -v samtools &> /dev/null
+then
+    echo "Please first install samtools before running the CISGUIDE program"
+    exit 1
+fi
+if ! command -v trimmomatic &> /dev/null
+then
+    echo "Please first install trimmomatic before running the CISGUIDE program"
+    exit 1
+fi
+if ! command -v dos2unix &> /dev/null
+then
+    echo "Please first install dos2unix before running the CISGUIDE program"
+    exit 1
+fi
 
 #set variables
 WORKPATH=~
@@ -100,7 +126,7 @@ done
 
 #get the list of samples
 #fastq_name
-readarray -t LIST_SAMPLES  < <(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" 'FNR>1{print $3}'  | sed 's/_R1.fastq.gz//g' | sort | uniq) 
+readarray -t LIST_SAMPLES  < <(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" 'FNR>1{print $3}' | sort | uniq) 
 echo "Processing the following samples:" ${LIST_SAMPLES[*]}
 
 > ${WORKPATH}/file0.temp | awk -v OFS="\t" -v FS="\t" 'BEGIN {print "Sample", "Raw read count", "mapped count", "dedupped count", "preprocessed count"}' > ${WORKPATH}/read_numbers.txt
@@ -111,31 +137,75 @@ echo "Processing the following samples:" ${LIST_SAMPLES[*]}
 if [[ ${FASTASWITCH} = TRUE ]]
 then
 	echo "analysing samples in fasta mode";
-	#more code....
-	#sample sheet should have one fasta per row
-	#first create R1 and R2 fastq files from existing fastas
-	#then acquire the ref
-	
-	
-	
-	#get the ref and perform mapping
-	CURRENTREF=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $4}}')
-	echo "Using ref: $CURRENTREF"
-	echo "Mapping" ${i}
-	bwa-mem2 mem ${WORKPATH}/${CURRENTREF} ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_paired.fastq ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_paired.fastq >${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam
-	samtools view -1 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam
-	samtools sort -o ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam
-	cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
-	samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
-	
-	#processing reads to proper format and some filtering
-	#echo "Processing fw reads of ${i}"
-	#samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800 | samtools view -uf 0x80 |samtools view -uF 0x8 | samtools view -F 0x10 | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50 && length($10)>89){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, "FALSE"}}' > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_fw.txt
-	#echo "Processing rev reads of ${i}"
-	#samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800| samtools view -uf 0x80 |samtools view -uF 0x8 | samtools view -f 0x10 | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50 && length($10)>89){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12}}' > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv.txt
-	
-	#...........
+	for i in "${LIST_SAMPLES[@]}" 
+	do
+	CURRENTSAMPLE=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $1}}')
+	echo "Analyzing sample: ${CURRENTSAMPLE}"
+	echo "looking for directory ${WORKPATH}/${CURRENTSAMPLE}"
+	if [[ -d "${WORKPATH}/${CURRENTSAMPLE}" ]]
+	then
+		echo "replacing existing directory"
+		rm -rf ${WORKPATH}/${CURRENTSAMPLE}
+		mkdir ${WORKPATH}/${CURRENTSAMPLE}
+		mkdir ${WORKPATH}/${CURRENTSAMPLE}/temp
+	else
+		echo "directory does not exist, creating ${WORKPATH}/${CURRENTSAMPLE}"
+		mkdir ${WORKPATH}/${CURRENTSAMPLE}
+		mkdir ${WORKPATH}/${CURRENTSAMPLE}/temp
+	fi
+		if [[ -f "${WORKPATH}/${i}.fasta" ]]
+		then
+			echo "Found ${WORKPATH}/${i}.fasta"
+			if ! dos2unix < "${WORKPATH}/${i}.fasta" | cmp - "${WORKPATH}/${i}.fasta" &> /dev/null
+			then
+			dos2unix -q ${WORKPATH}/${i}.fasta
+			echo "Warning: did you supply ${WORKPATH}/${i}.fasta in Windows format? Attempting to convert to Unix format"
+			fi
+		else
+			echo "Did not find ${WORKPATH}/${i}.fasta, moving to the next sample";
+			continue
+		fi
+		LineTotal=$(wc -l < shared/pBas03416_inserts.fasta)
+		declare -i LineCounter=1
+		SeqVar=""
+		cat shared/pBas03416_inserts.fasta |
+		while read -r line
+		do
+			if [[ $line == '>'* ]]
+			then 
+				echo "$SeqVar" 
+				SeqVar="" 
+				echo "$line"  
+				LineCounter=$(expr $LineCounter + 1)
+			else
+				
+				if [[ $LineCounter -lt $LineTotal ]]
+				then
+					SeqVar+=$line 
+					LineCounter=$(expr $LineCounter + 1)
+				else
+					echo "$SeqVar" | sed 's/\n//g'
+					SeqVar="";
+				fi
+			fi 
+		done |
+			sed '/./,$!d' |
+			sed 'N;s/\n/\t/g' |
+			awk -v OFS="\t" -v FS="\t" '{sub(/[[:space:]].*$/,"",$1); print $1, $2, "+", $2}' | 
+			awk -v OFS="\t" -v FS="\t" '{gsub(/[[:alpha:]]/,"G",$4); print}' |
+			sed 's/\t/\n/g' | 
+			sed 's/>/@/g' > shared/pBas03416_inserts/pBas03416_inserts.fa
+		#get the ref and perform mapping
+		CURRENTREF=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $4}}')
+		echo "Using ref: $CURRENTREF"
+		echo "Mapping" ${i}
+		bwa-mem2 mem ${WORKPATH}/${CURRENTREF} ${WORKPATH}/${CURRENTSAMPLE}/$i.fa > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam
+		samtools view -1 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam
+		samtools sort -o ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam
+		cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
+		samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
 
+	done
 else
 	echo "analysing samples in regular fastq mode"
 for i in "${LIST_SAMPLES[@]}" 
@@ -158,11 +228,14 @@ fi
 
 #fastq_name, sample
 CURRENTSAMPLE=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $1}}')
-echo "Using ref: ${CURRENTSAMPLE}"
+echo "Using sample: ${CURRENTSAMPLE}"
 echo "looking for directory ${WORKPATH}/${CURRENTSAMPLE}"
 if [[ -d "${WORKPATH}/${CURRENTSAMPLE}" ]]
 then
-	echo "directory exists"
+	echo "replacing existing directory"
+	rm -rf ${WORKPATH}/${CURRENTSAMPLE}
+	mkdir ${WORKPATH}/${CURRENTSAMPLE}
+	mkdir ${WORKPATH}/${CURRENTSAMPLE}/temp
 else
 	echo "directory does not exist, creating ${WORKPATH}/${CURRENTSAMPLE}"
 	mkdir ${WORKPATH}/${CURRENTSAMPLE}

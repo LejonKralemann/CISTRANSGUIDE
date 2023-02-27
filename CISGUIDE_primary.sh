@@ -85,18 +85,39 @@ else
 	exit 1
 fi
 
+#check the duplicate filtering option
+case $DEDUPOPT in
+	OPT) 
+	echo "Program set to filter optical duplicates"
+	;;
+	UMI) 
+	echo "Program set to remove duplicates by UMI consolidation"
+	;;
+	OFF) 
+	echo "Duplicate removal switched off"
+	;;
+	*) 
+	echo "Duplicate removal switched off"
+	;;
+esac
+
 #check whether fasta switch is acivated
 if [[ ${FASTASWITCH} = TRUE ]]
 then
-	echo "fasta mode set"
+	echo "Fasta mode set"
 else 
-	echo "fastq mode set"
+	echo "Fastq mode set"
 fi
 
 #read the sample_information file
 if [[ -f "${WORKPATH}/Sample_information.txt" ]]
 then
 	echo "Found Sample_information.txt"
+	if ! dos2unix < "${WORKPATH}/Sample_information.txt" | cmp - "${WORKPATH}/Sample_information.txt" &> /dev/null
+			then
+			dos2unix -q ${WORKPATH}/Sample_information.txt
+			echo "Warning: did you supply ${WORKPATH}/Sample_information.txt in Windows format? Attempting to convert to Unix format"
+			fi
 else
 	echo "Did not find Sample_information.txt, exiting";
 	exit 1
@@ -136,20 +157,18 @@ echo "Processing the following samples:" ${LIST_SAMPLES[*]}
 
 if [[ ${FASTASWITCH} = TRUE ]]
 then
-	echo "analysing samples in fasta mode";
+	echo "Analysing samples in fasta mode";
 	for i in "${LIST_SAMPLES[@]}" 
 	do
 	CURRENTSAMPLE=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $1}}')
 	echo "Analyzing sample: ${CURRENTSAMPLE}"
-	echo "looking for directory ${WORKPATH}/${CURRENTSAMPLE}"
+	echo "Looking for directory ${WORKPATH}/${CURRENTSAMPLE}"
 	if [[ -d "${WORKPATH}/${CURRENTSAMPLE}" ]]
 	then
-		echo "replacing existing directory"
-		rm -rf ${WORKPATH}/${CURRENTSAMPLE}
-		mkdir ${WORKPATH}/${CURRENTSAMPLE}
-		mkdir ${WORKPATH}/${CURRENTSAMPLE}/temp
+		echo "Directory already exists. Emptying."
+		rm ${WORKPATH}/${CURRENTSAMPLE}/*
 	else
-		echo "directory does not exist, creating ${WORKPATH}/${CURRENTSAMPLE}"
+		echo "Directory does not exist, creating ${WORKPATH}/${CURRENTSAMPLE}"
 		mkdir ${WORKPATH}/${CURRENTSAMPLE}
 		mkdir ${WORKPATH}/${CURRENTSAMPLE}/temp
 	fi
@@ -199,7 +218,9 @@ then
 		CURRENTREF=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $4}}')
 		echo "Using ref: $CURRENTREF"
 		echo "Mapping" ${i}
+		echo "###########################################################################"
 		bwa-mem2 mem ${WORKPATH}/${CURRENTREF} ${WORKPATH}/${CURRENTSAMPLE}/$i.fa > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam
+		echo "###########################################################################"
 		samtools view -1 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam
 		samtools sort -o ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam
 		cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
@@ -207,7 +228,7 @@ then
 
 	done
 else
-	echo "analysing samples in regular fastq mode"
+	echo "Analysing samples in regular fastq mode"
 for i in "${LIST_SAMPLES[@]}" 
 do
 #check for presence of R1 and R2
@@ -228,16 +249,14 @@ fi
 
 #fastq_name, sample
 CURRENTSAMPLE=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $1}}')
-echo "Using sample: ${CURRENTSAMPLE}"
-echo "looking for directory ${WORKPATH}/${CURRENTSAMPLE}"
+echo "Analysing sample: ${CURRENTSAMPLE}"
+echo "Looking for directory ${WORKPATH}/${CURRENTSAMPLE}"
 if [[ -d "${WORKPATH}/${CURRENTSAMPLE}" ]]
 then
-	echo "replacing existing directory"
-	rm -rf ${WORKPATH}/${CURRENTSAMPLE}
-	mkdir ${WORKPATH}/${CURRENTSAMPLE}
-	mkdir ${WORKPATH}/${CURRENTSAMPLE}/temp
+	echo "Directory already exists. Emptying."
+	rm ${WORKPATH}/${CURRENTSAMPLE}/*
 else
-	echo "directory does not exist, creating ${WORKPATH}/${CURRENTSAMPLE}"
+	echo "Directory does not exist, creating ${WORKPATH}/${CURRENTSAMPLE}"
 	mkdir ${WORKPATH}/${CURRENTSAMPLE}
 	mkdir ${WORKPATH}/${CURRENTSAMPLE}/temp
 fi
@@ -251,7 +270,9 @@ echo ">p7_RC" >> ${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa
 cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $6}}' | tr "[:lower:]" "[:upper:]" | tr "RYMKSWBDHV" "NNNNNNNNNN" | tr "ACGT" "TGCA" | rev >> ${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa
 
 echo "Trimming" ${i}
+echo "###########################################################################"
 trimmomatic PE ${WORKPATH}/${i}_R1.fastq.gz ${WORKPATH}/${i}_R2.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_paired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_unpaired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_paired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_unpaired.fastq.gz ILLUMINACLIP:${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa:2:30:10:1:TRUE CROP:${CURRENTTRIMLEN} -phred33
+echo "###########################################################################"
 
 echo "Unzipping" ${i}
 gunzip ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_paired.fastq.gz 
@@ -261,7 +282,9 @@ gunzip ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_paired.fastq.gz
 CURRENTREF=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $4}}')
 echo "Using ref: $CURRENTREF"
 echo "Mapping" ${i}
+echo "###########################################################################"
 bwa-mem2 mem ${WORKPATH}/${CURRENTREF} ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_paired.fastq ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_paired.fastq >${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam
+echo "###########################################################################"
 
 samtools view -1 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam
 samtools sort -o ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam
@@ -270,7 +293,9 @@ samtools sort -o ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam ${WORK
 case $DEDUPOPT in
 	OPT) #optical duplicate filtering
 		echo "Optical duplicate filtering of ${i}"
+		echo "###########################################################################"
 		picard MarkDuplicates --INPUT ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam --OUTPUT ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam --METRICS_FILE ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted_dedup_metrics.txt --REMOVE_DUPLICATES TRUE
+		echo "###########################################################################"
 		samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
 		;;
 	UMI) #UMI consolidation
@@ -337,7 +362,7 @@ cat ${WORKPATH}/${CURRENTSAMPLE}/Mates_fw.txt ${WORKPATH}/${CURRENTSAMPLE}/Mates
 echo "Combining selected reads and mates of ${i}"
 join -j 1 -o 1.1,1.3,1.4,1.6,1.10,1.11,1.12,1.13,2.3,2.4,2.6,2.10,2.11,2.12,2.13 -t $'\t' ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all.txt ${WORKPATH}/${CURRENTSAMPLE}/Mates_all.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" -v PRIMERSEQ="$PRIMERSEQ" ' {print $0, i, PRIMERSEQ}'  >> ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt
 
-echo "counting reads of ${CURRENTSAMPLE}"
+echo "Counting reads of ${CURRENTSAMPLE}"
 RAWNO=$(gunzip -c ${WORKPATH}/${i}_R1.fastq.gz | wc -l)
 echo "RAWNO: ${RAWNO}"
 MAPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam | grep -Ev '^(\@)' | awk '$3 != "*" {print $0}' | sort -u -t$'\t' -k1,1 | wc -l)
@@ -349,7 +374,7 @@ PREPRONO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt | wc -l)
 echo "PREPRONO: ${PREPRONO}"
 cat ${WORKPATH}/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v RAWNO="${RAWNO}" -v MAPNO="${MAPNO}" -v DEDUPNO="${DEDUPNO}" -v PREPRONO="${PREPRONO}" ' END{print CURRENTSAMPLE, RAWNO / 4, MAPNO, DEDUPNO, PREPRONO - 1}' >> ${WORKPATH}/read_numbers.txt
 
-echo "removing temporary files"
+echo "Removing temporary files"
 rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam 
 rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam 
 rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam 
@@ -385,7 +410,7 @@ done
 
 fi
 
-echo "removing temporary files"
+echo "Removing temporary files"
 rm ${WORKPATH}/file0.temp 
 
 now=$(date)

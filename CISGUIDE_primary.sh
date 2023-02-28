@@ -212,21 +212,131 @@ then
 			sed 'N;s/\n/\t/g' |
 			awk -v OFS="\t" -v FS="\t" '{sub(/[[:space:]].*$/,"",$1); print $1, $2, "+", $2}' | 
 			awk -v OFS="\t" -v FS="\t" '{gsub(/[[:alpha:]]/,"G",$4); print}' |
-			sed 's/\t/\n/g' | 
-			sed 's/>/@/g' > ${WORKPATH}/${i}/${i}.fa
+			sed 's/>/@/g' > ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa
+			
+			cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa | 
+			awk -v OFS="\t" -v FS="\t" '{print $1" 1:N:0:NNNNNNNN+NNNNNNNN", $2, $3, $4}' |
+			sed 's/\t/\n/g' > ${WORKPATH}/${CURRENTSAMPLE}/${i}_R1.fastq
+			
+			cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa | 
+			awk -v OFS="\t" -v FS="\t" '{print $2}' |
+			tr ACGTacgt TGCAtgca | 
+			rev > ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_RC.fa
+			
+			paste ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa ${WORKPATH}/${i}/${i}_columns_RC.fa |
+			awk -v OFS="\t" -v FS="\t" '{print $1" 2:N:0:NNNNNNNN+NNNNNNNN", $5, $3, $4}' |
+			sed 's/\t/\n/g' > ${WORKPATH}/${CURRENTSAMPLE}/${i}_R2.fastq
+
 		#get the ref and perform mapping
 		CURRENTREF=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $4}}')
 		echo "Using ref: $CURRENTREF"
 		echo "Mapping" ${i}
 		echo "###########################################################################"
-		bwa-mem2 mem ${WORKPATH}/${CURRENTREF} ${WORKPATH}/${CURRENTSAMPLE}/$i.fa > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam
+		bwa-mem2 mem ${WORKPATH}/${CURRENTREF} ${WORKPATH}/${CURRENTSAMPLE}/${i}_R1.fastq ${WORKPATH}/${CURRENTSAMPLE}/${i}_R2.fastq > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam
 		echo "###########################################################################"
+		
 		samtools view -1 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam
 		samtools sort -o ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam
-		cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
-		samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
+		
+		#dedupping
+		case $DEDUPOPT in
+			OPT) #optical duplicate filtering
+				echo "Optical duplicate filtering of ${i}"
+				echo "###########################################################################"
+				picard MarkDuplicates --INPUT ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam --OUTPUT ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam --METRICS_FILE ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted_dedup_metrics.txt --REMOVE_DUPLICATES TRUE
+				echo "###########################################################################"
+				samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
+				;;
+			UMI) #UMI consolidation
+				echo "No UMI consolidation during fasta mode, skipping filtering of ${i}"
+				cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
+				samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
+				;;
+			OFF) #no duplicate filtering
+				echo "Skipping duplicate filtering of ${i}"
+				cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
+				samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
+				;;
+			*) #default, no duplicate filtering
+				echo "Skipping duplicate filtering of ${i}"
+				cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
+				samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
+				;;
+		esac
+		
+		#processing reads
 
-	done
+		echo "Processing fw reads of ${i}"
+		samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800 | samtools view -uf 0x80 | samtools view -uF 0x8 | samtools view -F 0x10 | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50 && length($10)>89){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, "FALSE"}}' > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_fw.txt
+		
+		echo "Processing rev reads of ${i}"
+		samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800| samtools view -uf 0x80 | samtools view -uF 0x8 | samtools view -f 0x10 | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50 && length($10)>89){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12}}' > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv.txt
+		
+		echo "Rev complementing rev reads of ${i}"
+		awk -v OFS="\t" -v FS="\t" '{print $10}' ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv.txt | tr ACGTacgt TGCAtgca | rev > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv_RCseqs.txt
+		paste ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv.txt ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv_RCseqs.txt | awk -v OFS="\t" -v FS="\t" '{print $1, $2, $3, $4, $5, $6, $7, $8, $9, $13, $11, $12, "TRUE"}' > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv_RCed.txt
+
+		echo "Combining fw and rev reads"
+		cat ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_fw.txt ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv_RCed.txt | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all.txt
+		awk -v OFS="\t" -v FS="\t" '{print $1}' ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all.txt > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all_names.txt
+
+		echo "Processing fw mates of accepted reads of ${i}"
+		samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800| samtools view -uf 0x40 | samtools view -uF 0x8 | samtools view -f 0x10 | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, "FALSE"}}' | grep -f ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all_names.txt > ${WORKPATH}/${CURRENTSAMPLE}/Mates_fw.txt
+
+		echo "Processing rev mates of accepted reads of ${i}"
+		samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800| samtools view -uf 0x40 | samtools view -uF 0x8 | samtools view -F 0x10 | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12}}' | grep -f ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all_names.txt > ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv.txt
+
+		echo "Rev complementing rev mates of ${i}"
+		awk -v OFS="\t" -v FS="\t" '{print $10}' ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv.txt | tr ACGTacgt TGCAtgca | rev > ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCseqs.txt
+		paste ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv.txt ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCseqs.txt | awk -v OFS="\t" -v FS="\t" '{print $1, $2, $3, $4, $5, $6, $7, $8, $9, $13, $11, $12, "TRUE"}' > ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCed.txt
+
+		echo "Combining fw and rev mates of ${i}"
+		cat ${WORKPATH}/${CURRENTSAMPLE}/Mates_fw.txt ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCed.txt | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 > ${WORKPATH}/${CURRENTSAMPLE}/Mates_all.txt
+
+		echo "Combining selected reads and mates of ${i}"
+		join -j 1 -o 1.1,1.3,1.4,1.6,1.10,1.11,1.12,1.13,2.3,2.4,2.6,2.10,2.11,2.12,2.13 -t $'\t' ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all.txt ${WORKPATH}/${CURRENTSAMPLE}/Mates_all.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" ' {print $0, i, "NA"}'  >> ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt
+
+		#counting reads
+		echo "Counting reads of ${CURRENTSAMPLE}"
+		RAWNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa | wc -l)
+		echo "RAWNO: ${RAWNO}"
+		MAPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam | grep -Ev '^(\@)' | awk '$3 != "*" {print $0}' | sort -u -t$'\t' -k1,1 | wc -l)
+		echo "MAPNO: ${MAPNO}"
+		samtools view -h -o ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.dedup.sam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
+		DEDUPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.dedup.sam | grep -Ev '^(\@)' | awk '$3 != "*" {print $0}' | sort -u -t$'\t' -k1,1 | wc -l)
+		echo "DEDUPNO: ${DEDUPNO}"
+		PREPRONO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt | wc -l)
+		echo "PREPRONO: ${PREPRONO}"
+		cat ${WORKPATH}/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v RAWNO="${RAWNO}" -v MAPNO="${MAPNO}" -v DEDUPNO="${DEDUPNO}" -v PREPRONO="${PREPRONO}" ' END{print CURRENTSAMPLE, RAWNO / 4, MAPNO, DEDUPNO, PREPRONO - 1}' >> ${WORKPATH}/read_numbers.txt
+
+		#removing temporary files
+		echo "Removing temporary files"
+		rm ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa
+		rm ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_RC.fa
+		rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam 
+		rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam 
+		rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam 
+		if [[ $DEDUPOPT = OPT ]]
+		then
+			rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.dedup.sam 
+		fi
+		rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCseqs.txt
+		rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_all.txt 
+		rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_fw.txt 
+		rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv.txt 
+		rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCed.txt 
+		rm ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_fw.txt 
+		rm ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv.txt 
+		rm ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv_RCed.txt 
+		rm ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all.txt 
+		rm ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all_names.txt 
+		rm ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv_RCseqs.txt
+		if [[ $DEDUPOPT = OPT ]]
+		then
+			rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted_dedup_metrics.txt 
+		fi
+
+done
 else
 	echo "Analysing samples in regular fastq mode"
 for i in "${LIST_SAMPLES[@]}" 
@@ -332,11 +442,22 @@ fi
 echo "Creating empty output files"
 > ${WORKPATH}/file1.temp | awk -v OFS="\t" -v FS="\t" ' BEGIN{print "QNAME", "RNAME_1", "POS_1", "CIGAR_1", "SEQ_1", "QUAL_1", "SATAG_1", "SEQ_RCed_1", "RNAME_2", "POS_2", "CIGAR_2", "SEQ_2", "QUAL_2", "SATAG_2", "SEQ_RCed_2", "FILE_NAME", "PRIMER_SEQ"}' > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt
 
+#filtering reads
+#note meaning of the flags:
+#0x100		SECONDARY		secondary alignment
+#0x4		UNMAP			segment unmapped
+#0x800		SUPPLEMENTARY	supplementary alignment
+#0x80		READ2			the last segment in the template
+#0x8		MUNMAP			next segment in the template unmapped
+#0x10		REVERSE			SEQ is reverse complemented
+#0x40		READ1			the first segment in the template
+
+
 echo "Processing fw reads of ${i}"
-samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800 | samtools view -uf 0x80 |samtools view -uF 0x8 | samtools view -F 0x10 | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50 && length($10)>89){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, "FALSE"}}' > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_fw.txt
+samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800 | samtools view -uf 0x80 | samtools view -uF 0x8 | samtools view -F 0x10 | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50 && length($10)>89){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, "FALSE"}}' > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_fw.txt
 
 echo "Processing rev reads of ${i}"
-samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800| samtools view -uf 0x80 |samtools view -uF 0x8 | samtools view -f 0x10 | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50 && length($10)>89){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12}}' > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv.txt
+samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800| samtools view -uf 0x80 | samtools view -uF 0x8 | samtools view -f 0x10 | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50 && length($10)>89){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12}}' > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv.txt
 
 echo "Rev complementing rev reads of ${i}"
 awk -v OFS="\t" -v FS="\t" '{print $10}' ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv.txt | tr ACGTacgt TGCAtgca | rev > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv_RCseqs.txt

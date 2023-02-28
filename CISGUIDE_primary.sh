@@ -212,7 +212,12 @@ then
 			sed 'N;s/\n/\t/g' |
 			awk -v OFS="\t" -v FS="\t" '{sub(/[[:space:]].*$/,"",$1); print $1, $2, "+", $2}' | 
 			awk -v OFS="\t" -v FS="\t" '{gsub(/[[:alpha:]]/,"G",$4); print}' |
-			sed 's/>/@/g' > ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa
+			sed 's/>/@/g' > ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_raw.fa
+			
+			cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_raw.fa |
+			sort | 
+			uniq > ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa
+			
 			
 			cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa | 
 			awk -v OFS="\t" -v FS="\t" '{print $1" 1:N:0:NNNNNNNN+NNNNNNNN", $2, $3, $4}' |
@@ -233,7 +238,6 @@ then
 		echo "Mapping" ${i}
 		echo "###########################################################################"
 		bwa-mem2 mem ${WORKPATH}/${CURRENTREF} ${WORKPATH}/${CURRENTSAMPLE}/${i}_R1.fastq ${WORKPATH}/${CURRENTSAMPLE}/${i}_R2.fastq > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam
-		echo "###########################################################################"
 		
 		samtools view -1 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam
 		samtools sort -o ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam
@@ -298,7 +302,7 @@ then
 
 		#counting reads
 		echo "Counting reads of ${CURRENTSAMPLE}"
-		RAWNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa | wc -l)
+		RAWNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_raw.fa | wc -l)
 		echo "RAWNO: ${RAWNO}"
 		MAPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam | grep -Ev '^(\@)' | awk '$3 != "*" {print $0}' | sort -u -t$'\t' -k1,1 | wc -l)
 		echo "MAPNO: ${MAPNO}"
@@ -307,10 +311,11 @@ then
 		echo "DEDUPNO: ${DEDUPNO}"
 		PREPRONO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt | wc -l)
 		echo "PREPRONO: ${PREPRONO}"
-		cat ${WORKPATH}/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v RAWNO="${RAWNO}" -v MAPNO="${MAPNO}" -v DEDUPNO="${DEDUPNO}" -v PREPRONO="${PREPRONO}" ' END{print CURRENTSAMPLE, RAWNO / 4, MAPNO, DEDUPNO, PREPRONO - 1}' >> ${WORKPATH}/read_numbers.txt
+		cat ${WORKPATH}/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v RAWNO="${RAWNO}" -v MAPNO="${MAPNO}" -v DEDUPNO="${DEDUPNO}" -v PREPRONO="${PREPRONO}" ' END{print CURRENTSAMPLE, RAWNO, MAPNO, DEDUPNO, PREPRONO - 1}' >> ${WORKPATH}/read_numbers.txt
 
 		#removing temporary files
 		echo "Removing temporary files"
+		rm ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_raw.fa
 		rm ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa
 		rm ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_RC.fa
 		rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam 

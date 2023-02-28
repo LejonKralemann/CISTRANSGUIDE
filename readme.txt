@@ -1,3 +1,9 @@
+Install:
+- Install bioconda. Download the .sh file from the website www.anaconda.org and run it (bash miniconda.sh). 
+- Then install samtools, picardtools, trimmomatic, and bwa-mem2 via the command "conda install -c bioconda <samtools/picard/trimmomatic/bwa-mem2>"
+- Then install dos2unix with "apt install dos2unix"
+
+Running:
 First you need to create a file named "Sample_information.txt". This file needs to have one row per sample, each with the fields indicated below. Include a header row.
 
 Sample:	The name of the library sample. Example: "7C1_LB".

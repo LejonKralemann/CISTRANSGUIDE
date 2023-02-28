@@ -166,7 +166,7 @@ then
 	if [[ -d "${WORKPATH}/${CURRENTSAMPLE}" ]]
 	then
 		echo "Directory already exists. Emptying."
-		rm ${WORKPATH}/${CURRENTSAMPLE}/*
+		rm -r ${WORKPATH}/${CURRENTSAMPLE}/*
 	else
 		echo "Directory does not exist, creating ${WORKPATH}/${CURRENTSAMPLE}"
 		mkdir ${WORKPATH}/${CURRENTSAMPLE}
@@ -184,10 +184,10 @@ then
 			echo "Did not find ${WORKPATH}/${i}.fasta, moving to the next sample";
 			continue
 		fi
-		LineTotal=$(wc -l < shared/pBas03416_inserts.fasta)
+		LineTotal=$(wc -l < ${WORKPATH}/${i}.fasta)
 		declare -i LineCounter=1
 		SeqVar=""
-		cat shared/pBas03416_inserts.fasta |
+		cat ${WORKPATH}/${i}.fasta |
 		while read -r line
 		do
 			if [[ $line == '>'* ]]
@@ -213,7 +213,7 @@ then
 			awk -v OFS="\t" -v FS="\t" '{sub(/[[:space:]].*$/,"",$1); print $1, $2, "+", $2}' | 
 			awk -v OFS="\t" -v FS="\t" '{gsub(/[[:alpha:]]/,"G",$4); print}' |
 			sed 's/\t/\n/g' | 
-			sed 's/>/@/g' > shared/pBas03416_inserts/pBas03416_inserts.fa
+			sed 's/>/@/g' > ${WORKPATH}/${i}/${i}.fa
 		#get the ref and perform mapping
 		CURRENTREF=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $4}}')
 		echo "Using ref: $CURRENTREF"
@@ -254,7 +254,7 @@ echo "Looking for directory ${WORKPATH}/${CURRENTSAMPLE}"
 if [[ -d "${WORKPATH}/${CURRENTSAMPLE}" ]]
 then
 	echo "Directory already exists. Emptying."
-	rm ${WORKPATH}/${CURRENTSAMPLE}/*
+	rm -r ${WORKPATH}/${CURRENTSAMPLE}/*
 else
 	echo "Directory does not exist, creating ${WORKPATH}/${CURRENTSAMPLE}"
 	mkdir ${WORKPATH}/${CURRENTSAMPLE}

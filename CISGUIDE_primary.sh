@@ -160,6 +160,11 @@ then
 	echo "Analysing samples in fasta mode";
 	for i in "${LIST_SAMPLES[@]}" 
 	do
+	
+	##############################################################################################################
+	#checking samples, refs, directories
+	##############################################################################################################
+	
 	CURRENTSAMPLE=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $1}}')
 	echo "Analyzing sample: ${CURRENTSAMPLE}"
 	echo "Looking for directory ${WORKPATH}/${CURRENTSAMPLE}"
@@ -172,174 +177,371 @@ then
 		mkdir ${WORKPATH}/${CURRENTSAMPLE}
 		mkdir ${WORKPATH}/${CURRENTSAMPLE}/temp
 	fi
-		if [[ -f "${WORKPATH}/${i}.fasta" ]]
+	if [[ -f "${WORKPATH}/${i}.fasta" ]]
+	then
+		echo "Found ${WORKPATH}/${i}.fasta"
+		if ! dos2unix < "${WORKPATH}/${i}.fasta" | cmp - "${WORKPATH}/${i}.fasta" &> /dev/null
 		then
-			echo "Found ${WORKPATH}/${i}.fasta"
-			if ! dos2unix < "${WORKPATH}/${i}.fasta" | cmp - "${WORKPATH}/${i}.fasta" &> /dev/null
-			then
 			dos2unix -q ${WORKPATH}/${i}.fasta
 			echo "Warning: did you supply ${WORKPATH}/${i}.fasta in Windows format? Attempting to convert to Unix format"
-			fi
-		else
-			echo "Did not find ${WORKPATH}/${i}.fasta, moving to the next sample";
-			continue
 		fi
-		LineTotal=$(wc -l < ${WORKPATH}/${i}.fasta)
-		declare -i LineCounter=1
-		SeqVar=""
-		cat ${WORKPATH}/${i}.fasta |
-		while read -r line
-		do
-			if [[ $line == '>'* ]]
-			then 
-				echo "$SeqVar" 
-				SeqVar="" 
-				echo "$line"  
+	else
+		echo "Did not find ${WORKPATH}/${i}.fasta, moving to the next sample";
+		continue
+	fi
+	CURRENTREF=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $4}}')
+	echo "Using ref: ${CURRENTREF} file"
+	CURRENTPLASMID=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $7}}')
+	echo "Plasmid name: ${CURRENTPLASMID}"
+	CURRENTLBSEQ=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $17}}')
+	echo "Current LB sequence: ${CURRENTLBSEQ}"
+	CURRENTRBSEQ=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $18}}')
+	echo "Current RB sequence: ${CURRENTRBSEQ}"
+	
+	CURRENTRBPOS=1
+	CURRENTLBPOS=749
+	
+	
+	################################################################################################################
+	#processing the fasta data
+	################################################################################################################
+	
+	LineTotal=$(wc -l < ${WORKPATH}/${i}.fasta)
+	declare -i LineCounter=1
+	SeqVar=""
+	cat ${WORKPATH}/${i}.fasta |
+	while read -r line
+	do
+		if [[ $line == '>'* ]]
+		then 
+			echo "$SeqVar" 
+			SeqVar="" 
+			echo "$line"  
+			LineCounter=$(expr $LineCounter + 1)
+		else
+				
+			if [[ $LineCounter -lt $LineTotal ]]
+			then
+				SeqVar+=$line 
 				LineCounter=$(expr $LineCounter + 1)
 			else
-				
-				if [[ $LineCounter -lt $LineTotal ]]
-				then
-					SeqVar+=$line 
-					LineCounter=$(expr $LineCounter + 1)
-				else
-					echo "$SeqVar" | sed 's/\n//g'
-					SeqVar="";
-				fi
-			fi 
-		done |
-			sed '/./,$!d' |
-			sed 'N;s/\n/\t/g' |
-			awk -v OFS="\t" -v FS="\t" '{sub(/[[:space:]].*$/,"",$1); print $1, $2, "+", $2}' | 
-			awk -v OFS="\t" -v FS="\t" '{gsub(/[[:alpha:]]/,"G",$4); print}' |
-			sed 's/>/@/g' > ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_raw.fa
+				echo "$SeqVar" | sed 's/\n//g'
+				SeqVar="";
+			fi
+		fi 
+	done |
+	sed '/./,$!d' |
+	sed 'N;s/\n/\t/g' |
+	awk -v OFS="\t" -v FS="\t" '{sub(/[[:space:]].*$/,"",$1); print $1, $2, "+", $2}' | 
+	awk -v OFS="\t" -v FS="\t" '{gsub(/[[:alpha:]]/,"G",$4); print}' |
+	sed 's/>/@/g' > ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_raw.fa
 			
-			cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_raw.fa |
-			sort | 
-			uniq > ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa
+	cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_raw.fa |
+	sort | 
+	uniq > ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa
 			
-			
-			cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa | 
-			awk -v OFS="\t" -v FS="\t" '{print $1" 1:N:0:NNNNNNNN+NNNNNNNN", $2, $3, $4}' |
-			sed 's/\t/\n/g' > ${WORKPATH}/${CURRENTSAMPLE}/${i}_R1.fastq
-			
-			cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa | 
-			awk -v OFS="\t" -v FS="\t" '{print $2}' |
-			tr ACGTacgt TGCAtgca | 
-			rev > ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_RC.fa
-			
-			paste ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa ${WORKPATH}/${i}/${i}_columns_RC.fa |
-			awk -v OFS="\t" -v FS="\t" '{print $1" 2:N:0:NNNNNNNN+NNNNNNNN", $5, $3, $4}' |
-			sed 's/\t/\n/g' > ${WORKPATH}/${CURRENTSAMPLE}/${i}_R2.fastq
-
-		#get the ref and perform mapping
-		CURRENTREF=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $4}}')
-		echo "Using ref: $CURRENTREF"
-		echo "Mapping" ${i}
+	################################################################################################################
+	#Premapping first and last 30bp
+	################################################################################################################
+		
+	cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa | 
+	awk -v OFS="\t" -v FS="\t" '{print $1, substr($2, 1, 30), $3, substr($4, 1, 30)}' > ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_first30.fa
+		
+	cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa | 
+	awk -v OFS="\t" -v FS="\t" '{print $1, substr($2, length($2)-30, length($2)), $3, substr($4, length($4)-30, length($4))}' > ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_last30.fa
+		
+	#transform the data so that it looks like a fastq file
+	cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_first30.fa | 
+	awk -v OFS="\t" -v FS="\t" '{print $1" 1:N:0:NNNNNNNN+NNNNNNNN", $2, $3, $4}' |
+	sed 's/\t/\n/g' > ${WORKPATH}/${CURRENTSAMPLE}/${i}_first30.fastq
+		
+	cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_last30.fa | 
+	awk -v OFS="\t" -v FS="\t" '{print $1" 1:N:0:NNNNNNNN+NNNNNNNN", $2, $3, $4}' |
+	sed 's/\t/\n/g' > ${WORKPATH}/${CURRENTSAMPLE}/${i}_last30.fastq
+		
+	echo "Premapping 1" ${i}
+	echo "###########################################################################"
+	bwa-mem2 mem ${WORKPATH}/${CURRENTREF} ${WORKPATH}/${CURRENTSAMPLE}/${i}_first30.fastq > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_first30.sam
+	bwa-mem2 mem ${WORKPATH}/${CURRENTREF} ${WORKPATH}/${CURRENTSAMPLE}/${i}_last30.fastq > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_last30.sam	
+	
+	#of the "first 30bp" sequences, split the unambiguous sequences into LB and RB files
+	cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_first30.sam | 
+	sed -n -E '/^[[:alpha:]]/p' |
+	awk -v OFS="\t" -v FS="\t" -v CP="$CURRENTPLASMID" '{if ($3 == CP && $5 > 0) {print $0}}' > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_start_w_TDNA_names_MQLT0.txt
+	cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_start_w_TDNA_names_MQLT0.txt |
+	awk -v OFS="\t" -v FS="\t" -v CLP="$CURRENTLBPOS" -v CRP="$CURRENTRBPOS" '{if ( sqrt(($4-CLP)^2) < sqrt(($4-CRP)^2)) { print $1 }}' > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_start_LB_names.txt
+	cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_start_w_TDNA_names_MQLT0.txt |
+	awk -v OFS="\t" -v FS="\t" -v CLP="$CURRENTLBPOS" -v CRP="$CURRENTRBPOS" '{if ( sqrt(($4-CLP)^2) > sqrt(($4-CRP)^2)) { print $1 }}' > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_start_RB_names.txt
+	
+	#of the "last 30bp" sequences, split the unambiguous sequences into LB and RB files
+	cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_last30.sam | 
+	sed -n -E '/^[[:alpha:]]/p' |
+	awk -v OFS="\t" -v FS="\t" -v CP="$CURRENTPLASMID" '{if ($3 == CP && $5 > 0) {print $0}}' > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_end_w_TDNA_names_MQLT0.txt
+	cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_end_w_TDNA_names_MQLT0.txt |
+	awk -v OFS="\t" -v FS="\t" -v CLP="$CURRENTLBPOS" -v CRP="$CURRENTRBPOS" '{if ( sqrt(($4-CLP)^2) < sqrt(($4-CRP)^2)) { print $1 }}' > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_end_LB_names.txt
+	cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_end_w_TDNA_names_MQLT0.txt |
+	awk -v OFS="\t" -v FS="\t" -v CLP="$CURRENTLBPOS" -v CRP="$CURRENTRBPOS" '{if ( sqrt(($4-CLP)^2) > sqrt(($4-CRP)^2)) { print $1 }}' > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_end_RB_names.txt
+	
+	
+	#of the "first 30bp" sequences, also list the ambiguous sequences
+	cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_first30.sam | 
+	sed -n -E '/^[[:alpha:]]/p' |
+	awk -v OFS="\t" -v FS="\t" -v CP="$CURRENTPLASMID" '{if ($3 == CP) {print $1, $5}}' > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_start_w_TDNA_names.txt
+	cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_start_w_TDNA_names.txt |
+	awk -v OFS="\t" -v FS="\t" '{if ( $2 == 0 ) {print $1}}' > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_start_w_TDNA_names_MQ0.txt
+	
+	#of the "last 30bp" sequences, also list the ambiguous sequences
+	cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_last30.sam | 
+	sed -n -E '/^[[:alpha:]]/p' |
+	awk -v OFS="\t" -v FS="\t" -v CP="$CURRENTPLASMID" '{if ($3 == CP) {print $1, $5}}' > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_end_w_TDNA_names.txt
+	cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_end_w_TDNA_names.txt |
+	awk -v OFS="\t" -v FS="\t" '{if ( $2 == 0 ) {print $1}}' > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_end_w_TDNA_names_MQ0.txt
+	
+	
+	################################################################################################################
+	#Premapping first and last 60bp for ambiguous 30bp mappings
+	################################################################################################################
+	
+	#for the first 30bp sequences, if there were ambiguous reads, map again but this time 60bp
+	if [ -s ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_start_w_TDNA_names_MQ0.txt ]
+	then
+		#first get the list of those that were ambiguous
+		readarray -t lines < ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_start_w_TDNA_names_MQ0.txt
+		for r in "${lines[@]}"
+		do
+			cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa | egrep "${r}"  >> ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_startT_MQ0.fa
+		done	
+		cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_startT_MQ0.fa |
+		awk -v OFS="\t" -v FS="\t" '{print $1, substr($2, 1, 60), $3, substr($4, 1, 60)}' > ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_first60.fa
+		
+		#transform the data so that it looks like a fastq file
+		cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_first60.fa | 
+		awk -v OFS="\t" -v FS="\t" '{print $1" 1:N:0:NNNNNNNN+NNNNNNNN", $2, $3, $4}' |
+		sed 's/\t/\n/g' > ${WORKPATH}/${CURRENTSAMPLE}/${i}_first60.fastq
+	
+		#the mapping
+		echo "Premapping 2.a" ${i}
 		echo "###########################################################################"
-		bwa-mem2 mem ${WORKPATH}/${CURRENTREF} ${WORKPATH}/${CURRENTSAMPLE}/${i}_R1.fastq ${WORKPATH}/${CURRENTSAMPLE}/${i}_R2.fastq > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam
+		bwa-mem2 mem ${WORKPATH}/${CURRENTREF} ${WORKPATH}/${CURRENTSAMPLE}/${i}_first60.fastq > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_first60.sam
+	
+		#!!! note: change the code below. I need to split that for LB and RB sequences. 
+		#acquiring the names of those that end up getting a larger MQ
+		cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_first60.sam | 
+		sed -n -E '/^[[:alpha:]]/p' |
+		awk -v OFS="\t" -v FS="\t" '{if ($5 > 0) {print $1}}' > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_start_w_TDNA_names_MQLT0_60.txt
 		
-		samtools view -1 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam
-		samtools sort -o ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam
+		#then combining the good ones from this set with the good ones from the 30bp set
+		cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_start_w_TDNA_names_MQLT0.txt ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_start_w_TDNA_names_MQLT0_60.txt > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_start_w_TDNA_names_MQLT0_comb.txt
+	else
+		#also make a comb file even if all were alright in the 30bp set
+		cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_start_w_TDNA_names_MQLT0.txt > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_start_w_TDNA_names_MQLT0_comb.txt
+	fi
+	
+	#for the last 30bp sequences, if there were ambiguous reads, map again 60bp
+	if [ -s ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_end_w_TDNA_names_MQ0.txt ]
+	then
+		#first get the list of those that were ambiguous
+		readarray -t lines < ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_end_w_TDNA_names_MQ0.txt
+		for r in "${lines[@]}"
+		do
+			cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa | egrep ${r}  >> ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_endT_MQ0.fa
+		done	
+		cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_endT_MQ0.fa | 
+		awk -v OFS="\t" -v FS="\t" '{print $1, substr($2, length($2)-60, length($2)), $3, substr($4, length($4)-60, length($4))}' > ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_last60.fa
 		
-		#dedupping
-		case $DEDUPOPT in
-			OPT) #optical duplicate filtering
-				echo "Optical duplicate filtering of ${i}"
-				echo "###########################################################################"
-				picard MarkDuplicates --INPUT ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam --OUTPUT ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam --METRICS_FILE ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted_dedup_metrics.txt --REMOVE_DUPLICATES TRUE
-				echo "###########################################################################"
-				samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
-				;;
-			UMI) #UMI consolidation
-				echo "No UMI consolidation during fasta mode, skipping filtering of ${i}"
-				cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
-				samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
-				;;
-			OFF) #no duplicate filtering
-				echo "Skipping duplicate filtering of ${i}"
-				cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
-				samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
-				;;
-			*) #default, no duplicate filtering
-				echo "Skipping duplicate filtering of ${i}"
-				cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
-				samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
-				;;
-		esac
+		#transform the data so that it looks like a fastq file
+		cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_last60.fa | 
+		awk -v OFS="\t" -v FS="\t" '{print $1" 1:N:0:NNNNNNNN+NNNNNNNN", $2, $3, $4}' |
+		sed 's/\t/\n/g' > ${WORKPATH}/${CURRENTSAMPLE}/${i}_last60.fastq
+	
+		#The mapping
+		echo "Premapping 2.b" ${i}
+		echo "###########################################################################"
+		bwa-mem2 mem ${WORKPATH}/${CURRENTREF} ${WORKPATH}/${CURRENTSAMPLE}/${i}_last60.fastq > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_last60.sam	
+
+		#acquiring the names of those that end up getting a larger MQ
+		cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_last60.sam | 
+		sed -n -E '/^[[:alpha:]]/p' |
+		awk -v OFS="\t" -v FS="\t" '{if ($5 > 0) {print $1}}' > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_end_w_TDNA_names_MQLT0_60.txt
 		
-		#processing reads
 
-		echo "Processing fw reads of ${i}"
-		samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800 | samtools view -uf 0x80 | samtools view -uF 0x8 | samtools view -F 0x10 | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50 && length($10)>89){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, "FALSE"}}' > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_fw.txt
+		#then combining the good ones from this set with the good ones from the 30bp set
+		cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_end_w_TDNA_names_MQLT0.txt ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_end_w_TDNA_names_MQLT0_60.txt > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_end_w_TDNA_names_MQLT0_comb.txt
+	else
+		#also make a comb file even if all were alright in the 30bp set
+		cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_end_w_TDNA_names_MQLT0.txt > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_end_w_TDNA_names_MQLT0_comb.txt
+	fi
+	
+	#then get back the rest of the data for the combined list of good starting reads
+	readarray -t lines < ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_start_w_TDNA_names_MQLT0_comb.txt
+	for r in "${lines[@]}"
+	do
+		cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa | egrep ${r}  >> ${WORKPATH}/${CURRENTSAMPLE}/${i}_start_w_TDNA_names_MQLT0_comb.fa
+	done	
+	cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_start_w_TDNA_names_MQLT0_comb.fa | 
+	awk -v OFS="\t" -v FS="\t" '{print $1, substr($2, length($2)-60, length($2)), $3, substr($4, length($4)-60, length($4))}' > ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_fw_comb.fa
+	
+	#then do the same for the good ending reads
+	readarray -t lines < ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_end_w_TDNA_names_MQLT0_comb.txt
+	for r in "${lines[@]}"
+	do
+		cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa | egrep ${r}  >> ${WORKPATH}/${CURRENTSAMPLE}/${i}_end_w_TDNA_names_MQLT0_comb.fa
+	done	
+	cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_end_w_TDNA_names_MQLT0_comb.fa | 
+	awk -v OFS="\t" -v FS="\t" '{print $1, substr($2, length($2)-60, length($2)), $3, substr($4, length($4)-60, length($4))}' > ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_rev_comb.fa
+	
+	#reverse complement the sequences, and combine them with names again
+	cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_rev_comb.fa |
+	awk -v OFS="\t" -v FS="\t" '{print $2}' |
+	tr ACGTacgt TGCAtgca | 
+	rev > ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_rev_comb_seq_RC.fa
+	paste ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_rev_comb.fa ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_rev_comb_seq_RC.fa |
+	awk -v OFS="\t" -v FS="\t" '{print $1, $5, $3, $4}' > ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_rev_comb_Rced.fa
+	
+	#put the good starting and good ending reads back together into one file
+	cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_fw_comb.fa ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_rev_comb_Rced.fa |
+	sort |
+	uniq > ${WORKPATH}/${CURRENTSAMPLE}/${i}_total_combined.fa
+	exit 1
+
+	
+	################################################################################################################
+	#Proper mapping
+	################################################################################################################
+
+	#transform the data so that it looks like a fastq file
+	cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa | 
+	awk -v OFS="\t" -v FS="\t" '{print $1" 1:N:0:NNNNNNNN+NNNNNNNN", $2, $3, $4}' |
+	sed 's/\t/\n/g' > ${WORKPATH}/${CURRENTSAMPLE}/${i}_R1.fastq
+			
+	#create the reverse complement data
+	cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa | 
+	awk -v OFS="\t" -v FS="\t" '{print $2}' |
+	tr ACGTacgt TGCAtgca | 
+	rev > ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_RC.fa
+			
+	#then perform a transformation to produce fastq format data of the R2 (which is just R1 but RCed)
+	paste ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa ${WORKPATH}/${i}/${i}_columns_RC.fa |
+	awk -v OFS="\t" -v FS="\t" '{print $1" 2:N:0:NNNNNNNN+NNNNNNNN", $5, $3, $4}' |
+	sed 's/\t/\n/g' > ${WORKPATH}/${CURRENTSAMPLE}/${i}_R2.fastq
+
+	echo "Mapping" ${i}
+	echo "###########################################################################"
+	bwa-mem2 mem ${WORKPATH}/${CURRENTREF} ${WORKPATH}/${CURRENTSAMPLE}/${i}_R1.fastq ${WORKPATH}/${CURRENTSAMPLE}/${i}_R2.fastq > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam
 		
-		echo "Processing rev reads of ${i}"
-		samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800| samtools view -uf 0x80 | samtools view -uF 0x8 | samtools view -f 0x10 | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50 && length($10)>89){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12}}' > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv.txt
+	samtools view -1 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam
+	samtools sort -o ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam
+	
+	################################################################################################################
+	#dedupping
+	################################################################################################################
+	
+	case $DEDUPOPT in
+		OPT) #optical duplicate filtering
+			echo "Optical duplicate filtering of ${i}"
+			echo "###########################################################################"
+			picard MarkDuplicates --INPUT ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam --OUTPUT ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam --METRICS_FILE ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted_dedup_metrics.txt --REMOVE_DUPLICATES TRUE
+			echo "###########################################################################"
+			samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
+			;;
+		UMI) #UMI consolidation
+			echo "No UMI consolidation during fasta mode, skipping filtering of ${i}"
+			cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
+			samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
+			;;
+		OFF) #no duplicate filtering
+			echo "Skipping duplicate filtering of ${i}"
+			cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
+			samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
+			;;
+		*) #default, no duplicate filtering
+			echo "Skipping duplicate filtering of ${i}"
+			cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
+			samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
+			;;
+	esac
+	
+	################################################################################################################	
+	#Filtering reads
+	################################################################################################################
+
+	echo "Processing fw reads of ${i}"
+	samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800 | samtools view -uf 0x80 | samtools view -uF 0x8 | samtools view -F 0x10 | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50 && length($10)>89){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, "FALSE"}}' > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_fw.txt
 		
-		echo "Rev complementing rev reads of ${i}"
-		awk -v OFS="\t" -v FS="\t" '{print $10}' ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv.txt | tr ACGTacgt TGCAtgca | rev > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv_RCseqs.txt
-		paste ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv.txt ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv_RCseqs.txt | awk -v OFS="\t" -v FS="\t" '{print $1, $2, $3, $4, $5, $6, $7, $8, $9, $13, $11, $12, "TRUE"}' > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv_RCed.txt
+	echo "Processing rev reads of ${i}"
+	samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800| samtools view -uf 0x80 | samtools view -uF 0x8 | samtools view -f 0x10 | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50 && length($10)>89){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12}}' > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv.txt
+		
+	echo "Rev complementing rev reads of ${i}"
+	awk -v OFS="\t" -v FS="\t" '{print $10}' ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv.txt | tr ACGTacgt TGCAtgca | rev > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv_RCseqs.txt
+	paste ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv.txt ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv_RCseqs.txt | awk -v OFS="\t" -v FS="\t" '{print $1, $2, $3, $4, $5, $6, $7, $8, $9, $13, $11, $12, "TRUE"}' > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv_RCed.txt
 
-		echo "Combining fw and rev reads"
-		cat ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_fw.txt ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv_RCed.txt | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all.txt
-		awk -v OFS="\t" -v FS="\t" '{print $1}' ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all.txt > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all_names.txt
+	echo "Combining fw and rev reads"
+	cat ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_fw.txt ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv_RCed.txt | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all.txt
+	awk -v OFS="\t" -v FS="\t" '{print $1}' ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all.txt > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all_names.txt
 
-		echo "Processing fw mates of accepted reads of ${i}"
-		samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800| samtools view -uf 0x40 | samtools view -uF 0x8 | samtools view -f 0x10 | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, "FALSE"}}' | grep -f ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all_names.txt > ${WORKPATH}/${CURRENTSAMPLE}/Mates_fw.txt
+	echo "Processing fw mates of accepted reads of ${i}"
+	samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800| samtools view -uf 0x40 | samtools view -uF 0x8 | samtools view -f 0x10 | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, "FALSE"}}' | grep -f ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all_names.txt > ${WORKPATH}/${CURRENTSAMPLE}/Mates_fw.txt
 
-		echo "Processing rev mates of accepted reads of ${i}"
-		samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800| samtools view -uf 0x40 | samtools view -uF 0x8 | samtools view -F 0x10 | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12}}' | grep -f ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all_names.txt > ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv.txt
+	echo "Processing rev mates of accepted reads of ${i}"
+	samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800| samtools view -uf 0x40 | samtools view -uF 0x8 | samtools view -F 0x10 | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12}}' | grep -f ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all_names.txt > ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv.txt
 
-		echo "Rev complementing rev mates of ${i}"
-		awk -v OFS="\t" -v FS="\t" '{print $10}' ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv.txt | tr ACGTacgt TGCAtgca | rev > ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCseqs.txt
-		paste ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv.txt ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCseqs.txt | awk -v OFS="\t" -v FS="\t" '{print $1, $2, $3, $4, $5, $6, $7, $8, $9, $13, $11, $12, "TRUE"}' > ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCed.txt
+	echo "Rev complementing rev mates of ${i}"
+	awk -v OFS="\t" -v FS="\t" '{print $10}' ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv.txt | tr ACGTacgt TGCAtgca | rev > ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCseqs.txt
+	paste ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv.txt ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCseqs.txt | awk -v OFS="\t" -v FS="\t" '{print $1, $2, $3, $4, $5, $6, $7, $8, $9, $13, $11, $12, "TRUE"}' > ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCed.txt
 
-		echo "Combining fw and rev mates of ${i}"
-		cat ${WORKPATH}/${CURRENTSAMPLE}/Mates_fw.txt ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCed.txt | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 > ${WORKPATH}/${CURRENTSAMPLE}/Mates_all.txt
+	echo "Combining fw and rev mates of ${i}"
+	cat ${WORKPATH}/${CURRENTSAMPLE}/Mates_fw.txt ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCed.txt | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 > ${WORKPATH}/${CURRENTSAMPLE}/Mates_all.txt
 
-		echo "Combining selected reads and mates of ${i}"
-		join -j 1 -o 1.1,1.3,1.4,1.6,1.10,1.11,1.12,1.13,2.3,2.4,2.6,2.10,2.11,2.12,2.13 -t $'\t' ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all.txt ${WORKPATH}/${CURRENTSAMPLE}/Mates_all.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" ' {print $0, i, "NA"}'  >> ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt
+	echo "Combining selected reads and mates of ${i}"
+	join -j 1 -o 1.1,1.3,1.4,1.6,1.10,1.11,1.12,1.13,2.3,2.4,2.6,2.10,2.11,2.12,2.13 -t $'\t' ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all.txt ${WORKPATH}/${CURRENTSAMPLE}/Mates_all.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" ' {print $0, i, "NA"}'  >> ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt
 
-		#counting reads
-		echo "Counting reads of ${CURRENTSAMPLE}"
-		RAWNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_raw.fa | wc -l)
-		echo "RAWNO: ${RAWNO}"
-		MAPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam | grep -Ev '^(\@)' | awk '$3 != "*" {print $0}' | sort -u -t$'\t' -k1,1 | wc -l)
-		echo "MAPNO: ${MAPNO}"
-		samtools view -h -o ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.dedup.sam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
-		DEDUPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.dedup.sam | grep -Ev '^(\@)' | awk '$3 != "*" {print $0}' | sort -u -t$'\t' -k1,1 | wc -l)
-		echo "DEDUPNO: ${DEDUPNO}"
-		PREPRONO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt | wc -l)
-		echo "PREPRONO: ${PREPRONO}"
-		cat ${WORKPATH}/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v RAWNO="${RAWNO}" -v MAPNO="${MAPNO}" -v DEDUPNO="${DEDUPNO}" -v PREPRONO="${PREPRONO}" ' END{print CURRENTSAMPLE, RAWNO, MAPNO, DEDUPNO, PREPRONO - 1}' >> ${WORKPATH}/read_numbers.txt
 
-		#removing temporary files
-		echo "Removing temporary files"
-		rm ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_raw.fa
-		rm ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa
-		rm ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_RC.fa
-		rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam 
-		rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam 
-		rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam 
-		if [[ $DEDUPOPT = OPT ]]
-		then
-			rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.dedup.sam 
-		fi
-		rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCseqs.txt
-		rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_all.txt 
-		rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_fw.txt 
-		rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv.txt 
-		rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCed.txt 
-		rm ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_fw.txt 
-		rm ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv.txt 
-		rm ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv_RCed.txt 
-		rm ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all.txt 
-		rm ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all_names.txt 
-		rm ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv_RCseqs.txt
-		if [[ $DEDUPOPT = OPT ]]
-		then
-			rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted_dedup_metrics.txt 
-		fi
+	################################################################################################################
+	#counting reads
+	################################################################################################################
+	
+	echo "Counting reads of ${CURRENTSAMPLE}"
+	RAWNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_raw.fa | wc -l)
+	echo "RAWNO: ${RAWNO}"
+	MAPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam | grep -Ev '^(\@)' | awk '$3 != "*" {print $0}' | sort -u -t$'\t' -k1,1 | wc -l)
+	echo "MAPNO: ${MAPNO}"
+	samtools view -h -o ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.dedup.sam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
+	DEDUPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.dedup.sam | grep -Ev '^(\@)' | awk '$3 != "*" {print $0}' | sort -u -t$'\t' -k1,1 | wc -l)
+	echo "DEDUPNO: ${DEDUPNO}"
+	PREPRONO=$(cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt | wc -l)
+	echo "PREPRONO: ${PREPRONO}"
+	cat ${WORKPATH}/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v RAWNO="${RAWNO}" -v MAPNO="${MAPNO}" -v DEDUPNO="${DEDUPNO}" -v PREPRONO="${PREPRONO}" ' END{print CURRENTSAMPLE, RAWNO, MAPNO, DEDUPNO, PREPRONO - 1}' >> ${WORKPATH}/read_numbers.txt
+
+	################################################################################################################
+	#removing temporary files
+	################################################################################################################
+	
+	echo "Removing temporary files"
+	rm ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_raw.fa
+	rm ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns.fa
+	rm ${WORKPATH}/${CURRENTSAMPLE}/${i}_columns_RC.fa
+	rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.bam 
+	rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam 
+	rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sam 
+	if [[ $DEDUPOPT = OPT ]]
+	then
+		rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.dedup.sam 
+	fi
+	rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCseqs.txt
+	rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_all.txt 
+	rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_fw.txt 
+	rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv.txt 
+	rm ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCed.txt 
+	rm ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_fw.txt 
+	rm ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv.txt 
+	rm ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv_RCed.txt 
+	rm ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all.txt 
+	rm ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all_names.txt 
+	rm ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_rv_RCseqs.txt
+	if [[ $DEDUPOPT = OPT ]]
+	then
+		rm ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted_dedup_metrics.txt 
+	fi
 
 done
 else

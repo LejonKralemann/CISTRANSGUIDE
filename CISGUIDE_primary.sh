@@ -465,6 +465,10 @@ then
 	#Filtering reads
 	################################################################################################################
 
+	echo "Creating empty output files"
+	> ${WORKPATH}/file1.temp | awk -v OFS="\t" -v FS="\t" ' BEGIN{print "QNAME", "RNAME_1", "POS_1", "CIGAR_1", "SEQ_1", "QUAL_1", "SATAG_1", "SEQ_RCed_1", "RNAME_2", "POS_2", "CIGAR_2", "SEQ_2", "QUAL_2", "SATAG_2", "SEQ_RCed_2", "UMI", "FILE_NAME", "PRIMER_SEQ"}' > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt
+
+
 	echo "Processing fw reads of ${i}"
 	samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800 | samtools view -uf 0x80 | samtools view -uF 0x8 | samtools view -F 0x10 | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50 && length($10)>89){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, "FALSE"}}' > ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_fw.txt
 		
@@ -493,7 +497,7 @@ then
 	cat ${WORKPATH}/${CURRENTSAMPLE}/Mates_fw.txt ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCed.txt | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 > ${WORKPATH}/${CURRENTSAMPLE}/Mates_all.txt
 
 	echo "Combining selected reads and mates of ${i}"
-	join -j 1 -o 1.1,1.3,1.4,1.6,1.10,1.11,1.12,1.13,2.3,2.4,2.6,2.10,2.11,2.12,2.13 -t $'\t' ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all.txt ${WORKPATH}/${CURRENTSAMPLE}/Mates_all.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" ' {print $0, i, "NA"}'  >> ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt
+	join -j 1 -o 1.1,1.3,1.4,1.6,1.10,1.11,1.12,1.13,2.3,2.4,2.6,2.10,2.11,2.12,2.13 -t $'\t' ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all.txt ${WORKPATH}/${CURRENTSAMPLE}/Mates_all.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" ' {print $0, "NA", i, "NA"}'  >> ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt
 
 
 	################################################################################################################
@@ -549,18 +553,25 @@ else
 for i in "${LIST_SAMPLES[@]}" 
 do
 #check for presence of R1 and R2
-if [[ -f "${WORKPATH}/${i}_R1.fastq.gz" ]]
+CURRENTR1SUFFIX=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $20}}')
+CURRENTR2SUFFIX=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $21}}')
+CURRENTUMISUFFIX=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $22}}')
+echo "Using R1 suffix: ${CURRENTR1SUFFIX}"
+echo "Using R2 suffix: ${CURRENTR2SUFFIX}"
+echo "Using UMI suffix: ${CURRENTUMISUFFIX}"
+
+if [[ -f "${WORKPATH}/${i}${CURRENTR1SUFFIX}" ]]
 then
-	echo "Found ${WORKPATH}/${i}_R1.fastq.gz"
+	echo "Found ${WORKPATH}/${i}${CURRENTR1SUFFIX}"
 else
-	echo "Did not find ${WORKPATH}/${i}_R1.fastq.gz, moving to the next sample";
+	echo "Did not find ${WORKPATH}/${i}${CURRENTR1SUFFIX}, moving to the next sample";
 	continue
 fi
-if [[ -f "${WORKPATH}/${i}_R2.fastq.gz" ]]
+if [[ -f "${WORKPATH}/${i}${CURRENTR2SUFFIX}" ]]
 then
-	echo "Found ${WORKPATH}/${i}_R2.fastq.gz"
+	echo "Found ${WORKPATH}/${i}${CURRENTR2SUFFIX}"
 else
-	echo "Did not find ${WORKPATH}/${i}_R2.fastq.gz, moving to the next sample";
+	echo "Did not find ${WORKPATH}/${i}${CURRENTR2SUFFIX}, moving to the next sample";
 	continue
 fi
 
@@ -588,7 +599,7 @@ cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'F
 
 echo "Trimming" ${i}
 echo "###########################################################################"
-trimmomatic PE ${WORKPATH}/${i}_R1.fastq.gz ${WORKPATH}/${i}_R2.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_paired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_unpaired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_paired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_unpaired.fastq.gz ILLUMINACLIP:${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa:2:30:10:1:TRUE CROP:${CURRENTTRIMLEN} -phred33
+trimmomatic PE ${WORKPATH}/${i}${CURRENTR1SUFFIX} ${WORKPATH}/${i}${CURRENTR2SUFFIX} ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_paired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_forward_unpaired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_paired.fastq.gz ${WORKPATH}/${CURRENTSAMPLE}/${i}_reverse_unpaired.fastq.gz ILLUMINACLIP:${WORKPATH}/${CURRENTSAMPLE}/Illumina_adapters.fa:2:30:10:1:TRUE CROP:${CURRENTTRIMLEN} -phred33
 echo "###########################################################################"
 
 echo "Unzipping" ${i}
@@ -616,8 +627,7 @@ case $DEDUPOPT in
 		samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
 		;;
 	UMI) #UMI consolidation
-		#echo "UMI consolidation of ${i}"
-		echo "UMI consolidation does not work yet, skipping filtering ${i}"
+		echo "Skipping duplicate filtering of ${i}, UMI consolidation will take place at a later stage"
 		cat ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_sorted.bam > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam
 		samtools index ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}.sorted.bam.bai
 		;;
@@ -647,7 +657,7 @@ fi
 
 
 echo "Creating empty output files"
-> ${WORKPATH}/file1.temp | awk -v OFS="\t" -v FS="\t" ' BEGIN{print "QNAME", "RNAME_1", "POS_1", "CIGAR_1", "SEQ_1", "QUAL_1", "SATAG_1", "SEQ_RCed_1", "RNAME_2", "POS_2", "CIGAR_2", "SEQ_2", "QUAL_2", "SATAG_2", "SEQ_RCed_2", "FILE_NAME", "PRIMER_SEQ"}' > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt
+> ${WORKPATH}/file1.temp | awk -v OFS="\t" -v FS="\t" ' BEGIN{print "QNAME", "RNAME_1", "POS_1", "CIGAR_1", "SEQ_1", "QUAL_1", "SATAG_1", "SEQ_RCed_1", "RNAME_2", "POS_2", "CIGAR_2", "SEQ_2", "QUAL_2", "SATAG_2", "SEQ_RCed_2", "UMI", "FILE_NAME", "PRIMER_SEQ"}' > ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt
 
 #filtering reads
 #note meaning of the flags:
@@ -687,8 +697,21 @@ paste ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv.txt ${WORKPATH}/${CURRENTSAMPLE}/Mat
 echo "Combining fw and rev mates of ${i}"
 cat ${WORKPATH}/${CURRENTSAMPLE}/Mates_fw.txt ${WORKPATH}/${CURRENTSAMPLE}/Mates_rv_RCed.txt | sort -T ${WORKPATH}/${CURRENTSAMPLE}/temp/ -k 1,1 > ${WORKPATH}/${CURRENTSAMPLE}/Mates_all.txt
 
+case $DEDUPOPT in
+	UMI) #UMI consolidation
+		echo "For each read, create an extended UMI, by combining the UMI plus 8bp of read 1 and 8bp of read 2."
+		#create a list of names in 1 column, and the extended UMI in the second
+		#something > ${WORKPATH}/${CURRENTSAMPLE}/Extended_UMI.txt
+		;;
+	*) #default, no duplicate filtering
+		echo "Not processing a UMI"
+		#create a list of names in 1 column, and NA in the second
+		#something > ${WORKPATH}/${CURRENTSAMPLE}/Extended_UMI.txt
+		;;
+esac
+
 echo "Combining selected reads and mates of ${i}"
-join -j 1 -o 1.1,1.3,1.4,1.6,1.10,1.11,1.12,1.13,2.3,2.4,2.6,2.10,2.11,2.12,2.13 -t $'\t' ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all.txt ${WORKPATH}/${CURRENTSAMPLE}/Mates_all.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" -v PRIMERSEQ="$PRIMERSEQ" ' {print $0, i, PRIMERSEQ}'  >> ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt
+join -j 1 -o 1.1,1.3,1.4,1.6,1.10,1.11,1.12,1.13,2.3,2.4,2.6,2.10,2.11,2.12,2.13 -t $'\t' ${WORKPATH}/${CURRENTSAMPLE}/Primer_reads_all.txt ${WORKPATH}/${CURRENTSAMPLE}/Mates_all.txt | join -j 1 -o 1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,1.10,1.11,1.12,1.13,1.14,1.15,2.2 - ${WORKPATH}/${CURRENTSAMPLE}/Extended_UMI.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" -v PRIMERSEQ="$PRIMERSEQ" ' {print $0, i, PRIMERSEQ}'  >> ${WORKPATH}/${CURRENTSAMPLE}/${CURRENTSAMPLE}_A.txt
 
 echo "Counting reads of ${CURRENTSAMPLE}"
 RAWNO=$(gunzip -c ${WORKPATH}/${i}_R1.fastq.gz | wc -l)

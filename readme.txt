@@ -24,6 +24,10 @@ DNA: name of the DNA sample from which libraries were made. Often one DNA sample
 RunID: name of the sequencing run. This allows one to differentiate between samples that were sequenced multiple times, or to limit comparisons within runs to avoid effects of different sequencing depths between runs.
 LBSeq: NA, only used for fasta mode
 RBSeq: NA, only used for fasta mode
+Ecotype: The name of the ecotype of the organism that was samples. E.g. "Col-0".
+R1Suffix: The part of the filename after File_name, for read 1.
+R2Suffix: The part of the filename after File_name, for read 2.
+UMISuffix: The part of the filename after File_name, for the UMI.
 
 Then place the CISGUIDE_primary.sh script, Sample_information.txt, reference fastas ("PLASMID_NAME.fa"), raw sequencing files ("NAME_R1.fastq.gz" and "NAME_R2.fastq.gz") in your work directory.
 Then run the CISGUIDE_primary.sh script, by doing the following:

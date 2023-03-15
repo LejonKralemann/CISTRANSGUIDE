@@ -6,7 +6,7 @@ Install:
 Running:
 First you need to create a file named "Sample_information.txt". This file needs to have one row per sample, each with the fields indicated below. Include a header row.
 
-Sample:	The name of the library sample. Example: "7C1_LB".
+Sample:	The name of the library sample. Example: "7C1_LB". This name should in principle be unique. If the samples have been sequenced multiple times, they can have the same name, as long as the RunID is different.
 Primer:	The secondary GUIDEseq primer sequence (GSP2).
 File_name:	the part before "_R1.fastq.gz" or "_R2.fastq.gz".
 Ref:	the genome reference file name, containing all the chromosomes, as well as the plasmid sequence(s). Example: "pCAS-PPO.fa".
@@ -25,15 +25,16 @@ RunID: name of the sequencing run. This allows one to differentiate between samp
 LBSeq: NA, only used for fasta mode
 RBSeq: NA, only used for fasta mode
 Ecotype: The name of the ecotype of the organism that was samples. E.g. "Col-0".
-R1Suffix: The part of the filename after File_name, for read 1.
-R2Suffix: The part of the filename after File_name, for read 2.
-UMISuffix: The part of the filename after File_name, for the UMI.
+R1Suffix: The part of the filename after File_name, but before the extention .fastq.gz, for read 1.
+R2Suffix: The part of the filename after File_name, but before the extention .fastq.gz, for read 2.
+UMISuffix: The part of the filename after File_name, but before the extention .fastq.gz, for the UMI.
 
 Then place the CISGUIDE_primary.sh script, Sample_information.txt, reference fastas ("PLASMID_NAME.fa"), raw sequencing files ("NAME_R1.fastq.gz" and "NAME_R2.fastq.gz") in your work directory.
 Then run the CISGUIDE_primary.sh script, by doing the following:
 bash CISGUIDE_primary.sh |& tee -a primary_log.txt
 Example with options:
 bash shared/CISGUIDE_primary.sh -p shared -f FALSE -d OPT -t 150 |& tee -a shared/primary_log.txt
+
 
 
 The output is a folder per library, containing a .bam and .bam.bai file so that sequences may be visualized in a genome browser, and a text file ending in "_A.txt" containing all preprocessed reads.

@@ -51,8 +51,9 @@ matcher_skipper <-function(ref, seq1){
 
 
 for (i in sample_info$Sample){
+  RunID = as.character(sample_info %>% filter(Sample==i) %>% select(RunID))
   
-  if (file.exists(paste0(input_dir, i, "_A.txt"))==FALSE){
+  if (file.exists(paste0(input_dir, i, "_", RunID, "_A.txt"))==FALSE){
     message("Primary processed file not found")
     next
   }
@@ -67,7 +68,6 @@ for (i in sample_info$Sample){
   FlankAUltEnd = as.integer(sample_info %>% filter(Sample==i) %>% select(FlankAUltEnd))
   FlankBUltStart = as.integer(sample_info %>% filter(Sample==i) %>% select(FlankBUltStart))
   DNASample = as.character(sample_info %>% filter(Sample==i) %>% select(DNA))
-  RunID = as.character(sample_info %>% filter(Sample==i) %>% select(RunID))
   Ecotype = as.character(sample_info %>% filter(Sample==i) %>% select(Ecotype))
 
   if (file.exists(paste0(input_dir, str_replace_all(PLASMID,"_", "-"), ".fa"))==FALSE){

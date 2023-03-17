@@ -839,7 +839,7 @@ echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 #FASTQ_mode: Statistics
 ################################################################################################################
 
-echo "Counting reads of ${CURRENTSAMPLE}"
+echo "Counting reads of ${CURRENTSAMPLE} ${CURRENTRUNID}"
 RAWNO=$(( $(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}${CURRENTR1SUFFIX}.fastq | wc -l)/4 )) 
 echo "RAWNO: ${RAWNO}"
 DEDUPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/dedup_names.txt  | wc -l)

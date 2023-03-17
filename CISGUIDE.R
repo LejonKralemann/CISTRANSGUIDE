@@ -50,37 +50,38 @@ matcher_skipper <-function(ref, seq1){
 }
 
 
-for (i in sample_info$Sample){
-  RunID = as.character(sample_info %>% filter(Sample==i) %>% select(RunID))
+for (i in row.names(sample_info)){
+  Sample = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Sample))
+  RunID = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(RunID))
   
-  if (file.exists(paste0(input_dir, i, "_", RunID, "_A.txt"))==FALSE){
+  if (file.exists(paste0(input_dir, Sample, "_", RunID, "_A.txt"))==FALSE){
     message("Primary processed file not found")
     next
   }
  
   
-  data = read.csv(paste0(input_dir, i, "_A.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
-  FOCUS_CONTIG = str_replace_all(as.character(sample_info %>% filter(Sample==i) %>% select(DSB_chrom)), "-", "_")
-  FOCUS_LOCUS = as.character(sample_info %>% filter(Sample==i) %>% select(Locus_name))
-  Genotype = as.character(sample_info %>% filter(Sample==i) %>% select(Genotype))
-  PLASMID = str_replace_all(as.character(sample_info %>% filter(Sample==i) %>% select(Plasmid)), "-", "_")
-  PLASMID_ALT = str_replace_all(as.character(sample_info %>% filter(Sample==i) %>% select(Plasmid_alt)), "-", "_")
-  FlankAUltEnd = as.integer(sample_info %>% filter(Sample==i) %>% select(FlankAUltEnd))
-  FlankBUltStart = as.integer(sample_info %>% filter(Sample==i) %>% select(FlankBUltStart))
-  DNASample = as.character(sample_info %>% filter(Sample==i) %>% select(DNA))
-  Ecotype = as.character(sample_info %>% filter(Sample==i) %>% select(Ecotype))
+  data = read.csv(paste0(input_dir, Sample, "_", RunID, "_A.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
+  FOCUS_CONTIG = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DSB_chrom))
+  FOCUS_LOCUS = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Locus_name))
+  Genotype = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Genotype))
+  PLASMID = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Plasmid))
+  PLASMID_ALT = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Plasmid_alt))
+  FlankAUltEnd = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(FlankAUltEnd))
+  FlankBUltStart = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(FlankBUltStart))
+  DNASample = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DNA))
+  Ecotype = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Ecotype))
 
-  if (file.exists(paste0(input_dir, str_replace_all(PLASMID,"_", "-"), ".fa"))==FALSE){
+  if (file.exists(paste0(input_dir, PLASMID, ".fa"))==FALSE){
     message("Reference fasta not found")
     next
   }
   
-  genomeseq = readDNAStringSet(paste0(input_dir, str_replace_all(PLASMID,"_", "-"),".fa") , format="fasta")
+  genomeseq = readDNAStringSet(paste0(input_dir, PLASMID,".fa") , format="fasta")
   contig_seq = as.character(eval(parse(text = paste0("genomeseq$", FOCUS_CONTIG))))
-  Primer_seq = str_replace_all(as.character(sample_info %>% filter(Sample==i) %>% select(Primer)), "TCAGACGTGTGCTCTTCCGATCT", "")
+  Primer_seq = str_replace_all(as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Primer)), "TCAGACGTGTGCTCTTCCGATCT", "")
   Primer_match = as.data.frame(matchPattern(pattern = Primer_seq, subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))
   Primer_RC_match = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(Primer_seq))), subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))
-  FLANK_A_ORIENT = as.character(sample_info %>% filter(Sample==i) %>% select(FLANK_A_ORIENT))
+  FLANK_A_ORIENT = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(FLANK_A_ORIENT))
 
   
   DSB_AREA_SEQ = (if (FLANK_A_ORIENT == "FW"){
@@ -203,7 +204,6 @@ for (i in sample_info$Sample){
         (str_count(QUAL_1, pattern = "I") * 40)
     ) / (40 * nchar(QUAL_1))
     )) %>%
-    mutate(QNAME = str_replace_all(QNAME, "-", "_"))%>%
     ungroup()
   
   
@@ -466,10 +466,6 @@ for (i in sample_info$Sample){
         TRUE ~ "ERROR"
       )), "-", "_")
     ) %>%
-   # mutate(FLANK_B_CHROM =if_else(
-    #  FLANK_B_CHROM == "1" | FLANK_B_CHROM == "2" |FLANK_B_CHROM == "3" |FLANK_B_CHROM == "4" |FLANK_B_CHROM == "5",
-    #  paste0("Chr", FLANK_B_CHROM),
-    #  FLANK_B_CHROM)) %>%
     ungroup() %>%
     
     #mark cases where flank B chrom is not found
@@ -912,10 +908,6 @@ for (i in sample_info$Sample){
         TRUE ~ "ERROR"
       )), "-", "_")
     ) %>%
-    #mutate(MATE_FLANK_B_CHROM =if_else(
-    #  MATE_FLANK_B_CHROM != "Mt" & MATE_FLANK_B_CHROM != "Pt" & MATE_FLANK_B_CHROM != PLASMID & MATE_FLANK_B_CHROM != PLASMID_ALT & MATE_FLANK_B_CHROM != "NOT_FOUND",
-    #  paste0("Chr", MATE_FLANK_B_CHROM),
-    #  MATE_FLANK_B_CHROM)) %>%
     ungroup()
   
   data_improved5 = data_improved4 %>%
@@ -1342,7 +1334,7 @@ for (i in sample_info$Sample){
   work_book <- createWorkbook()
   addWorksheet(work_book, "rawData")
   writeData(work_book, sheet = 1, data_improved10)
-  saveWorkbook(work_book, file = paste0(output_dir, i, "_CISGUIDE_V_", hash_little, ".xlsx"), overwrite = TRUE)
+  saveWorkbook(work_book, file = paste0(output_dir, Sample, "_", RunID, "_CISGUIDE_V_", hash_little, ".xlsx"), overwrite = TRUE)
   
 }
 

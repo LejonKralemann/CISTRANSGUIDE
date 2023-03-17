@@ -69,7 +69,7 @@ for (i in sample_info$Sample){
   DNASample = as.character(sample_info %>% filter(Sample==i) %>% select(DNA))
   RunID = as.character(sample_info %>% filter(Sample==i) %>% select(RunID))
   Ecotype = as.character(sample_info %>% filter(Sample==i) %>% select(Ecotype))
-  
+
   if (file.exists(paste0(input_dir, str_replace_all(PLASMID,"_", "-"), ".fa"))==FALSE){
     message("Reference fasta not found")
     next
@@ -227,13 +227,15 @@ for (i in sample_info$Sample){
       FILE_NAME,
       PRIMER_SEQ,
       AvgBaseQual_1,
-      SEQ_1_LEN
+      SEQ_1_LEN,
+      DEDUP_METHOD,
+      TRIM_LEN
     ) %>%
     rowwise() %>%
     mutate(RNAME_1 = as.character(RNAME_1))%>%
     mutate(RNAME_2 = as.character(RNAME_2))%>%
     ungroup() %>%
-    
+    #what is this below???
     #collapse optical duplicates (UMI collapsing was already done before mapping)
     
     group_by(
@@ -251,7 +253,9 @@ for (i in sample_info$Sample){
       SEQ_2,
       FILE_NAME,
       PRIMER_SEQ,
-      SEQ_1_LEN
+      SEQ_1_LEN,
+      DEDUP_METHOD,
+      TRIM_LEN
     ) %>%
     summarize(
       QNAME_1st = first(QNAME),
@@ -940,7 +944,9 @@ for (i in sample_info$Sample){
       QNAME_1st,
       SEQ_1_LEN,
       FLANK_A_START_POS,
-      hasPROBLEM
+      hasPROBLEM,
+      DEDUP_METHOD,
+      TRIM_LEN
     ) %>%
     
     rowwise() %>%
@@ -1245,7 +1251,9 @@ for (i in sample_info$Sample){
       FAKE_DELIN_CHECK,
       DSB_AREA_INTACT,
       DSB_AREA_1MM,
-      hasPROBLEM
+      hasPROBLEM,
+      DEDUP_METHOD,
+      TRIM_LEN
     ) %>%
     summarize(
       countEvents = sum(NrOpticalDuplicates),
@@ -1298,7 +1306,9 @@ for (i in sample_info$Sample){
       SEQ_2_first,
       DSB_AREA_INTACT,
       DSB_AREA_1MM,
-      hasPROBLEM
+      hasPROBLEM,
+      DEDUP_METHOD,
+      TRIM_LEN
     ) %>%
     
     #rename column for SIQplotter

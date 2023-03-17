@@ -27,6 +27,7 @@ fi
 ################################################################################################################
 WORKPATH=~
 FASTASWITCH="FALSE"
+StartTime=$(date +%s)
 Help()
 {
    # Display Help
@@ -567,6 +568,8 @@ else
 fi
 CURRENTRUNID=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $16}}')
 echo "Current Run ID: ${CURRENTRUNID}"
+echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
+
 
 
 ################################################################################################################
@@ -587,8 +590,8 @@ then
 else
 	echo "Directory does not exist, creating ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}..."
 	mkdir ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}
-	mkdir ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/temp
 fi
+echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 ################################################################################################################
 #FASTQ_mode: looking for data and unzipping
@@ -629,6 +632,7 @@ case $DEDUPOPT in
 		echo "Skipping UMI"
 		;;
 esac
+echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 ################################################################################################################
 #FASTQ_mode: fastq to tab separated
@@ -656,6 +660,7 @@ case $DEDUPOPT in
 	*) 	#skip filtering
 		;;
 esac
+echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 ################################################################################################################
 #FASTQ_mode: dedupping
@@ -667,7 +672,7 @@ case $DEDUPOPT in
 		#first creating a file that contains the R1, R2 and UMI
 		paste ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R2.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/names_identifiers.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1_R2_UMI_combined.txt
 		#then sort and only leaving the unique ones, based only on the sequences of course
-		cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1_R2_UMI_combined.txt | sort -u -k3,3 -k7,7 -k12 > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1_R2_UMI_combined_dedupped.txt
+		cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1_R2_UMI_combined.txt | sort -u -k3,3 -k8,8 -k12 > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1_R2_UMI_combined_dedupped.txt
 		awk -v OFS="\t" -v FS="\t" '{print $1}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1_R2_UMI_combined_dedupped.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/dedup_names.txt
 		#creating a list of duplicate reads, for troubleshooting
 		grep -v -f ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/dedup_names.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1_R2_UMI_combined.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Duplicate_pairs.txt
@@ -678,8 +683,11 @@ case $DEDUPOPT in
 		;;
 	*) 	#skip filtering
 		echo "Skipping duplicate filtering..."
+		cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}${CURRENTR1SUFFIX}.fastq > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1_dedupped.fastq
+		cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}${CURRENTR2SUFFIX}.fastq > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R2_dedupped.fastq
 		;;
 esac
+echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 ################################################################################################################
 #FASTQ_mode: Trimming
@@ -698,6 +706,7 @@ echo "Trimming" ${i}
 echo "###########################################################################"
 trimmomatic PE ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1_dedupped.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R2_dedupped.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_paired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_unpaired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_unpaired.fastq ILLUMINACLIP:${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Illumina_adapters.fa:2:30:10:1:TRUE CROP:${CURRENTTRIMLEN} -phred33
 echo "###########################################################################"
+echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 ################################################################################################################
 #FASTQ_mode: Mapping
@@ -713,7 +722,8 @@ samtools sort -o ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}.s
 samtools index ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}.sorted.bam ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}.sorted.bam.bai
 
 echo "Creating empty output files"
-> ${WORKPATH}/file1.temp | awk -v OFS="\t" -v FS="\t" ' BEGIN{print "QNAME", "RNAME_1", "POS_1", "CIGAR_1", "SEQ_1", "QUAL_1", "SATAG_1", "SEQ_RCed_1", "RNAME_2", "POS_2", "CIGAR_2", "SEQ_2", "QUAL_2", "SATAG_2", "SEQ_RCed_2", "UMI", "FILE_NAME", "PRIMER_SEQ"}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_A.txt
+> ${WORKPATH}/file1.temp | awk -v OFS="\t" -v FS="\t" ' BEGIN{print "QNAME", "RNAME_1", "POS_1", "CIGAR_1", "SEQ_1", "QUAL_1", "SATAG_1", "SEQ_RCed_1", "RNAME_2", "POS_2", "CIGAR_2", "SEQ_2", "QUAL_2", "SATAG_2", "SEQ_RCed_2", "UMI", "FILE_NAME", "PRIMER_SEQ", "DEDUP_METHOD", "TRIM_LEN"}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_A.txt
+echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 ################################################################################################################
 #FASTQ_mode: Filtering reads
@@ -732,43 +742,47 @@ echo "Creating empty output files"
 
 echo "Processing fw reads of ${i}"
 samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800 | samtools view -uf 0x80 | samtools view -uF 0x8 | samtools view -F 0x10 | sort -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50 && length($10)>89){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, "FALSE"}}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_fw.txt
+echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 echo "Processing rev reads of ${i}"
 samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800| samtools view -uf 0x80 | samtools view -uF 0x8 | samtools view -f 0x10 | sort -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50 && length($10)>89){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12}}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv.txt
+echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 echo "Rev complementing rev reads of ${i}"
 awk -v OFS="\t" -v FS="\t" '{print $10}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv.txt | tr ACGTacgt TGCAtgca | rev > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_RCseqs.txt
 paste ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_RCseqs.txt | awk -v OFS="\t" -v FS="\t" '{print $1, $2, $3, $4, $5, $6, $7, $8, $9, $13, $11, $12, "TRUE"}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_RCed.txt
+echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 echo "Combining fw and rev reads and keeping only those starting with primer seq ${PRIMERSEQ}"
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_fw.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_RCed.txt | sort -k 1,1 | awk -v OFS="\t" -v FS="\t" -v test="$PRIMERSEQ" '$10 ~ "^"test {print}'  > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_all.txt
 awk -v OFS="\t" -v FS="\t" '{print $1}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_all.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_all_names.txt
+echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 echo "Processing fw mates of accepted reads of ${i}"
 samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800| samtools view -uf 0x40 | samtools view -uF 0x8 | samtools view -f 0x10 | sort -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, "FALSE"}}' | grep -f ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_all_names.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_fw.txt
+echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 echo "Processing rev mates of accepted reads of ${i}"
 samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800| samtools view -uf 0x40 | samtools view -uF 0x8 | samtools view -F 0x10 | sort -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50){print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12}}' | grep -f ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_all_names.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv.txt
+echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 echo "Rev complementing rev mates of ${i}"
 awk -v OFS="\t" -v FS="\t" '{print $10}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv.txt | tr ACGTacgt TGCAtgca | rev > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv_RCseqs.txt
 paste ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv_RCseqs.txt | awk -v OFS="\t" -v FS="\t" '{print $1, $2, $3, $4, $5, $6, $7, $8, $9, $13, $11, $12, "TRUE"}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv_RCed.txt
+echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 echo "Combining fw and rev mates of ${i}"
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_fw.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv_RCed.txt | sort -k 1,1 > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_all.txt
+echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 echo "Combining selected reads and mates of ${i}"
-join -j 1 -o 1.1,1.3,1.4,1.6,1.10,1.11,1.12,1.13,2.3,2.4,2.6,2.10,2.11,2.12,2.13 -t $'\t' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_all.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_all.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/read_mate_comb.txt
-
-
-
-cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/read_mate_comb.txt | join -j 1 -o 1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,1.10,1.11,1.12,1.13,1.14,1.15,2.2 - ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Extended_UMI.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" -v PRIMERSEQ="$PRIMERSEQ" ' {print $0, i, PRIMERSEQ}'  >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_A.txt
+join -j 1 -o 1.1,1.3,1.4,1.6,1.10,1.11,1.12,1.13,2.3,2.4,2.6,2.10,2.11,2.12,2.13 -t $'\t' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_all.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_all.txt | 
+awk -v OFS="\t" -v FS="\t" -v i="$i" -v PRIMERSEQ="$PRIMERSEQ" -v DEDUPOPT="$DEDUPOPT" -v CURRENTTRIMLEN="$CURRENTTRIMLEN" ' {print $0, i, PRIMERSEQ, DEDUPOPT, CURRENTTRIMLEN}'  >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_A.txt
+echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 ################################################################################################################
 #FASTQ_mode: Statistics
 ################################################################################################################
-
-#note!! I have changes several things, which requires changes in the countin of reads below
 
 echo "Counting reads of ${CURRENTSAMPLE}"
 RAWNO=$(( $(gunzip -c ${WORKPATH}/${i}_R1.fastq.gz | wc -l)/4 )) 
@@ -780,6 +794,7 @@ echo "MAPNO: ${MAPNO}"
 PREPRONO=$(( $(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_A.txt | wc -l)-1 ))
 echo "PREPRONO: ${PREPRONO}"
 cat ${WORKPATH}/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v RAWNO="${RAWNO}" -v MAPNO="${MAPNO}" -v DEDUPNO="${DEDUPNO}" -v PREPRONO="${PREPRONO}" ' END{print CURRENTSAMPLE, RAWNO, MAPNO, DEDUPNO, PREPRONO}' >> ${WORKPATH}/read_numbers.txt
+echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 ################################################################################################################
 #FASTQ_mode: Cleanup
@@ -818,6 +833,7 @@ then
 fi
 rm -r ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/temp
 rm ${WORKPATH}/file1.temp 
+echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 done
 
@@ -826,8 +842,7 @@ fi
 echo "Removing temporary files"
 rm ${WORKPATH}/file0.temp 
 
-now=$(date)
-echo "Finished at $now"
+echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 exit 0
 

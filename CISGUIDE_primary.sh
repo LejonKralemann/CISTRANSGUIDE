@@ -201,7 +201,7 @@ done
 readarray -t LIST_SAMPLES  < <(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" 'FNR>1{print $3}' | sort | uniq) 
 echo "Processing the following samples:" ${LIST_SAMPLES[*]}
 
-> ${WORKPATH}/file0.temp | awk -v OFS="\t" -v FS="\t" 'BEGIN {print "Sample", "Raw read count", "mapped count", "dedupped count", "preprocessed count"}' > ${WORKPATH}/stats/read_numbers.txt
+> ${WORKPATH}/file0.temp | awk -v OFS="\t" -v FS="\t" 'BEGIN {print "Sample", "RunID", "Raw read count", "mapped count", "dedupped count", "preprocessed count"}' > ${WORKPATH}/stats/read_numbers.txt
 
 ################################################################################################################
 #FASTA mode: read samples, check refs and directories
@@ -848,7 +848,7 @@ MAPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}.sam | 
 echo "MAPNO: ${MAPNO}"
 PREPRONO=$(( $(cat ${WORKPATH}/input/${CURRENTSAMPLE}_${CURRENTRUNID}_A.txt | wc -l)-1 ))
 echo "PREPRONO: ${PREPRONO}"
-cat ${WORKPATH}/stats/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v RAWNO="${RAWNO}" -v MAPNO="${MAPNO}" -v DEDUPNO="${DEDUPNO}" -v PREPRONO="${PREPRONO}" ' END{print CURRENTSAMPLE, RAWNO, MAPNO, DEDUPNO, PREPRONO}' >> ${WORKPATH}/stats/read_numbers.txt
+cat ${WORKPATH}/stats/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v CURRENTRUNID="${CURRENTRUNID}" -v RAWNO="${RAWNO}" -v MAPNO="${MAPNO}" -v DEDUPNO="${DEDUPNO}" -v PREPRONO="${PREPRONO}" ' END{print CURRENTSAMPLE, CURRENTRUNID, RAWNO, MAPNO, DEDUPNO, PREPRONO}' >> ${WORKPATH}/stats/read_numbers.txt
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 ################################################################################################################

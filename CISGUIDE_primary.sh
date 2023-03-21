@@ -201,7 +201,7 @@ done
 readarray -t LIST_SAMPLES  < <(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" 'FNR>1{print $3}' | sort | uniq) 
 echo "Processing the following samples:" ${LIST_SAMPLES[*]}
 
-> ${WORKPATH}/file0.temp | awk -v OFS="\t" -v FS="\t" 'BEGIN {print "Sample", "RunID", "Raw read count", "mapped count", "dedupped count", "preprocessed count"}' > ${WORKPATH}/stats/read_numbers.txt
+> ${WORKPATH}/file0.temp | awk -v OFS="\t" -v FS="\t" 'BEGIN {print "Sample", "RunID", "Raw read count", "dedupped count", "mapped count", "preprocessed count"}' > ${WORKPATH}/stats/read_numbers.txt
 
 ################################################################################################################
 #FASTA mode: read samples, check refs and directories
@@ -552,48 +552,26 @@ then
 #FASTA mode: counting reads
 ################################################################################################################
 	
-	echo "Counting reads of ${CURRENTSAMPLE}"
-	RAWNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_columns_raw.fa | wc -l)
+	echo "Counting reads of ${CURRENTSAMPLE} ${CURRENTRUNID}"
+	RAWNO=$(( $(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}${CURRENTR1SUFFIX}.fastq | wc -l)/4 )) 
 	echo "RAWNO: ${RAWNO}"
+	DEDUPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/dedup_names.txt  | wc -l)
+	echo "DEDUPNO: ${DEDUPNO}"
 	MAPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}.sam | grep -Ev '^(\@)' | awk '$3 != "*" {print $0}' | sort -u -t$'\t' -k1,1 | wc -l)
 	echo "MAPNO: ${MAPNO}"
-	samtools view -h -o ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}.dedup.sam ${WORKPATH}/bams/${CURRENTSAMPLE}_${CURRENTRUNID}.sorted.bam
-	DEDUPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}.dedup.sam | grep -Ev '^(\@)' | awk '$3 != "*" {print $0}' | sort -u -t$'\t' -k1,1 | wc -l)
-	echo "DEDUPNO: ${DEDUPNO}"
-	PREPRONO=$(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_A.txt | wc -l)
+	PREPRONO=$(( $(cat ${WORKPATH}/input/${CURRENTSAMPLE}_${CURRENTRUNID}_A.txt | wc -l)-1 ))
 	echo "PREPRONO: ${PREPRONO}"
-	cat ${WORKPATH}/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v RAWNO="${RAWNO}" -v MAPNO="${MAPNO}" -v DEDUPNO="${DEDUPNO}" -v PREPRONO="${PREPRONO}" ' END{print CURRENTSAMPLE, RAWNO, MAPNO, DEDUPNO, PREPRONO - 1}' >> ${WORKPATH}/read_numbers.txt
+	cat ${WORKPATH}/stats/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v CURRENTRUNID="${CURRENTRUNID}" -v RAWNO="${RAWNO}" -v MAPNO="${MAPNO}" -v DEDUPNO="${DEDUPNO}" -v PREPRONO="${PREPRONO}" ' END{print CURRENTSAMPLE, CURRENTRUNID, RAWNO, MAPNO, DEDUPNO, PREPRONO}' >> ${WORKPATH}/stats/read_numbers.txt
+	echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 ################################################################################################################
 #FASTA mode: removing temporary files
 ################################################################################################################
 	
 	echo "Removing temporary files"
-	rm ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_columns_raw.fa
-	rm ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_columns.fa
-	rm ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_columns_RC.fa
-	rm ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}.bam 
-	rm ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_sorted.bam 
-	rm ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}.sam 
-	if [[ $DEDUPOPT = OPT ]]
-	then
-		rm ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}.dedup.sam 
-	fi
-	rm ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv_RCseqs.txt
-	rm ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_all.txt 
-	rm ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_fw.txt 
-	rm ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv.txt 
-	rm ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv_RCed.txt 
-	rm ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_fw.txt 
-	rm ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv.txt 
-	rm ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_RCed.txt 
-	rm ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_all.txt 
-	rm ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_all_names.txt 
-	rm ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_RCseqs.txt
-	if [[ $DEDUPOPT = OPT ]]
-	then
-		rm ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_sorted_dedup_metrics.txt 
-	fi
+	rm -r ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}
+	rm ${WORKPATH}/file1.temp 
+	echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 done
 else
@@ -603,6 +581,7 @@ do
 ################################################################################################################
 #FASTQ_mode: Reading variables
 ################################################################################################################
+
 echo "Acquiring information from Sample_information.txt ..."
 CURRENTR1SUFFIX=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $20}}')
 echo "Current R1 suffix: ${CURRENTR1SUFFIX}"
@@ -848,7 +827,7 @@ MAPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}.sam | 
 echo "MAPNO: ${MAPNO}"
 PREPRONO=$(( $(cat ${WORKPATH}/input/${CURRENTSAMPLE}_${CURRENTRUNID}_A.txt | wc -l)-1 ))
 echo "PREPRONO: ${PREPRONO}"
-cat ${WORKPATH}/stats/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v CURRENTRUNID="${CURRENTRUNID}" -v RAWNO="${RAWNO}" -v MAPNO="${MAPNO}" -v DEDUPNO="${DEDUPNO}" -v PREPRONO="${PREPRONO}" ' END{print CURRENTSAMPLE, CURRENTRUNID, RAWNO, MAPNO, DEDUPNO, PREPRONO}' >> ${WORKPATH}/stats/read_numbers.txt
+cat ${WORKPATH}/stats/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v CURRENTRUNID="${CURRENTRUNID}" -v RAWNO="${RAWNO}" -v MAPNO="${MAPNO}" -v DEDUPNO="${DEDUPNO}" -v PREPRONO="${PREPRONO}" ' END{print CURRENTSAMPLE, CURRENTRUNID, RAWNO, DEDUPNO, MAPNO, PREPRONO}' >> ${WORKPATH}/stats/read_numbers.txt
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 ################################################################################################################

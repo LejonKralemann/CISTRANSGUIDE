@@ -66,13 +66,18 @@ for (i in row.names(sample_info)){
   RunID = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(RunID))
   
   if (file.exists(paste0(input_dir, Sample, "_", RunID, "_A.txt"))==FALSE){
-    message("Primary processed file not found")
+    message("Primary processed file not found, moving to next sample")
     next
   }else{
     message(paste0("Processing ",input_dir, Sample, "_", RunID, "_A.txt"))
   }
   
   data = read.csv(paste0(input_dir, Sample, "_", RunID, "_A.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
+  if (nrow(data)==0){
+    message("Primary processed file empty, moving to next sample")
+    next
+  }
+  
   FOCUS_CONTIG = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DSB_chrom))
   FOCUS_LOCUS = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Locus_name))
   Genotype = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Genotype))

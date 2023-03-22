@@ -821,6 +821,7 @@ echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 echo "Counting reads of ${CURRENTSAMPLE} ${CURRENTRUNID}"
 RAWNO=$(( $(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}${CURRENTR1SUFFIX}.fastq | wc -l)/4 )) 
 echo "RAWNO: ${RAWNO}"
+#change below so that this becomes RAWNO when duplicate filtering is turned off.
 DEDUPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/dedup_names.txt  | wc -l)
 echo "DEDUPNO: ${DEDUPNO}"
 MAPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}.sam | grep -Ev '^(\@)' | awk '$3 != "*" {print $0}' | sort -u -t$'\t' -k1,1 | wc -l)

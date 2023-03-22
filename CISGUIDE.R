@@ -1,14 +1,18 @@
-library(BSgenome)
-library(Biostrings)
-library(stringi)
-library(stringdist)
-library(tidyverse)
-library(openxlsx)
+###############################################################################
+#install and load packages
+###############################################################################
+if (require(BSgenome)==FALSE){install.packages("BSgenome")}
+if (require(Biostrings)==FALSE){install.packages("Biostrings")}
+if (require(stringi)==FALSE){install.packages("stringi")}
+if (require(stringdist)==FALSE){install.packages("stringdist")}
+if (require(tidyverse)==FALSE){install.packages("tidyverse")}
+if (require(openxlsx)==FALSE){install.packages("openxlsx")}
 
-#The data should be "pre-treated" by running the script "Reverse TRANSGUIDE primary script" in bash. This performs some filtering like removing supplemental reads and requiring reads to start with the primer sequence. 
-#make sure that the chromosome names start with Chr in the fasta reference, and that all minus signs in plasmids names are changed to _. Keep the "-"in the filename if it is like this in the sample information file.
-input_dir= "C:/Users/lejon/Documents/Scripts/CISGUIDE/input/"
-output_dir= "C:/Users/lejon/Documents/Scripts/CISGUIDE/output/"
+###############################################################################
+#set parameters
+###############################################################################
+input_dir= "./input/"
+output_dir= "./output/"
 hash=system("git rev-parse HEAD", intern=TRUE)
 hash_little=substr(hash, 1, 8)
 NF_NUMBER = as.integer(-99999999) #don't change
@@ -18,13 +22,9 @@ MINBASEQUAL = 0.75 #minimum base quality
 MAX_DIST_FLANK_B_END = 10000 #distance from end of flank B to DSB, determines max deletion size and also affects maximum insertion size
 FLANK_B_LEN_MIN = 15 #minimum length of flank B
 LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick to determine locus info
-
-#Reads information you provide about the samples
 sample_info = read.csv(paste0(input_dir, "Sample_information.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
 
-#note that below the flank A is the flank that starts with the primer until the break, with optional deletion.
-#flank B starts with the break, and ends wherever the read 1 sequence ends.
-
+#function: matcher_skipper
 #this function matches from the end until it encounters a mismatch. If the continuing sequence is longer than 9, then it jumps over this mismatch, and continues matching until a second mismatch is encountered. Then it outputs the matching sequence.  
 matcher_skipper <-function(ref, seq1){
   if (ref != "ERROR"){
@@ -149,7 +149,8 @@ for (i in row.names(sample_info)){
   data_improved  = data %>%
     
     #filter(QNAME == "M02948:227:000000000-KHF2C:1:1102:19902:23404") %>%
-    #remove reads with Ns
+    
+    #Count number of Ns and remove any reads with Ns
     rowwise() %>%
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
            SEQ_1_LEN = nchar(SEQ_1)) %>%

@@ -414,7 +414,7 @@ for (i in row.names(sample_info)){
     #determine which chromosome the B flank is aligning to
     
     mutate(
-      FLANK_B_CHROM = str_replace_all((case_when(
+      FLANK_B_CHROM = (case_when(
         (CIGAR_1_LEN == 1) ~ RNAME_1,
         (CIGAR_1_LEN > 1 & SEQ_RCed_1 == TRUE & head(CIGAR_1_L, 1) == "M") ~ RNAME_1,
         (CIGAR_1_LEN > 1 & SEQ_RCed_1 == TRUE  & head(CIGAR_1_L, 1) == "S" & SATAG_1_1 != "SA") ~ "NOT_FOUND",
@@ -463,7 +463,7 @@ for (i in row.names(sample_info)){
             SATAG_1_5 == "-" & is.na(SATAG_1_12)
         ) ~ "NOT_FOUND",
         TRUE ~ "ERROR"
-      )), "-", "_")
+      ))
     ) %>%
     ungroup() %>%
     
@@ -718,7 +718,7 @@ for (i in row.names(sample_info)){
     
     #Determine the chromosome the B flank of the mate is mapped to
     mutate(
-      MATE_FLANK_B_CHROM = str_replace_all((case_when(
+      MATE_FLANK_B_CHROM = (case_when(
         CIGAR_2_LEN == 1 ~ RNAME_2,
         (CIGAR_2_LEN > 1 &
            SEQ_RCed_2 == TRUE & head(CIGAR_2_L, 1) == "M") ~ RNAME_2,
@@ -917,7 +917,7 @@ for (i in row.names(sample_info)){
             tail(SATAG_2_12_L, n = 1) == "M" & SATAG_2_11 == "+"
         ) ~ "NOT_FOUND",
         TRUE ~ "ERROR"
-      )), "-", "_")
+      ))
     ) %>%
     ungroup()
   
@@ -1092,9 +1092,7 @@ for (i in row.names(sample_info)){
   
   data_improved7 = data_improved6 %>%
     rowwise() %>%
-    
-    
-    
+  
     #calculate FLANK B DEL length.
     mutate(FLANK_B_DEL =
              if (CASE_WT == TRUE) {

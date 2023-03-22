@@ -23,7 +23,11 @@ MAX_DIST_FLANK_B_END = 10000 #distance from end of flank B to DSB, determines ma
 FLANK_B_LEN_MIN = 15 #minimum length of flank B
 LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick to determine locus info
 sample_info = read.csv(paste0(input_dir, "Sample_information.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
+TIME_START=as.numeric(Sys.time())*1000
 
+###############################################################################
+#Functions
+###############################################################################
 #function: matcher_skipper
 #this function matches from the end until it encounters a mismatch. If the continuing sequence is longer than 9, then it jumps over this mismatch, and continues matching until a second mismatch is encountered. Then it outputs the matching sequence.  
 matcher_skipper <-function(ref, seq1){
@@ -48,7 +52,14 @@ matcher_skipper <-function(ref, seq1){
     return(flank_match)
   }
 }
-
+function_time <-function(text){
+  TIME_CURRENT=as.numeric(Sys.time())*1000
+  message(paste0(text, (TIME_CURRENT - TIME_START), " milliseconds"))
+  TIME_START<<-as.numeric(Sys.time())*1000
+}
+###############################################################################
+#Process data: step 1
+###############################################################################
 
 for (i in row.names(sample_info)){
   Sample = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Sample))
@@ -57,8 +68,9 @@ for (i in row.names(sample_info)){
   if (file.exists(paste0(input_dir, Sample, "_", RunID, "_A.txt"))==FALSE){
     message("Primary processed file not found")
     next
+  }else{
+    message(paste0("Processing ",input_dir, Sample, "_", RunID, "_A.txt"))
   }
- 
   
   data = read.csv(paste0(input_dir, Sample, "_", RunID, "_A.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
   FOCUS_CONTIG = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DSB_chrom))
@@ -146,6 +158,12 @@ for (i in row.names(sample_info)){
     ""
   } 
   
+  function_time("Step 1 took ")
+
+  ###############################################################################
+  #Process data: step 2
+  ###############################################################################
+  
   data_improved  = data %>%
     
     #filter(QNAME == "M02948:227:000000000-KHF2C:1:1102:19902:23404") %>%
@@ -160,7 +178,7 @@ for (i in row.names(sample_info)){
     #filter away reads that are too short
     filter(!(SEQ_1_LEN < MINLEN)) %>%
     
-    #calculate the average base quality
+    #calculate the average base quality, and filter away low quality reads
     rowwise() %>%
     mutate(AvgBaseQual_1 =   ((
       (str_count(QUAL_1, pattern = '\\"') * 1) +
@@ -205,8 +223,14 @@ for (i in row.names(sample_info)){
         (str_count(QUAL_1, pattern = "I") * 40)
     ) / (40 * nchar(QUAL_1))
     )) %>%
-    ungroup()
+    ungroup() %>%
+    filter(AvgBaseQual_1 > MINBASEQUAL)
   
+  function_time("Step 2 took ")
+  
+  ###############################################################################
+  #Process data: step 3
+  ###############################################################################
   
   data_improved1 = data_improved %>%
     
@@ -236,36 +260,6 @@ for (i in row.names(sample_info)){
     mutate(RNAME_1 = as.character(RNAME_1))%>%
     mutate(RNAME_2 = as.character(RNAME_2))%>%
     ungroup() %>%
-    #what is this below???
-    #collapse optical duplicates (UMI collapsing was already done before mapping)
-    
-    group_by(
-      RNAME_1,
-      POS_1,
-      CIGAR_1,
-      SATAG_1,
-      SEQ_RCed_1,
-      SEQ_1,
-      RNAME_2,
-      POS_2,
-      CIGAR_2,
-      SATAG_2,
-      SEQ_RCed_2,
-      SEQ_2,
-      FILE_NAME,
-      PRIMER_SEQ,
-      SEQ_1_LEN,
-      DEDUP_METHOD,
-      TRIM_LEN
-    ) %>%
-    summarize(
-      QNAME_1st = first(QNAME),
-      NrOpticalDuplicates = n(),
-      AvgBaseQual_1_Max = max(AvgBaseQual_1)
-    ) %>%
-    
-    #filter away all reads under a certain quality threshold
-    filter(AvgBaseQual_1_Max > MINBASEQUAL) %>%
     
     #check for expected position and orientation base on primer seqs
     mutate(
@@ -401,7 +395,11 @@ for (i in row.names(sample_info)){
       SATAG_2_4 = as.integer(SATAG_2_4),
       SATAG_2_10 = as.integer(SATAG_2_10)
     )
+  function_time("Step 3 took ")
   
+  ###############################################################################
+  #Process data: step 4
+  ###############################################################################
   
   data_improved2 = data_improved1 %>%
     
@@ -409,7 +407,7 @@ for (i in row.names(sample_info)){
     filter(SATAG_1_1 != "XA") %>%
     filter(SATAG_2_1 != "XA") %>%
     
-    #calculate read span length. This is basically equal to read length, plus deletionlength within an alignment.
+    #calculate read span length. This is basically equal to read length, plus deletion length within an alignment.
     rowwise() %>%
     mutate(READ_SPAN = sum(as.integer(CIGAR_1_N))) %>%
     
@@ -511,6 +509,12 @@ for (i in row.names(sample_info)){
       )
     ) %>%
     mutate(READ_SPAN_MINUS_I = as.integer(READ_SPAN - (POS2_I + POS3_I + POS4_I + POS5_I + POS6_I + POS7_I)))
+  
+  function_time("Step 4 took ")
+  
+  ###############################################################################
+  #Process data: step 5
+  ###############################################################################
   
   data_improved3 = data_improved2 %>%
     
@@ -688,6 +692,12 @@ for (i in row.names(sample_info)){
       "NOT_FOUND"
     }) %>%
     ungroup()
+  
+  function_time("Step 5 took ")
+  
+  ###############################################################################
+  #Process data: step 6
+  ###############################################################################
   
   data_improved4 = data_improved3 %>%
     
@@ -911,6 +921,12 @@ for (i in row.names(sample_info)){
     ) %>%
     ungroup()
   
+  function_time("Step 6 took ")
+  
+  ###############################################################################
+  #Process data: step 7
+  ###############################################################################
+  
   data_improved5 = data_improved4 %>%
     
     #test whether B flanks from read and mate are mapped to same chromosome
@@ -930,11 +946,10 @@ for (i in row.names(sample_info)){
       FLANK_B_ORIENT,
       FLANK_B_CHROM,
       FILE_NAME,
-      AvgBaseQual_1_Max,
+      AvgBaseQual_1,
       MATE_FLANK_B_CHROM_AGREE,
-      NrOpticalDuplicates,
       SEQ_2,
-      QNAME_1st,
+      QNAME,
       SEQ_1_LEN,
       FLANK_A_START_POS,
       hasPROBLEM,
@@ -961,6 +976,12 @@ for (i in row.names(sample_info)){
         TRUE ~ ERROR_NUMBER
       )
     ) %>% ungroup()
+  
+  function_time("Step 7 took ")
+  
+  ###############################################################################
+  #Process data: step 8
+  ###############################################################################
   
   data_improved6 = data_improved5 %>%
     rowwise() %>%
@@ -1063,6 +1084,12 @@ for (i in row.names(sample_info)){
                                      FLANK_B_START_POS_DEL-(FLANK_B_END_POS-1))) %>%
     ungroup()
   
+  function_time("Step 8 took ")
+  
+  ###############################################################################
+  #Process data: step 9
+  ###############################################################################
+  
   data_improved7 = data_improved6 %>%
     rowwise() %>%
     
@@ -1122,6 +1149,11 @@ for (i in row.names(sample_info)){
         FALSE
       })
   
+  function_time("Step 9 took ")
+  
+  ###############################################################################
+  #Process data: step 10
+  ###############################################################################
   
   data_improved8 = data_improved7 %>%
     
@@ -1222,7 +1254,7 @@ for (i in row.names(sample_info)){
     #filter(hasPROBLEM == FALSE) %>%
     
     #sort the rows in order to have the ones with the highest base quality at the top
-    arrange(desc(SEQ_1_LEN), desc(AvgBaseQual_1_Max)) %>%
+    arrange(desc(SEQ_1_LEN), desc(AvgBaseQual_1)) %>%
     
     #calculate the number of events
     group_by(
@@ -1249,9 +1281,9 @@ for (i in row.names(sample_info)){
       TRIM_LEN
     ) %>%
     summarize(
-      countEvents = sum(NrOpticalDuplicates),
-      Max_BaseQual_1 = max(AvgBaseQual_1_Max),
-      QNAME_first = first(QNAME_1st),
+      countEvents = n(),
+      Max_BaseQual_1 = max(AvgBaseQual_1),
+      QNAME_first = first(QNAME),
       SEQ_1_first = first(SEQ_1),
       SEQ_2_first = first(SEQ_2)
     ) %>%
@@ -1307,10 +1339,20 @@ for (i in row.names(sample_info)){
     #rename column for SIQplotter
     rename(Alias = FILE_NAME)
   
+  function_time("Step 10 took ")
+  
+  ###############################################################################
+  #Process data: step 11
+  ###############################################################################
   
   #calucate the fraction of duplicates compared to total
   data_improved9 = data_improved8 %>% group_by(Alias, PRIMER_SEQ) %>% summarize(SumCountEvents =
                                                                                   sum(countEvents))
+  function_time("Step 11 took ")
+  
+  ###############################################################################
+  #Process data: step 12
+  ###############################################################################
   
   data_improved10 = left_join(data_improved8, data_improved9, by = c("Alias", "PRIMER_SEQ")) %>%
     mutate(fraction = countEvents / SumCountEvents) %>%
@@ -1336,6 +1378,8 @@ for (i in row.names(sample_info)){
   addWorksheet(work_book, "rawData")
   writeData(work_book, sheet = 1, data_improved10)
   saveWorkbook(work_book, file = paste0(output_dir, Sample, "_", RunID, "_CISGUIDE_V_", hash_little, ".xlsx"), overwrite = TRUE)
+  
+  function_time("Step 12 took ")
   
 }
 

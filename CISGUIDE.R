@@ -17,10 +17,9 @@ hash=system("git rev-parse HEAD", intern=TRUE)
 hash_little=substr(hash, 1, 8)
 NF_NUMBER = as.integer(-99999999) #don't change
 ERROR_NUMBER = as.integer(99999999) #don't change
-MINLEN = as.integer(90) #minimum length of a read
 MINBASEQUAL = 0.75 #minimum base quality
 MAX_DIST_FLANK_B_END = 10000 #distance from end of flank B to DSB, determines max deletion size and also affects maximum insertion size
-FLANK_B_LEN_MIN = 15 #minimum length of flank B
+FLANK_B_LEN_MIN = 15 #minimum length of flank B. Also affects size of DSB_AREA_SEQ (2x FLANK_B_LEN_MIN)
 LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick to determine locus info
 sample_info = read.csv(paste0(input_dir, "Sample_information.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
 TIME_START=as.numeric(Sys.time())*1000
@@ -103,9 +102,9 @@ for (i in row.names(sample_info)){
 
   
   DSB_AREA_SEQ = (if (FLANK_A_ORIENT == "FW"){
-    substr(contig_seq, start= FlankAUltEnd - 14, stop= FlankAUltEnd + 15)
+    substr(contig_seq, start= FlankAUltEnd - (FLANK_B_LEN_MIN-1), stop= FlankAUltEnd + FLANK_B_LEN_MIN)
   }else if (FLANK_A_ORIENT == "RV"){
-    as.character(reverseComplement(DNAString(substr(contig_seq, start= FlankAUltEnd - 15, stop= FlankAUltEnd + 14))))
+    as.character(reverseComplement(DNAString(substr(contig_seq, start= FlankAUltEnd - FLANK_B_LEN_MIN, stop= FlankAUltEnd + (FLANK_B_LEN_MIN-1)))))
   }else{
     ""
   })
@@ -135,7 +134,7 @@ for (i in row.names(sample_info)){
   }else{
     next
   }
-  
+  #calculate the length from primer to DSB
   PRIMER_TO_DSB = if (FLANK_A_ORIENT == "FW"){
     FlankAUltEnd - (Primer_pos -1)
   }else if (FLANK_A_ORIENT=="RV"){
@@ -143,7 +142,9 @@ for (i in row.names(sample_info)){
   }else{
     ERROR_NUMBER
   }
-  
+  #set the minimum length of a read
+  MINLEN = PRIMER_TO_DSB+FLANK_B_LEN_MIN
+
   #get the REF seq for flank A. from primer start to DSB +3 if RV primer, not if FW primer. Because CAS9 can cut further away from the PAM, but not closer. So the FLANK_A_REF is going as far as FLANK A is allowed to go.
   FLANK_A_REF = if (FLANK_A_ORIENT == "FW"){
     substr(contig_seq, start= Primer_pos, stop= FlankAUltEnd)
@@ -172,7 +173,7 @@ for (i in row.names(sample_info)){
   
   data_improved  = data %>%
     
-    #filter(QNAME == "M02948:227:000000000-KHF2C:1:1102:19902:23404") %>%
+    #filter(QNAME == "A00379:290:HM7LNDSXY:4:1101:9959:19680") %>%
     
     #Count number of Ns and remove any reads with Ns
     rowwise() %>%
@@ -708,13 +709,18 @@ for (i in row.names(sample_info)){
     #Search SEQ_1 for a sequence surrounding the DSB (meaning the cut has not been made or repaired perfectly)
     #search with allowing 1bp mismatch, but give different output whether the match is perfect or not
 
+    #change something to allow for the case where the DSB area match extends beyond the read..
+  
     data_improved4 = data_improved3 %>%
     
     rowwise() %>%
     mutate(DSB_AREA_CHECK = list(matchPattern(DNAString(DSB_AREA_SEQ), DNAString(SEQ_1), max.mismatch = 1))) %>%
     mutate(DSB_AREA_COUNT = length(DSB_AREA_CHECK@ranges)) %>%
     mutate(DSB_AREA_HIT = if(DSB_AREA_COUNT>0){
-      as.character(DSB_AREA_CHECK[[1]])
+      if (SEQ_1_LEN >= (DSB_AREA_CHECK@ranges@start+DSB_AREA_CHECK@ranges@width-1)){
+      as.character(DSB_AREA_CHECK[[1]])}else{
+        ""
+      }
     }else{
       ""
     } ) %>%

@@ -57,6 +57,7 @@ function_time <-function(text){
   message(paste0(text, (TIME_CURRENT - TIME_START), " milliseconds"))
   TIME_START<<-as.numeric(Sys.time())*1000
 }
+
 ###############################################################################
 #Process data: step 1
 ###############################################################################
@@ -704,16 +705,24 @@ for (i in row.names(sample_info)){
   #Process data: step 6
   ###############################################################################
   
-  data_improved4 = data_improved3 %>%
+    #Search SEQ_1 for a sequence surrounding the DSB (meaning the cut has not been made or repaired perfectly)
+    #search with allowing 1bp mismatch, but give different output whether the match is perfect or not
+
+    data_improved4 = data_improved3 %>%
     
-    #search the SEQ_1 sequence for an intact sequence surrounding the DSB. Then do the same but allow 1 mismatch
     rowwise() %>%
-    mutate(DSB_AREA_INTACT = if_else(
-      length(matchPattern(DNAString(DSB_AREA_SEQ), DNAString(SEQ_1), max.mismatch = 0)) > 0,
-      "TRUE",
-      "FALSE"))%>%
+    mutate(DSB_AREA_CHECK = list(matchPattern(DNAString(DSB_AREA_SEQ), DNAString(SEQ_1), max.mismatch = 1))) %>%
+    mutate(DSB_AREA_COUNT = length(DSB_AREA_CHECK@ranges)) %>%
+    mutate(DSB_AREA_HIT = if(DSB_AREA_COUNT>0){
+      as.character(DSB_AREA_CHECK[[1]])
+    }else{
+      ""
+    } ) %>%
+    mutate(DSB_AREA_INTACT = if_else(DSB_AREA_HIT == DSB_AREA_SEQ,
+          "TRUE",
+           "FALSE"))%>%
     mutate(DSB_AREA_1MM = if_else(
-      length(matchPattern(DNAString(DSB_AREA_SEQ), DNAString(SEQ_1), max.mismatch = 1)) > 0 & DSB_AREA_INTACT==FALSE,
+      DSB_AREA_INTACT == FALSE & DSB_AREA_COUNT>0,
       "TRUE",
       "FALSE")) %>%
     mutate(CASE_WT = if_else((

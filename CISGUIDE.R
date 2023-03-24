@@ -23,6 +23,7 @@ FLANK_B_LEN_MIN = 15 #minimum length of flank B. Also affects size of DSB_AREA_S
 LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick to determine locus info
 sample_info = read.csv(paste0(input_dir, "Sample_information.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
 TIME_START=as.numeric(Sys.time())*1000
+DEBUG=FALSE #if on, reads will not be discarded when a problem has been detected, but flagged.
 
 ###############################################################################
 #Functions
@@ -706,36 +707,8 @@ for (i in row.names(sample_info)){
   #Process data: step 6
   ###############################################################################
   
-    #Search SEQ_1 for a sequence surrounding the DSB (meaning the cut has not been made or repaired perfectly)
-    #search with allowing 1bp mismatch, but give different output whether the match is perfect or not
-
-    #change something to allow for the case where the DSB area match extends beyond the read..
+     data_improved4 = data_improved3 %>%
   
-    data_improved4 = data_improved3 %>%
-    
-    rowwise() %>%
-    mutate(DSB_AREA_CHECK = list(matchPattern(DNAString(DSB_AREA_SEQ), DNAString(SEQ_1), max.mismatch = 1))) %>%
-    mutate(DSB_AREA_COUNT = length(DSB_AREA_CHECK@ranges)) %>%
-    mutate(DSB_AREA_HIT = if(DSB_AREA_COUNT>0){
-      if (SEQ_1_LEN >= (DSB_AREA_CHECK@ranges@start+DSB_AREA_CHECK@ranges@width-1)){
-      as.character(DSB_AREA_CHECK[[1]])}else{
-        ""
-      }
-    }else{
-      ""
-    } ) %>%
-    mutate(DSB_AREA_INTACT = if_else(DSB_AREA_HIT == DSB_AREA_SEQ,
-          "TRUE",
-           "FALSE"))%>%
-    mutate(DSB_AREA_1MM = if_else(
-      DSB_AREA_INTACT == FALSE & DSB_AREA_COUNT>0,
-      "TRUE",
-      "FALSE")) %>%
-    mutate(CASE_WT = if_else((
-      DSB_AREA_INTACT==TRUE | DSB_AREA_1MM==TRUE),
-      TRUE,
-      FALSE))%>%
-    
     #Determine the chromosome the B flank of the mate is mapped to
     mutate(
       MATE_FLANK_B_CHROM = (case_when(
@@ -939,7 +912,11 @@ for (i in row.names(sample_info)){
         TRUE ~ "ERROR"
       ))
     ) %>%
-    ungroup()
+    ungroup()%>%
+    #test whether B flanks from read and mate are mapped to same chromosome
+    mutate(MATE_FLANK_B_CHROM_AGREE = if_else(FLANK_B_CHROM == MATE_FLANK_B_CHROM,
+                                              TRUE,
+                                              FALSE))
   
   function_time("Step 6 took ")
   
@@ -947,12 +924,36 @@ for (i in row.names(sample_info)){
   #Process data: step 7
   ###############################################################################
   
-  data_improved5 = data_improved4 %>%
+  #remove rows where the chromosome of flank B as determined with read1 does not agree with read2
+  if(DEBUG==FALSE){
+    data_improved5 = data_improved4 %>% filter(MATE_FLANK_B_CHROM_AGREE == TRUE)
+  }else{
+    data_improved5 = data_improved4
+  }
+
+  data_improved5b = data_improved5 %>%
     
-    #test whether B flanks from read and mate are mapped to same chromosome
-    mutate(MATE_FLANK_B_CHROM_AGREE = if_else(FLANK_B_CHROM == MATE_FLANK_B_CHROM,
-                                              TRUE,
-                                              FALSE)) %>%
+    #Search SEQ_1 for a sequence surrounding the DSB (meaning the cut has not been made or repaired perfectly)
+    #search with allowing 1bp mismatch, but give different output whether the match is perfect or not
+    rowwise() %>%
+    mutate(DSB_AREA_CHECK = list(matchPattern(DNAString(DSB_AREA_SEQ), DNAString(SEQ_1), max.mismatch = 1))) %>%
+    mutate(DSB_AREA_COUNT = length(DSB_AREA_CHECK@ranges)) %>%
+    mutate(DSB_AREA_HIT = if(DSB_AREA_COUNT>0){
+      if (SEQ_1_LEN >= (DSB_AREA_CHECK@ranges@start+DSB_AREA_CHECK@ranges@width-1)){
+        as.character(DSB_AREA_CHECK[[1]])}else{""}
+    }else{""} ) %>%
+    mutate(DSB_AREA_INTACT = if_else(DSB_AREA_HIT == DSB_AREA_SEQ,
+                                     "TRUE",
+                                     "FALSE"))%>%
+    mutate(DSB_AREA_1MM = if_else(
+      DSB_AREA_INTACT == FALSE & DSB_AREA_COUNT>0,
+      "TRUE",
+      "FALSE")) %>%
+    mutate(CASE_WT = if_else((
+      DSB_AREA_INTACT==TRUE | DSB_AREA_1MM==TRUE),
+      TRUE,
+      FALSE))%>%
+    
     #select only columns that are used from now to save space
     select(
       PRIMER_SEQ,
@@ -1003,7 +1004,7 @@ for (i in row.names(sample_info)){
   #Process data: step 8
   ###############################################################################
   
-  data_improved6 = data_improved5 %>%
+  data_improved6 = data_improved5b %>%
     rowwise() %>%
     #FLANK_B_REF. This ref includes homology.
     mutate(FLANK_B_REF =
@@ -1174,9 +1175,7 @@ for (i in row.names(sample_info)){
   ###############################################################################
   
   data_improved8 = data_improved7 %>%
-    
-    
-    
+  
     #then apply a fix when the DSB is not set at 0, but when the total deletion length is 0. Also change the names for SIQPlotter. Also set the deletion length to 0 if the deletion length is negative, but the DSB is not allowed to occur downstream
     mutate(
       delRelativeStart = case_when(delSize == 0 & insSize == 0 ~ as.integer(0),
@@ -1268,9 +1267,15 @@ for (i in row.names(sample_info)){
         TRUE,
         as.logical(hasPROBLEM)
       )
-    ) %>%
-    #filter(hasPROBLEM == FALSE) %>%
+    ) 
+    #remove rows with problems
+    if(DEBUG==FALSE){
+      data_improved8b = data_improved8 %>% filter(hasPROBLEM == FALSE)
+    }else{
+      data_improved8b = data_improved8
+    }
     
+    data_improved8c=data_improved8b %>%
     #sort the rows in order to have the ones with the highest base quality at the top
     arrange(desc(SEQ_1_LEN), desc(AvgBaseQual_1)) %>%
     
@@ -1363,8 +1368,8 @@ for (i in row.names(sample_info)){
   #Process data: step 11
   ###############################################################################
   
-  #calucate the fraction of duplicates compared to total
-  data_improved9 = data_improved8 %>% group_by(Alias, PRIMER_SEQ) %>% summarize(SumCountEvents =
+  #calculate the fraction of reads with the same outcomes
+  data_improved9 = data_improved8c %>% group_by(Alias, PRIMER_SEQ) %>% summarize(SumCountEvents =
                                                                                   sum(countEvents))
   function_time("Step 11 took ")
   
@@ -1372,7 +1377,7 @@ for (i in row.names(sample_info)){
   #Process data: step 12
   ###############################################################################
   
-  data_improved10 = left_join(data_improved8, data_improved9, by = c("Alias", "PRIMER_SEQ")) %>%
+  data_improved10 = left_join(data_improved8c, data_improved9, by = c("Alias", "PRIMER_SEQ")) %>%
     mutate(fraction = countEvents / SumCountEvents) %>%
     mutate(SumCountEvents = NULL,
            FlankAUltEnd = FlankAUltEnd,

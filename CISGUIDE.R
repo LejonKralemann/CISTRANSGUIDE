@@ -708,7 +708,7 @@ for (i in row.names(sample_info)){
   ###############################################################################
   
      data_improved4 = data_improved3 %>%
-  
+    
     #Determine the chromosome the B flank of the mate is mapped to
     mutate(
       MATE_FLANK_B_CHROM = (case_when(
@@ -912,7 +912,6 @@ for (i in row.names(sample_info)){
         TRUE ~ "ERROR"
       ))
     ) %>%
-    ungroup()%>%
     #test whether B flanks from read and mate are mapped to same chromosome
     mutate(MATE_FLANK_B_CHROM_AGREE = if_else(FLANK_B_CHROM == MATE_FLANK_B_CHROM,
                                               TRUE,
@@ -942,6 +941,7 @@ for (i in row.names(sample_info)){
       if (SEQ_1_LEN >= (DSB_AREA_CHECK@ranges@start+DSB_AREA_CHECK@ranges@width-1)){
         as.character(DSB_AREA_CHECK[[1]])}else{""}
     }else{""} ) %>%
+    ungroup()%>%
     mutate(DSB_AREA_INTACT = if_else(DSB_AREA_HIT == DSB_AREA_SEQ,
                                      "TRUE",
                                      "FALSE"))%>%
@@ -952,8 +952,8 @@ for (i in row.names(sample_info)){
     mutate(CASE_WT = if_else((
       DSB_AREA_INTACT==TRUE | DSB_AREA_1MM==TRUE),
       TRUE,
-      FALSE))%>%
-    
+      FALSE)) %>%
+  
     #select only columns that are used from now to save space
     select(
       PRIMER_SEQ,
@@ -978,17 +978,21 @@ for (i in row.names(sample_info)){
       TRIM_LEN
     ) %>%
     
-    rowwise() %>%
+    
     mutate(FLANK_A_REF_LEN = as.integer(nchar(FLANK_A_REF))) %>%
     
+    
     #Find how much SEQ_1 matches with FLANK_A_REF. Allow 1 bp mismatch somewhere, if the alignment after that continues for at least another 10 bp.
+    rowwise() %>%
     mutate(FLANK_A_MATCH = matcher_skipper(FLANK_A_REF, SEQ_1)) %>%
+    ungroup() %>%
     mutate(FLANK_A_LEN = nchar(FLANK_A_MATCH)) %>%
+    rowwise() %>%
     mutate(FLANK_A_END_POS = if_else(FLANK_A_ORIENT == "FW",
                                      FLANK_A_START_POS + (FLANK_A_LEN -1),
                                      FLANK_A_START_POS - (FLANK_A_LEN -1))) %>%
     mutate(SEQ_1_WO_A = substr(SEQ_1, start = FLANK_A_LEN + 1, stop = SEQ_1_LEN)) %>%
-    
+    ungroup() %>%
     #calculate FLANK A DEL length
     mutate(
       FLANK_A_DEL = case_when(
@@ -996,7 +1000,7 @@ for (i in row.names(sample_info)){
         CASE_WT != TRUE & FLANK_A_LEN != ERROR_NUMBER & FLANK_A_LEN != NF_NUMBER ~ as.integer(PRIMER_TO_DSB - FLANK_A_LEN),
         TRUE ~ ERROR_NUMBER
       )
-    ) %>% ungroup()
+    ) 
   
   function_time("Step 7 took ")
   
@@ -1005,8 +1009,8 @@ for (i in row.names(sample_info)){
   ###############################################################################
   
   data_improved6 = data_improved5b %>%
-    rowwise() %>%
     #FLANK_B_REF. This ref includes homology.
+    rowwise() %>%
     mutate(FLANK_B_REF =
              if (FLANK_B_CHROM == "NOT_FOUND" | FLANK_B_START_POS == ERROR_NUMBER | FLANK_B_END_POS == ERROR_NUMBER | CASE_WT == TRUE) {
                "NA"
@@ -1023,20 +1027,21 @@ for (i in row.names(sample_info)){
              }) %>%
     mutate(FLANK_B_MATCH = if (FLANK_B_REF != "NA"){stri_reverse(matcher_skipper(stri_reverse(FLANK_B_REF), stri_reverse(SEQ_1)))
     }else{""}) %>%
-    
+    ungroup() %>%
     mutate(FLANK_B_MATCH_LEN = nchar(FLANK_B_MATCH)) %>% 
-    
+    rowwise() %>%
     mutate(NO_MATCH = if_else(FLANK_B_MATCH_LEN == 0 & FLANK_B_REF != "NA",
                               TRUE,
                               FALSE)) %>%
     
-    
+    ungroup() %>%
     mutate(
       hasPROBLEM = if_else(NO_MATCH == FALSE,
                            as.logical(hasPROBLEM),
                            TRUE)) %>%
     
     #flank b start position including MH
+    rowwise() %>%
     mutate(FLANK_B_START_POS_MH = if (FLANK_B_REF != "NA"){
       if (FLANK_B_ORIENT == "FW"){
         FLANK_B_END_POS-(FLANK_B_MATCH_LEN-1)

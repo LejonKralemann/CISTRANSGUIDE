@@ -174,20 +174,17 @@ for (i in row.names(sample_info)){
   
   data_improved  = data %>%
     
-    #filter(QNAME == "A00379:290:HM7LNDSXY:4:1101:9959:19680") %>%
+    #filter(QNAME == "A00379:701:H2YJWDSX5:4:1621:18954:20635") %>%
     
     #Count number of Ns and remove any reads with Ns
-    rowwise() %>%
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
            SEQ_1_LEN = nchar(SEQ_1)) %>%
-    ungroup() %>%
     filter(NrN < 1) %>%
     
     #filter away reads that are too short
     filter(!(SEQ_1_LEN < MINLEN)) %>%
     
     #calculate the average base quality, and filter away low quality reads
-    rowwise() %>%
     mutate(AvgBaseQual_1 =   ((
       (str_count(QUAL_1, pattern = '\\"') * 1) +
         (str_count(QUAL_1, pattern = "#") * 2) +
@@ -231,7 +228,6 @@ for (i in row.names(sample_info)){
         (str_count(QUAL_1, pattern = "I") * 40)
     ) / (40 * nchar(QUAL_1))
     )) %>%
-    ungroup() %>%
     filter(AvgBaseQual_1 > MINBASEQUAL)
   
   function_time("Step 2 took ")
@@ -264,11 +260,7 @@ for (i in row.names(sample_info)){
       DEDUP_METHOD,
       TRIM_LEN
     ) %>%
-    rowwise() %>%
-    mutate(RNAME_1 = as.character(RNAME_1))%>%
-    mutate(RNAME_2 = as.character(RNAME_2))%>%
-    ungroup() %>%
-    
+
     #check for expected position and orientation base on primer seqs
     mutate(
       FLANK_A_START_POS = Primer_pos
@@ -516,7 +508,8 @@ for (i in row.names(sample_info)){
         TRUE ~ as.integer(0)
       )
     ) %>%
-    mutate(READ_SPAN_MINUS_I = as.integer(READ_SPAN - (POS2_I + POS3_I + POS4_I + POS5_I + POS6_I + POS7_I)))
+    mutate(READ_SPAN_MINUS_I = as.integer(READ_SPAN - (POS2_I + POS3_I + POS4_I + POS5_I + POS6_I + POS7_I)))%>%
+    ungroup()
   
   function_time("Step 4 took ")
   
@@ -527,7 +520,7 @@ for (i in row.names(sample_info)){
   data_improved3 = data_improved2 %>%
     
     #calculate the end position of the B flank, in order to get the ref seq. This is the end the furthest away from the junction.
-    
+    rowwise()%>%
     mutate(
       FLANK_B_END_POS = case_when(
         CIGAR_1_LEN == 1 & SEQ_RCed_1 == TRUE ~ POS_1,
@@ -708,7 +701,7 @@ for (i in row.names(sample_info)){
   ###############################################################################
   
      data_improved4 = data_improved3 %>%
-    
+    rowwise()%>%
     #Determine the chromosome the B flank of the mate is mapped to
     mutate(
       MATE_FLANK_B_CHROM = (case_when(
@@ -912,11 +905,12 @@ for (i in row.names(sample_info)){
         TRUE ~ "ERROR"
       ))
     ) %>%
+    ungroup()%>%
     #test whether B flanks from read and mate are mapped to same chromosome
     mutate(MATE_FLANK_B_CHROM_AGREE = if_else(FLANK_B_CHROM == MATE_FLANK_B_CHROM,
                                               TRUE,
                                               FALSE))
-  
+
   function_time("Step 6 took ")
   
   ###############################################################################
@@ -991,6 +985,7 @@ for (i in row.names(sample_info)){
     mutate(FLANK_A_END_POS = if_else(FLANK_A_ORIENT == "FW",
                                      FLANK_A_START_POS + (FLANK_A_LEN -1),
                                      FLANK_A_START_POS - (FLANK_A_LEN -1))) %>%
+    
     mutate(SEQ_1_WO_A = substr(SEQ_1, start = FLANK_A_LEN + 1, stop = SEQ_1_LEN)) %>%
     ungroup() %>%
     #calculate FLANK A DEL length

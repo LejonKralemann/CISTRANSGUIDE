@@ -174,7 +174,7 @@ for (i in row.names(sample_info)){
   
   data_improved  = data %>%
     
-    #filter(QNAME == "A00379:701:H2YJWDSX5:4:1621:18954:20635") %>%
+    #filter(QNAME == "A00379:701:H2YJWDSX5:4:1264:30481:22122") %>%
     
     #Count number of Ns and remove any reads with Ns
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
@@ -228,19 +228,8 @@ for (i in row.names(sample_info)){
         (str_count(QUAL_1, pattern = "I") * 40)
     ) / (40 * nchar(QUAL_1))
     )) %>%
-    filter(AvgBaseQual_1 > MINBASEQUAL)
-  
-  function_time("Step 2 took ")
-  
-  ###############################################################################
-  #Process data: step 3
-  ###############################################################################
-  
-  data_improved1 = data_improved %>%
-    
-    #select informative columns
-    select(
-      QNAME,
+    filter(AvgBaseQual_1 > MINBASEQUAL)%>%
+    group_by(
       RNAME_1,
       POS_1,
       CIGAR_1,
@@ -252,15 +241,25 @@ for (i in row.names(sample_info)){
       CIGAR_2,
       SATAG_2,
       SEQ_RCed_2,
-      SEQ_2,
       FILE_NAME,
       PRIMER_SEQ,
-      AvgBaseQual_1,
       SEQ_1_LEN,
       DEDUP_METHOD,
-      TRIM_LEN
-    ) %>%
-
+      TRIM_LEN) %>%
+    summarize(
+      countEvents_init = n(),
+      Max_BaseQual_1 = max(AvgBaseQual_1),
+      QNAME_first = first(QNAME),
+      SEQ_2_first = first(SEQ_2))
+  
+  function_time("Step 2 took ")
+  
+  ###############################################################################
+  #Process data: step 3
+  ###############################################################################
+  
+  data_improved1 = data_improved %>%
+    
     #check for expected position and orientation base on primer seqs
     mutate(
       FLANK_A_START_POS = Primer_pos
@@ -961,15 +960,16 @@ for (i in row.names(sample_info)){
       FLANK_B_ORIENT,
       FLANK_B_CHROM,
       FILE_NAME,
-      AvgBaseQual_1,
+      Max_BaseQual_1,
       MATE_FLANK_B_CHROM_AGREE,
-      SEQ_2,
-      QNAME,
+      SEQ_2_first,
+      QNAME_first,
       SEQ_1_LEN,
       FLANK_A_START_POS,
       hasPROBLEM,
       DEDUP_METHOD,
-      TRIM_LEN
+      TRIM_LEN,
+      countEvents_init
     ) %>%
     
     
@@ -1277,7 +1277,7 @@ for (i in row.names(sample_info)){
     
     data_improved8c=data_improved8b %>%
     #sort the rows in order to have the ones with the highest base quality at the top
-    arrange(desc(SEQ_1_LEN), desc(AvgBaseQual_1)) %>%
+    arrange(desc(SEQ_1_LEN), desc(Max_BaseQual_1)) %>%
     
     #calculate the number of events
     group_by(
@@ -1304,11 +1304,11 @@ for (i in row.names(sample_info)){
       TRIM_LEN
     ) %>%
     summarize(
-      countEvents = n(),
-      Max_BaseQual_1 = max(AvgBaseQual_1),
-      QNAME_first = first(QNAME),
+      countEvents = sum(countEvents_init),
+      Max_BaseQual_1_max = max(Max_BaseQual_1),
+      QNAME_first_first = first(QNAME_first),
       SEQ_1_first = first(SEQ_1),
-      SEQ_2_first = first(SEQ_2)
+      SEQ_2_first_first = first(SEQ_2_first)
     ) %>%
     
     #Add a subject and type column. Also add two extra columns for SIQplotter that are equal to the other del columns.
@@ -1327,7 +1327,7 @@ for (i in row.names(sample_info)){
     
     #select the most important columns
     select(
-      QNAME_first,
+      QNAME_first_first,
       FILE_NAME,
       PRIMER_SEQ,
       delRelativeStart,
@@ -1349,9 +1349,9 @@ for (i in row.names(sample_info)){
       delSize,
       Type,
       Subject,
-      Max_BaseQual_1,
+      Max_BaseQual_1_max,
       SEQ_1_first,
-      SEQ_2_first,
+      SEQ_2_first_first,
       DSB_AREA_INTACT,
       DSB_AREA_1MM,
       hasPROBLEM,

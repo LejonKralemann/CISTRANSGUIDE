@@ -197,11 +197,11 @@ else
 fi
 done
 
-#get the list of samples
-readarray -t LIST_SAMPLES  < <(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" 'FNR>1{print $3}' | sort | uniq) 
-echo "Processing the following samples:" ${LIST_SAMPLES[*]}
+#get the list of files to process
+readarray -t LIST_FILES  < <(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" 'FNR>1{print $3}' | sort | uniq) 
+echo "Processing the following files:" ${LIST_FILES[*]}
 
-> ${WORKPATH}/file0.temp | awk -v OFS="\t" -v FS="\t" 'BEGIN {print "Sample", "RunID", "Raw read count", "dedupped count", "mapped count", "preprocessed count"}' > ${WORKPATH}/stats/read_numbers.txt
+> ${WORKPATH}/file0.temp | awk -v OFS="\t" -v FS="\t" 'BEGIN {print "Sample", "RunID", "File", "Subject", "Type", "Reads"}' > ${WORKPATH}/stats/read_numbers.txt
 
 ################################################################################################################
 #FASTA mode: read samples, check refs and directories
@@ -210,7 +210,7 @@ echo "Processing the following samples:" ${LIST_SAMPLES[*]}
 if [[ ${FASTASWITCH} = TRUE ]]
 then
 	echo "Analysing samples in fasta mode";
-	for i in "${LIST_SAMPLES[@]}" 
+	for i in "${LIST_FILES[@]}" 
 	do
 	
 	CURRENTSAMPLE=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $1}}')
@@ -575,8 +575,11 @@ then
 
 done
 else
-	echo "Analysing samples in regular fastq mode"
-for i in "${LIST_SAMPLES[@]}" 
+################################################################################################################
+#FASTQ_mode
+################################################################################################################
+echo "Analysing files in regular fastq mode"
+for i in "${LIST_FILES[@]}" 
 do
 ################################################################################################################
 #FASTQ_mode: Reading variables
@@ -602,6 +605,8 @@ else
 fi
 CURRENTRUNID=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $16}}')
 echo "Current Run ID: ${CURRENTRUNID}"
+FOCUSLOCUS=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $10}}')
+echo "Current focus locus: ${FOCUSLOCUS}"
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 
@@ -821,14 +826,28 @@ echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 echo "Counting reads of ${CURRENTSAMPLE} ${CURRENTRUNID}"
 RAWNO=$(( $(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}${CURRENTR1SUFFIX}.fastq | wc -l)/4 )) 
 echo "RAWNO: ${RAWNO}"
-#change below so that this becomes RAWNO when duplicate filtering is turned off.
-DEDUPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/dedup_names.txt  | wc -l)
+cat ${WORKPATH}/stats/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTFILE="${i}" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v CURRENTRUNID="${CURRENTRUNID}" -v RAWNO="${RAWNO}" -v FOCUSLOCUS="${FOCUSLOCUS}" ' END{print CURRENTSAMPLE, CURRENTRUNID, CURRENTFILE, FOCUSLOCUS, "Raw", RAWNO}' >> ${WORKPATH}/stats/read_numbers.txt
+
+case $DEDUPOPT in
+	UMI|OPT) 
+		DEDUPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/dedup_names.txt  | wc -l)
+		;;
+	*) 	
+		DEDUPNO=RAWNO
+		;;
+esac
 echo "DEDUPNO: ${DEDUPNO}"
+cat ${WORKPATH}/stats/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTFILE="${i}" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v CURRENTRUNID="${CURRENTRUNID}" -v DEDUPNO="${DEDUPNO}" -v FOCUSLOCUS="${FOCUSLOCUS}" ' END{print CURRENTSAMPLE, CURRENTRUNID, CURRENTFILE, FOCUSLOCUS, "Dedupped", DEDUPNO}' >> ${WORKPATH}/stats/read_numbers.txt
+
 MAPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}.sam | grep -Ev '^(\@)' | awk '$3 != "*" {print $0}' | sort -u -t$'\t' -k1,1 | wc -l)
 echo "MAPNO: ${MAPNO}"
+cat ${WORKPATH}/stats/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTFILE="${i}" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v CURRENTRUNID="${CURRENTRUNID}" -v MAPNO="${MAPNO}" -v FOCUSLOCUS="${FOCUSLOCUS}" ' END{print CURRENTSAMPLE, CURRENTRUNID, CURRENTFILE, FOCUSLOCUS, "Mapped", MAPNO}' >> ${WORKPATH}/stats/read_numbers.txt
+
 PREPRONO=$(( $(cat ${WORKPATH}/input/${CURRENTSAMPLE}_${CURRENTRUNID}_A.txt | wc -l)-1 ))
 echo "PREPRONO: ${PREPRONO}"
-cat ${WORKPATH}/stats/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v CURRENTRUNID="${CURRENTRUNID}" -v RAWNO="${RAWNO}" -v MAPNO="${MAPNO}" -v DEDUPNO="${DEDUPNO}" -v PREPRONO="${PREPRONO}" ' END{print CURRENTSAMPLE, CURRENTRUNID, RAWNO, DEDUPNO, MAPNO, PREPRONO}' >> ${WORKPATH}/stats/read_numbers.txt
+cat ${WORKPATH}/stats/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTFILE="${i}" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v CURRENTRUNID="${CURRENTRUNID}" -v PREPRONO="${PREPRONO}" -v FOCUSLOCUS="${FOCUSLOCUS}" ' END{print CURRENTSAMPLE, CURRENTRUNID, CURRENTFILE, FOCUSLOCUS, "Filtered", PREPRONO}' >> ${WORKPATH}/stats/read_numbers.txt
+
+
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 ################################################################################################################

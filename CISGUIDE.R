@@ -1447,7 +1447,8 @@ saveWorkbook(work_book2, file = paste0(output_dir, "CISGUIDE_V_", hash_little, "
 #Write an additional sheet with read number info
 read_numbers_info = read.csv(paste0(input_dir, "read_numbers.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
 wb_numbers = read_numbers_info %>%
-  
+
+addWorksheet(work_book2, "Information")
 writeData(work_book2, sheet = 2, wb_numbers)
 saveWorkbook(work_book2, file = paste0(output_dir, "CISGUIDE_V_", hash_little, ".xlsx"), overwrite = TRUE)
 

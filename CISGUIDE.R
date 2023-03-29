@@ -393,7 +393,31 @@ for (i in row.names(sample_info)){
       POS_2 = as.integer(POS_2),
       SATAG_2_4 = as.integer(SATAG_2_4),
       SATAG_2_10 = as.integer(SATAG_2_10)
-    )
+    ) %>%
+  
+  #split some columns, keep original columns for now
+    rowwise()%>%
+    mutate(
+    CIGAR_1_L_first_element = head(CIGAR_1_L, 1),
+    CIGAR_1_L_last_element = tail(CIGAR_1_L, 1),
+    SATAG_1_6_L_last_element = tail(SATAG_1_6_L, 1),
+    SATAG_1_6_L_first_element = head(SATAG_1_6_L, 1),
+    CIGAR_1_N_first_element = as.integer(head(CIGAR_1_N, 1)),
+    CIGAR_1_N_last_element = as.integer(tail(CIGAR_1_N, 1)),
+    SATAG_1_6_N_last_element = as.integer(tail(SATAG_1_6_N, 1)),
+    SATAG_1_6_N_first_element = as.integer(head(SATAG_1_6_N, 1)),
+    CIGAR_1_N_second_element = as.integer(tail(head(CIGAR_1_N, 2), 1)),
+    CIGAR_1_L_second_element = tail(head(CIGAR_1_L, 2), 1),
+    CIGAR_2_L_first_element = head(CIGAR_2_L, 1),
+    CIGAR_2_L_last_element = tail(CIGAR_2_L, 1),
+    SATAG_2_6_L_first_element = head(SATAG_2_6_L, 1),
+    SATAG_2_6_L_last_element = tail(SATAG_2_6_L, 1),
+    SATAG_2_12_L_first_element = head(SATAG_2_12_L, n = 1),
+    SATAG_2_12_L_last_element = tail(SATAG_2_12_L, n = 1)
+  )%>%
+    ungroup()
+  
+  
   function_time("Step 3 took ")
   
   ###############################################################################
@@ -409,65 +433,63 @@ for (i in row.names(sample_info)){
     #calculate read span length. This is basically equal to read length, plus deletion length within an alignment.
     rowwise() %>%
     mutate(READ_SPAN = sum(as.integer(CIGAR_1_N))) %>%
+    ungroup() %>%
     
     #determine which chromosome the B flank is aligning to
-    
     mutate(
       FLANK_B_CHROM = (case_when(
         (CIGAR_1_LEN == 1) ~ RNAME_1,
-        (CIGAR_1_LEN > 1 & SEQ_RCed_1 == TRUE & head(CIGAR_1_L, 1) == "M") ~ RNAME_1,
-        (CIGAR_1_LEN > 1 & SEQ_RCed_1 == TRUE  & head(CIGAR_1_L, 1) == "S" & SATAG_1_1 != "SA") ~ "NOT_FOUND",
-        (CIGAR_1_LEN > 1 & SEQ_RCed_1 == FALSE & tail(CIGAR_1_L, 1) == "M") ~ RNAME_1,
-        (CIGAR_1_LEN > 1 & SEQ_RCed_1 == FALSE  & tail(CIGAR_1_L, 1) == "S" & SATAG_1_1 != "SA") ~ "NOT_FOUND",
-        (SEQ_RCed_1 == TRUE & SATAG_1_1 == "SA" & head(CIGAR_1_L, 1) == "S" & tail(SATAG_1_6_L, n = 1) == "M" & SATAG_1_5 == "+") ~ SATAG_1_3,
-        (SEQ_RCed_1 == TRUE & SATAG_1_1 == "SA" & head(CIGAR_1_L, 1) == "S" & tail(SATAG_1_6_L, n = 1) == "S" & SATAG_1_5 == "+" & is.na(SATAG_1_12)) ~ "NOT_FOUND",
+        (CIGAR_1_LEN > 1 & SEQ_RCed_1 == TRUE & CIGAR_1_L_first_element == "M") ~ RNAME_1,
+        (CIGAR_1_LEN > 1 & SEQ_RCed_1 == TRUE  & CIGAR_1_L_first_element == "S" & SATAG_1_1 != "SA") ~ "NOT_FOUND",
+        (CIGAR_1_LEN > 1 & SEQ_RCed_1 == FALSE & CIGAR_1_L_last_element == "M") ~ RNAME_1,
+        (CIGAR_1_LEN > 1 & SEQ_RCed_1 == FALSE  & CIGAR_1_L_last_element == "S" & SATAG_1_1 != "SA") ~ "NOT_FOUND",
+        (SEQ_RCed_1 == TRUE & SATAG_1_1 == "SA" & CIGAR_1_L_first_element == "S" & SATAG_1_6_L_last_element == "M" & SATAG_1_5 == "+") ~ SATAG_1_3,
+        (SEQ_RCed_1 == TRUE & SATAG_1_1 == "SA" & CIGAR_1_L_first_element == "S" & SATAG_1_6_L_last_element == "S" & SATAG_1_5 == "+" & is.na(SATAG_1_12)) ~ "NOT_FOUND",
         (
           SEQ_RCed_1 == TRUE &
             SATAG_1_1 == "SA" &
-            head(CIGAR_1_L, 1) == "S" &
-            head(SATAG_1_6_L, n = 1) == "M" & SATAG_1_5 == "-"
+            CIGAR_1_L_first_element == "S" &
+            SATAG_1_6_L_first_element == "M" & SATAG_1_5 == "-"
         ) ~ SATAG_1_3,
         (
           SEQ_RCed_1 == TRUE &
             SATAG_1_1 == "SA" &
-            head(CIGAR_1_L, 1) == "S" &
-            head(SATAG_1_6_L, n = 1) == "S" &
+            CIGAR_1_L_first_element == "S" &
+            SATAG_1_6_L_first_element == "S" &
             SATAG_1_5 == "-" & is.na(SATAG_1_12)
         ) ~ "NOT_FOUND",
         
         (
           SEQ_RCed_1 == FALSE &
             SATAG_1_1 == "SA" &
-            tail(CIGAR_1_L, 1) == "S" &
-            tail(SATAG_1_6_L, n = 1) == "M" & SATAG_1_5 == "+"
+            CIGAR_1_L_last_element == "S" &
+            SATAG_1_6_L_last_element == "M" & SATAG_1_5 == "+"
         ) ~ SATAG_1_3,
         (
           SEQ_RCed_1 == FALSE &
             SATAG_1_1 == "SA" &
-            tail(CIGAR_1_L, 1) == "S" &
-            tail(SATAG_1_6_L, n = 1) == "S" &
+            CIGAR_1_L_last_element == "S" &
+            SATAG_1_6_L_last_element == "S" &
             SATAG_1_5 == "+" & is.na(SATAG_1_12)
         ) ~ "NOT_FOUND",
         (
           SEQ_RCed_1 == FALSE &
             SATAG_1_1 == "SA" &
-            tail(CIGAR_1_L, 1) == "S" &
-            head(SATAG_1_6_L, n = 1) == "M" & SATAG_1_5 == "-"
+            CIGAR_1_L_last_element == "S" &
+            SATAG_1_6_L_first_element == "M" & SATAG_1_5 == "-"
         ) ~ SATAG_1_3,
         (
           SEQ_RCed_1 == FALSE &
             SATAG_1_1 == "SA" &
-            tail(CIGAR_1_L, 1) == "S" &
-            head(SATAG_1_6_L, n = 1) == "S" &
+            CIGAR_1_L_last_element == "S" &
+            SATAG_1_6_L_first_element == "S" &
             SATAG_1_5 == "-" & is.na(SATAG_1_12)
         ) ~ "NOT_FOUND",
         TRUE ~ "ERROR"
       ))
     ) %>%
-    ungroup() %>%
     
     #mark cases where flank B chrom is not found
-    
     mutate(
       hasPROBLEM = if_else(FLANK_B_CHROM != "NOT_FOUND",
                            FALSE,
@@ -478,7 +500,7 @@ for (i in row.names(sample_info)){
     mutate(
       POS2_I = case_when(
         CIGAR_1_LEN > 2  &
-          tail(head(CIGAR_1_L, 2), 1) == "I" ~ as.integer(tail(head(CIGAR_1_N, 2), 1)),
+          CIGAR_1_L_second_element == "I" ~ CIGAR_1_N_second_element,
         TRUE ~ as.integer(0)
       ),
       POS3_I = case_when(
@@ -519,170 +541,172 @@ for (i in row.names(sample_info)){
   data_improved3 = data_improved2 %>%
     
     #calculate the end position of the B flank, in order to get the ref seq. This is the end the furthest away from the junction.
-    rowwise()%>%
+    
     mutate(
       FLANK_B_END_POS = case_when(
         CIGAR_1_LEN == 1 & SEQ_RCed_1 == TRUE ~ POS_1,
         CIGAR_1_LEN == 1 &
           SEQ_RCed_1 == FALSE ~ as.integer(POS_1 + READ_SPAN_MINUS_I - 1),
-        head(CIGAR_1_L, 1) == "M" &
-          tail(CIGAR_1_L, 1) == "M" & SEQ_RCed_1 == TRUE ~ POS_1,
-        head(CIGAR_1_L, 1) == "M" &
-          tail(CIGAR_1_L, 1) == "M" &
+        CIGAR_1_L_first_element == "M" &
+          CIGAR_1_L_last_element == "M" & SEQ_RCed_1 == TRUE ~ POS_1,
+        CIGAR_1_L_first_element == "M" &
+          CIGAR_1_L_last_element == "M" &
           SEQ_RCed_1 == FALSE ~ as.integer(POS_1 + READ_SPAN_MINUS_I - 1),
         
         CIGAR_1_LEN == 2 &
           SEQ_RCed_1 == TRUE &
-          head(CIGAR_1_L, 1) == "M" & tail(CIGAR_1_L, 1) == "S" ~ POS_1,
+          CIGAR_1_L_first_element == "M" & CIGAR_1_L_last_element == "S" ~ POS_1,
         CIGAR_1_LEN == 2 &
           SEQ_RCed_1 == FALSE &
-          head(CIGAR_1_L, 1) == "S" &
-          tail(CIGAR_1_L, 1) == "M" ~ as.integer(POS_1 + as.integer(tail(CIGAR_1_N, 1)) -1),
+          CIGAR_1_L_first_element == "S" &
+          CIGAR_1_L_last_element == "M" ~ as.integer(POS_1 + CIGAR_1_N_last_element -1),
         
         SEQ_RCed_1 == TRUE &
-          head(CIGAR_1_L, 1) == "S" &
-          tail(CIGAR_1_L, 1) == "M" & SATAG_1_1 != "SA" ~ NF_NUMBER,
+          CIGAR_1_L_first_element == "S" &
+          CIGAR_1_L_last_element == "M" & SATAG_1_1 != "SA" ~ NF_NUMBER,
         SEQ_RCed_1 == FALSE &
-          head(CIGAR_1_L, 1) == "M" &
-          tail(CIGAR_1_L, 1) == "S"  & SATAG_1_1 != "SA" ~ NF_NUMBER,
+          CIGAR_1_L_first_element == "M" &
+          CIGAR_1_L_last_element == "S"  & SATAG_1_1 != "SA" ~ NF_NUMBER,
         
         CIGAR_1_LEN > 2 &
           SEQ_RCed_1 == TRUE &
-          tail(CIGAR_1_L, 1) == "S" &
-          head(CIGAR_1_L, 1) == "M" &
-          tail(head(CIGAR_1_L, 2), 1) == "M" ~ POS_1,
+          CIGAR_1_L_last_element == "S" &
+          CIGAR_1_L_first_element == "M" &
+          CIGAR_1_L_second_element == "M" ~ POS_1,
         CIGAR_1_LEN > 2 &
           SEQ_RCed_1 == FALSE &
-          head(CIGAR_1_L, 1) == "S" &
-          tail(CIGAR_1_L, 1) == "M" &
-          tail(head(CIGAR_1_L, 2), 1) == "M" ~ as.integer(POS_1 + READ_SPAN_MINUS_I -
-                                                            as.integer(head(CIGAR_1_N, 1)) - 1),
+          CIGAR_1_L_first_element == "S" &
+          CIGAR_1_L_last_element == "M" &
+          CIGAR_1_L_second_element == "M" ~ as.integer(POS_1 + READ_SPAN_MINUS_I -
+                                                            CIGAR_1_N_first_element - 1),
         
         SEQ_RCed_1 == TRUE &
           SATAG_1_1 == "SA" &
-          head(CIGAR_1_L, 1) == "S"  &
+          CIGAR_1_L_first_element == "S"  &
           SATAG_1_5 == "+" &
-          tail(SATAG_1_6_L, 1) == "M" ~ as.integer(as.integer(SATAG_1_4) + as.integer(tail(SATAG_1_6_N, 1)) -1),
+          SATAG_1_6_L_last_element == "M" ~ as.integer(as.integer(SATAG_1_4) + SATAG_1_6_N_last_element -1),
         SEQ_RCed_1 == TRUE &
           SATAG_1_1 == "SA" &
-          head(CIGAR_1_L, 1) == "S"  &
+          CIGAR_1_L_first_element == "S"  &
           SATAG_1_5 == "+" &
-          tail(SATAG_1_6_L, 1) == "S" & is.na(SATAG_1_12) ~ NF_NUMBER,
+          SATAG_1_6_L_last_element == "S" & is.na(SATAG_1_12) ~ NF_NUMBER,
         SEQ_RCed_1 == TRUE &
           SATAG_1_1 == "SA" &
-          head(CIGAR_1_L, 1) == "S"  &
+          CIGAR_1_L_first_element == "S"  &
           SATAG_1_5 == "-" &
-          head(SATAG_1_6_L, 1) == "M" ~ as.integer(SATAG_1_4),
+          SATAG_1_6_L_first_element == "M" ~ as.integer(SATAG_1_4),
         SEQ_RCed_1 == TRUE &
           SATAG_1_1 == "SA" &
-          head(CIGAR_1_L, 1) == "S"  &
+          CIGAR_1_L_first_element == "S"  &
           SATAG_1_5 == "-" &
-          head(SATAG_1_6_L, 1) == "S" & is.na(SATAG_1_12) ~ NF_NUMBER,
+          SATAG_1_6_L_first_element == "S" & is.na(SATAG_1_12) ~ NF_NUMBER,
         
         SEQ_RCed_1 == FALSE &
           SATAG_1_1 == "SA" &
-          tail(CIGAR_1_L, 1) == "S"  &
+          CIGAR_1_L_last_element == "S"  &
           SATAG_1_5 == "+" &
-          tail(SATAG_1_6_L, 1) == "M" ~ as.integer(as.integer(SATAG_1_4) + as.integer(tail(SATAG_1_6_N, 1)) -1),
+          SATAG_1_6_L_last_element == "M" ~ as.integer(as.integer(SATAG_1_4) + SATAG_1_6_N_last_element -1),
         SEQ_RCed_1 == FALSE &
           SATAG_1_1 == "SA" &
-          tail(CIGAR_1_L, 1) == "S"  &
+          CIGAR_1_L_last_element == "S"  &
           SATAG_1_5 == "+" &
-          tail(SATAG_1_6_L, 1) == "S" & is.na(SATAG_1_12) ~ NF_NUMBER,
+          SATAG_1_6_L_last_element == "S" & is.na(SATAG_1_12) ~ NF_NUMBER,
         SEQ_RCed_1 == FALSE &
           SATAG_1_1 == "SA" &
-          tail(CIGAR_1_L, 1) == "S"  &
+          CIGAR_1_L_last_element == "S"  &
           SATAG_1_5 == "-" &
-          head(SATAG_1_6_L, 1) == "M" ~ as.integer(SATAG_1_4),
+          SATAG_1_6_L_first_element == "M" ~ as.integer(SATAG_1_4),
         SEQ_RCed_1 == FALSE &
           SATAG_1_1 == "SA" &
-          tail(CIGAR_1_L, 1) == "S"  &
+          CIGAR_1_L_last_element == "S"  &
           SATAG_1_5 == "-" &
-          head(SATAG_1_6_L, 1) == "S" & is.na(SATAG_1_12) ~ NF_NUMBER,
+          SATAG_1_6_L_first_element == "S" & is.na(SATAG_1_12) ~ NF_NUMBER,
         TRUE ~ ERROR_NUMBER
       )
     ) %>%
     
     #calculate the position of the B flank on its chromosome/plasmid. THis is the position closest to the junction. This is not the final start position, if on the focus contig, this may been adjusting.
-    
+
     mutate(
       FLANK_B_START_POS = case_when(
         CIGAR_1_LEN == 1 & FLANK_A_ORIENT=="FW" ~ as.integer(FlankAUltEnd+1),
         CIGAR_1_LEN == 1 & FLANK_A_ORIENT=="RV" ~ as.integer(FlankAUltEnd-1),
-        head(CIGAR_1_L, 1) == "M" &
-          tail(CIGAR_1_L, 1) == "M" &
-          SEQ_RCed_1 == TRUE ~ as.integer(POS_1 + as.integer(head(CIGAR_1_N, 1)) -1),
-        head(CIGAR_1_L, 1) == "M" &
-          tail(CIGAR_1_L, 1) == "M" &
-          SEQ_RCed_1 == FALSE ~ as.integer(POS_1 + READ_SPAN_MINUS_I - as.integer(tail(CIGAR_1_N, 1))),
+        CIGAR_1_L_first_element == "M" &
+          CIGAR_1_L_last_element == "M" &
+          SEQ_RCed_1 == TRUE ~ as.integer(POS_1 + CIGAR_1_N_first_element -1),
+        CIGAR_1_L_first_element == "M" &
+          CIGAR_1_L_last_element == "M" &
+          SEQ_RCed_1 == FALSE ~ as.integer(POS_1 + READ_SPAN_MINUS_I - CIGAR_1_N_last_element),
         
         CIGAR_1_LEN == 2 &
           SEQ_RCed_1 == TRUE &
-          head(CIGAR_1_L, 1) == "M" &
-          tail(CIGAR_1_L, 1) == "S" ~ as.integer(POS_1 + as.integer(head(CIGAR_1_N, 1)) -
+          CIGAR_1_L_first_element == "M" &
+          CIGAR_1_L_last_element == "S" ~ as.integer(POS_1 + CIGAR_1_N_first_element -
                                                    1),
         SEQ_RCed_1 == TRUE &
-          head(CIGAR_1_L, 1) == "S" &
-          tail(CIGAR_1_L, 1) == "M" & SATAG_1_1 != "SA" ~ NF_NUMBER,
+          CIGAR_1_L_first_element == "S" &
+          CIGAR_1_L_last_element == "M" & SATAG_1_1 != "SA" ~ NF_NUMBER,
         CIGAR_1_LEN == 2 &
           SEQ_RCed_1 == FALSE &
-          head(CIGAR_1_L, 1) == "S" & tail(CIGAR_1_L, 1) == "M" ~ POS_1,
+          CIGAR_1_L_first_element == "S" & CIGAR_1_L_last_element == "M" ~ POS_1,
         CIGAR_1_LEN > 2 &
           SEQ_RCed_1 == FALSE &
-          head(CIGAR_1_L, 1) == "S" &
-          tail(CIGAR_1_L, 1) == "M" &
-          tail(head(CIGAR_1_L, 2), 1) == "M" ~ POS_1 + as.integer(tail(head(CIGAR_1_N, 2), 1)),
+          CIGAR_1_L_first_element == "S" &
+          CIGAR_1_L_last_element == "M" &
+          CIGAR_1_L_second_element == "M" ~ POS_1 + CIGAR_1_N_second_element,
         SEQ_RCed_1 == FALSE &
-          head(CIGAR_1_L, 1) == "M" &
-          tail(CIGAR_1_L, 1) == "S"  & SATAG_1_1 != "SA" ~ NF_NUMBER,
+          CIGAR_1_L_first_element == "M" &
+          CIGAR_1_L_last_element == "S"  & SATAG_1_1 != "SA" ~ NF_NUMBER,
         
         SEQ_RCed_1 == TRUE &
           SATAG_1_1 == "SA" &
-          head(CIGAR_1_L, 1) == "S"  &
+          CIGAR_1_L_first_element == "S"  &
           SATAG_1_5 == "+" &
-          tail(SATAG_1_6_L, 1) == "M" ~ as.integer(SATAG_1_4),
+          SATAG_1_6_L_last_element == "M" ~ as.integer(SATAG_1_4),
         SEQ_RCed_1 == TRUE &
           SATAG_1_1 == "SA" &
-          head(CIGAR_1_L, 1) == "S"  &
+          CIGAR_1_L_first_element == "S"  &
           SATAG_1_5 == "+" &
-          tail(SATAG_1_6_L, 1) == "S" & is.na(SATAG_1_12) ~ NF_NUMBER,
+          SATAG_1_6_L_last_element == "S" & is.na(SATAG_1_12) ~ NF_NUMBER,
         SEQ_RCed_1 == TRUE &
           SATAG_1_1 == "SA" &
-          head(CIGAR_1_L, 1) == "S"  &
+          CIGAR_1_L_first_element == "S"  &
           SATAG_1_5 == "-" &
-          head(SATAG_1_6_L, 1) == "M" ~ as.integer(as.integer(SATAG_1_4) + as.integer(head(SATAG_1_6_N, 1)) -
+          SATAG_1_6_L_first_element == "M" ~ as.integer(as.integer(SATAG_1_4) + SATAG_1_6_N_first_element -
                                                      1),
         SEQ_RCed_1 == TRUE &
           SATAG_1_1 == "SA" &
-          head(CIGAR_1_L, 1) == "S"  &
+          CIGAR_1_L_first_element == "S"  &
           SATAG_1_5 == "-" &
-          head(SATAG_1_6_L, 1) == "S" & is.na(SATAG_1_12) ~ NF_NUMBER,
+          SATAG_1_6_L_first_element == "S" & is.na(SATAG_1_12) ~ NF_NUMBER,
         
         SEQ_RCed_1 == FALSE &
           SATAG_1_1 == "SA" &
-          tail(CIGAR_1_L, 1) == "S"  &
+          CIGAR_1_L_last_element == "S"  &
           SATAG_1_5 == "+" &
-          tail(SATAG_1_6_L, 1) == "M" ~ as.integer(SATAG_1_4),
+          SATAG_1_6_L_last_element == "M" ~ as.integer(SATAG_1_4),
         SEQ_RCed_1 == FALSE &
           SATAG_1_1 == "SA" &
-          tail(CIGAR_1_L, 1) == "S"  &
+          CIGAR_1_L_last_element == "S"  &
           SATAG_1_5 == "+" &
-          tail(SATAG_1_6_L, 1) == "S" & is.na(SATAG_1_12) ~ NF_NUMBER,
+          SATAG_1_6_L_last_element == "S" & is.na(SATAG_1_12) ~ NF_NUMBER,
         SEQ_RCed_1 == FALSE &
           SATAG_1_1 == "SA" &
-          tail(CIGAR_1_L, 1) == "S"  &
+          CIGAR_1_L_last_element == "S"  &
           SATAG_1_5 == "-" &
-          head(SATAG_1_6_L, 1) == "M" ~ as.integer(as.integer(SATAG_1_4) + as.integer(head(SATAG_1_6_N, 1)) -
+          SATAG_1_6_L_first_element == "M" ~ as.integer(as.integer(SATAG_1_4) + SATAG_1_6_N_first_element -
                                                      1),
         SEQ_RCed_1 == FALSE &
           SATAG_1_1 == "SA" &
-          tail(CIGAR_1_L, 1) == "S"  &
+          CIGAR_1_L_last_element == "S"  &
           SATAG_1_5 == "-" &
-          head(SATAG_1_6_L, 1) == "S" & is.na(SATAG_1_12) ~ NF_NUMBER,
+          SATAG_1_6_L_first_element == "S" & is.na(SATAG_1_12) ~ NF_NUMBER,
         TRUE ~ ERROR_NUMBER
       )
     ) %>%
-    mutate(FLANK_B_ORIENT = if (FLANK_B_START_POS != ERROR_NUMBER & FLANK_B_START_POS != NF_NUMBER & FLANK_B_END_POS != ERROR_NUMBER & FLANK_B_END_POS != NF_NUMBER){
+
+    rowwise()%>%
+     mutate(FLANK_B_ORIENT = if (FLANK_B_START_POS != ERROR_NUMBER & FLANK_B_START_POS != NF_NUMBER & FLANK_B_END_POS != ERROR_NUMBER & FLANK_B_END_POS != NF_NUMBER){
       if (FLANK_B_START_POS < FLANK_B_END_POS){
         "FW"
       }else{
@@ -692,6 +716,7 @@ for (i in row.names(sample_info)){
       "NOT_FOUND"
     }) %>%
     ungroup()
+
   
   function_time("Step 5 took ")
   
@@ -700,211 +725,209 @@ for (i in row.names(sample_info)){
   ###############################################################################
   
      data_improved4 = data_improved3 %>%
-    rowwise()%>%
     #Determine the chromosome the B flank of the mate is mapped to
     mutate(
       MATE_FLANK_B_CHROM = (case_when(
         CIGAR_2_LEN == 1 ~ RNAME_2,
         (CIGAR_2_LEN > 1 &
-           SEQ_RCed_2 == TRUE & head(CIGAR_2_L, 1) == "M") ~ RNAME_2,
+           SEQ_RCed_2 == TRUE & CIGAR_2_L_first_element == "M") ~ RNAME_2,
         (CIGAR_2_LEN > 1 &
-           SEQ_RCed_2 == FALSE & tail(CIGAR_2_L, 1) == "M") ~ RNAME_2,
+           SEQ_RCed_2 == FALSE & CIGAR_2_L_last_element == "M") ~ RNAME_2,
         (
           CIGAR_2_LEN > 1 &
             SEQ_RCed_2 == TRUE &
-            SATAG_2_1 != "SA" & head(CIGAR_2_L, 1) == "S"
+            SATAG_2_1 != "SA" & CIGAR_2_L_first_element == "S"
         ) ~ RNAME_2,
         (
           CIGAR_2_LEN > 1 &
             SEQ_RCed_2 == FALSE &
-            SATAG_2_1 != "SA" & tail(CIGAR_2_L, 1) == "S"
+            SATAG_2_1 != "SA" & CIGAR_2_L_last_element == "S"
         ) ~ RNAME_2,
         (
           SEQ_RCed_2 == TRUE &
             SATAG_2_1 == "SA" &
-            head(CIGAR_2_L, 1) == "S" &
-            head(SATAG_2_6_L, n = 1) == "M" & SATAG_2_5 == "+"
+            CIGAR_2_L_first_element == "S" &
+            SATAG_2_6_L_first_element == "M" & SATAG_2_5 == "+"
         ) ~ SATAG_2_3,
         (
           SEQ_RCed_2 == TRUE &
             SATAG_2_1 == "SA" &
-            head(CIGAR_2_L, 1) == "S" &
-            tail(SATAG_2_6_L, n = 1) == "M" & SATAG_2_5 == "-"
+            CIGAR_2_L_first_element == "S" &
+            SATAG_2_6_L_last_element == "M" & SATAG_2_5 == "-"
         ) ~ SATAG_2_3,
         (
           SEQ_RCed_2 == TRUE &
             SATAG_2_1 == "SA" &
-            head(CIGAR_2_L, 1) == "S" &
-            tail(SATAG_2_6_L, n = 1) == "M" &
+            CIGAR_2_L_first_element == "S" &
+            SATAG_2_6_L_last_element == "M" &
             SATAG_2_5 == "+" & is.na(SATAG_2_12)
         ) ~ "NOT_FOUND",
         (
           SEQ_RCed_2 == TRUE &
             SATAG_2_1 == "SA" &
-            head(CIGAR_2_L, 1) == "S" &
-            head(SATAG_2_6_L, n = 1) == "M" &
+            CIGAR_2_L_first_element == "S" &
+            SATAG_2_6_L_first_element == "M" &
             SATAG_2_5 == "-" & is.na(SATAG_2_12)
         ) ~ "NOT_FOUND",
         (
           SEQ_RCed_2 == TRUE &
             SATAG_2_1 == "SA" &
-            head(CIGAR_2_L, 1) == "S" &
-            tail(SATAG_2_6_L, n = 1) == "M" &
+            CIGAR_2_L_first_element == "S" &
+            SATAG_2_6_L_last_element == "M" &
             SATAG_2_5 == "+" &
-            head(SATAG_2_12_L, n = 1) == "M" & SATAG_2_11 == "-"
+            SATAG_2_12_L_first_element == "M" & SATAG_2_11 == "-"
         ) ~ "NOT_FOUND",
         (
           SEQ_RCed_2 == TRUE &
             SATAG_2_1 == "SA" &
-            head(CIGAR_2_L, 1) == "S" &
-            tail(SATAG_2_6_L, n = 1) == "M" &
+            CIGAR_2_L_first_element == "S" &
+            SATAG_2_6_L_last_element == "M" &
             SATAG_2_5 == "+" &
-            tail(SATAG_2_12_L, n = 1) == "M" & SATAG_2_11 == "-"
+            SATAG_2_12_L_last_element == "M" & SATAG_2_11 == "-"
         ) ~ SATAG_2_9,
         (
           SEQ_RCed_2 == TRUE &
             SATAG_2_1 == "SA" &
-            head(CIGAR_2_L, 1) == "S" &
-            tail(SATAG_2_6_L, n = 1) == "M" &
+            CIGAR_2_L_first_element == "S" &
+            SATAG_2_6_L_last_element == "M" &
             SATAG_2_5 == "+" &
-            head(SATAG_2_12_L, n = 1) == "M" & SATAG_2_11 == "+"
+            SATAG_2_12_L_first_element == "M" & SATAG_2_11 == "+"
         ) ~ SATAG_2_9,
         (
           SEQ_RCed_2 == TRUE &
             SATAG_2_1 == "SA" &
-            head(CIGAR_2_L, 1) == "S" &
-            tail(SATAG_2_6_L, n = 1) == "M" &
+            CIGAR_2_L_first_element == "S" &
+            SATAG_2_6_L_last_element == "M" &
             SATAG_2_5 == "+" &
-            tail(SATAG_2_12_L, n = 1) == "M" & SATAG_2_11 == "+"
+            SATAG_2_12_L_last_element == "M" & SATAG_2_11 == "+"
         ) ~ "NOT_FOUND",
         (
           SEQ_RCed_2 == TRUE &
             SATAG_2_1 == "SA" &
-            head(CIGAR_2_L, 1) == "S" &
-            head(SATAG_2_6_L, n = 1) == "M" &
+            CIGAR_2_L_first_element == "S" &
+            SATAG_2_6_L_first_element == "M" &
             SATAG_2_5 == "-" &
-            head(SATAG_2_12_L, n = 1) == "M" & SATAG_2_11 == "-"
+            SATAG_2_12_L_first_element == "M" & SATAG_2_11 == "-"
         ) ~ "NOT_FOUND",
         (
           SEQ_RCed_2 == TRUE &
             SATAG_2_1 == "SA" &
-            head(CIGAR_2_L, 1) == "S" &
-            head(SATAG_2_6_L, n = 1) == "M" &
+            CIGAR_2_L_first_element == "S" &
+            SATAG_2_6_L_first_element == "M" &
             SATAG_2_5 == "-" &
-            tail(SATAG_2_12_L, n = 1) == "M" & SATAG_2_11 == "-"
+            SATAG_2_12_L_last_element == "M" & SATAG_2_11 == "-"
         ) ~ SATAG_2_9,
         (
           SEQ_RCed_2 == TRUE &
             SATAG_2_1 == "SA" &
-            head(CIGAR_2_L, 1) == "S" &
-            head(SATAG_2_6_L, n = 1) == "M" &
+            CIGAR_2_L_first_element == "S" &
+            SATAG_2_6_L_first_element == "M" &
             SATAG_2_5 == "-" &
-            head(SATAG_2_12_L, n = 1) == "M" & SATAG_2_11 == "+"
+            SATAG_2_12_L_first_element == "M" & SATAG_2_11 == "+"
         ) ~ SATAG_2_9,
         (
           SEQ_RCed_2 == TRUE &
             SATAG_2_1 == "SA" &
-            head(CIGAR_2_L, 1) == "S" &
-            head(SATAG_2_6_L, n = 1) == "M" &
+            CIGAR_2_L_first_element == "S" &
+            SATAG_2_6_L_first_element == "M" &
             SATAG_2_5 == "-" &
-            tail(SATAG_2_12_L, n = 1) == "M" &
+            SATAG_2_12_L_last_element == "M" &
             SATAG_2_11 == "+"
         ) ~ "NOT_FOUND",
         
         (
           SEQ_RCed_2 == FALSE &
             SATAG_2_1 == "SA" &
-            tail(CIGAR_2_L, 1) == "S" &
-            head(SATAG_2_6_L, n = 1) == "M" & SATAG_2_5 == "+"
+            CIGAR_2_L_last_element == "S" &
+            SATAG_2_6_L_first_element == "M" & SATAG_2_5 == "+"
         ) ~ SATAG_2_3,
         (
           SEQ_RCed_2 == FALSE &
             SATAG_2_1 == "SA" &
-            tail(CIGAR_2_L, 1) == "S" &
-            tail(SATAG_2_6_L, n = 1) == "M" & SATAG_2_5 == "-"
+            CIGAR_2_L_last_element == "S" &
+            SATAG_2_6_L_last_element == "M" & SATAG_2_5 == "-"
         ) ~ SATAG_2_3,
         (
           SEQ_RCed_2 == FALSE &
             SATAG_2_1 == "SA" &
-            tail(CIGAR_2_L, 1) == "S" &
-            tail(SATAG_2_6_L, n = 1) == "M" &
+            CIGAR_2_L_last_element == "S" &
+            SATAG_2_6_L_last_element == "M" &
             SATAG_2_5 == "+" & is.na(SATAG_2_12)
         ) ~ "NOT_FOUND",
         (
           SEQ_RCed_2 == FALSE &
             SATAG_2_1 == "SA" &
-            tail(CIGAR_2_L, 1) == "S" &
-            head(SATAG_2_6_L, n = 1) == "M" &
+            CIGAR_2_L_last_element == "S" &
+            SATAG_2_6_L_first_element == "M" &
             SATAG_2_5 == "-" & is.na(SATAG_2_12)
         ) ~ "NOT_FOUND",
         (
           SEQ_RCed_2 == FALSE &
             SATAG_2_1 == "SA" &
-            tail(CIGAR_2_L, 1) == "S" &
-            tail(SATAG_2_6_L, n = 1) == "M" &
+            CIGAR_2_L_last_element == "S" &
+            SATAG_2_6_L_last_element == "M" &
             SATAG_2_5 == "+" &
-            head(SATAG_2_12_L, n = 1) == "M" & SATAG_2_11 == "-"
+            SATAG_2_12_L_first_element == "M" & SATAG_2_11 == "-"
         ) ~ "NOT_FOUND",
         (
           SEQ_RCed_2 == FALSE &
             SATAG_2_1 == "SA" &
-            tail(CIGAR_2_L, 1) == "S" &
-            tail(SATAG_2_6_L, n = 1) == "M" &
+            CIGAR_2_L_last_element == "S" &
+            SATAG_2_6_L_last_element == "M" &
             SATAG_2_5 == "+" &
-            tail(SATAG_2_12_L, n = 1) == "M" & SATAG_2_11 == "-"
+            SATAG_2_12_L_last_element == "M" & SATAG_2_11 == "-"
         ) ~ SATAG_2_9,
         (
           SEQ_RCed_2 == FALSE &
             SATAG_2_1 == "SA" &
-            tail(CIGAR_2_L, 1) == "S" &
-            tail(SATAG_2_6_L, n = 1) == "M" &
+            CIGAR_2_L_last_element == "S" &
+            SATAG_2_6_L_last_element == "M" &
             SATAG_2_5 == "+" &
-            head(SATAG_2_12_L, n = 1) == "M" & SATAG_2_11 == "+"
+            SATAG_2_12_L_first_element == "M" & SATAG_2_11 == "+"
         ) ~ SATAG_2_9,
         (
           SEQ_RCed_2 == FALSE &
             SATAG_2_1 == "SA" &
-            tail(CIGAR_2_L, 1) == "S" &
-            tail(SATAG_2_6_L, n = 1) == "M" &
+            CIGAR_2_L_last_element == "S" &
+            SATAG_2_6_L_last_element == "M" &
             SATAG_2_5 == "+" &
-            tail(SATAG_2_12_L, n = 1) == "M" & SATAG_2_11 == "+"
+            SATAG_2_12_L_last_element == "M" & SATAG_2_11 == "+"
         ) ~ "NOT_FOUND",
         (
           SEQ_RCed_2 == FALSE &
             SATAG_2_1 == "SA" &
-            tail(CIGAR_2_L, 1) == "S" &
-            head(SATAG_2_6_L, n = 1) == "M" &
+            CIGAR_2_L_last_element == "S" &
+            SATAG_2_6_L_first_element == "M" &
             SATAG_2_5 == "-" &
-            head(SATAG_2_12_L, n = 1) == "M" & SATAG_2_11 == "-"
+            SATAG_2_12_L_first_element == "M" & SATAG_2_11 == "-"
         ) ~ "NOT_FOUND",
         (
           SEQ_RCed_2 == FALSE &
             SATAG_2_1 == "SA" &
-            tail(CIGAR_2_L, 1) == "S" &
-            head(SATAG_2_6_L, n = 1) == "M" &
+            CIGAR_2_L_last_element == "S" &
+            SATAG_2_6_L_first_element == "M" &
             SATAG_2_5 == "-" &
-            tail(SATAG_2_12_L, n = 1) == "M" & SATAG_2_11 == "-"
+            SATAG_2_12_L_last_element == "M" & SATAG_2_11 == "-"
         ) ~ SATAG_2_9,
         (
           SEQ_RCed_2 == FALSE &
             SATAG_2_1 == "SA" &
-            tail(CIGAR_2_L, 1) == "S" &
-            head(SATAG_2_6_L, n = 1) == "M" &
+            CIGAR_2_L_last_element == "S" &
+            SATAG_2_6_L_first_element == "M" &
             SATAG_2_5 == "-" &
-            head(SATAG_2_12_L, n = 1) == "M" & SATAG_2_11 == "+"
+            SATAG_2_12_L_first_element == "M" & SATAG_2_11 == "+"
         ) ~ SATAG_2_9,
         (
           SEQ_RCed_2 == FALSE &
             SATAG_2_1 == "SA" &
-            tail(CIGAR_2_L, 1) == "S" &
-            head(SATAG_2_6_L, n = 1) == "M" &
+            CIGAR_2_L_last_element == "S" &
+            SATAG_2_6_L_first_element == "M" &
             SATAG_2_5 == "-" &
-            tail(SATAG_2_12_L, n = 1) == "M" & SATAG_2_11 == "+"
+            SATAG_2_12_L_last_element == "M" & SATAG_2_11 == "+"
         ) ~ "NOT_FOUND",
         TRUE ~ "ERROR"
       ))
     ) %>%
-    ungroup()%>%
     #test whether B flanks from read and mate are mapped to same chromosome
     mutate(MATE_FLANK_B_CHROM_AGREE = if_else(FLANK_B_CHROM == MATE_FLANK_B_CHROM,
                                               TRUE,
@@ -981,11 +1004,11 @@ for (i in row.names(sample_info)){
     mutate(FLANK_A_MATCH = matcher_skipper(FLANK_A_REF, SEQ_1)) %>%
     ungroup() %>%
     mutate(FLANK_A_LEN = nchar(FLANK_A_MATCH)) %>%
-    rowwise() %>%
-    mutate(FLANK_A_END_POS = if_else(FLANK_A_ORIENT == "FW",
-                                     FLANK_A_START_POS + (FLANK_A_LEN -1),
-                                     FLANK_A_START_POS - (FLANK_A_LEN -1))) %>%
+    mutate(FLANK_A_END_POS = case_when(FLANK_A_ORIENT == "FW" ~ as.integer(FLANK_A_START_POS + (FLANK_A_LEN -1)),
+                                       FLANK_A_ORIENT == "RV" ~ as.integer(FLANK_A_START_POS - (FLANK_A_LEN -1)),
+                                       TRUE ~ ERROR_NUMBER)) %>%
     
+    rowwise() %>%
     mutate(SEQ_1_WO_A = substr(SEQ_1, start = FLANK_A_LEN + 1, stop = SEQ_1_LEN)) %>%
     ungroup() %>%
     #calculate FLANK A DEL length
@@ -1134,7 +1157,7 @@ for (i in row.names(sample_info)){
       as.integer(FLANK_A_DEL + FLANK_B_DEL),
       ERROR_NUMBER
     )) %>%
-    #correct MH if delsize =0
+    #correct MH if delSize == 0
     mutate(MH = if_else(delSize <= 0,
                         "",
                         MH)) %>%

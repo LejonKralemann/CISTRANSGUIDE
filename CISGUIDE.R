@@ -8,6 +8,8 @@ if (require(stringdist)==FALSE){install.packages("stringdist")}
 if (require(tidyverse)==FALSE){install.packages("tidyverse")}
 if (require(openxlsx)==FALSE){install.packages("openxlsx")}
 
+
+
 ###############################################################################
 #set parameters
 ###############################################################################
@@ -24,6 +26,16 @@ LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick
 sample_info = read.csv(paste0(input_dir, "Sample_information.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
 TIME_START=as.numeric(Sys.time())*1000
 DEBUG=FALSE #if on, reads will not be discarded when a problem has been detected, but flagged.
+
+###############################################################################
+#Initial checks
+###############################################################################
+if (file.exists(paste0(input_dir, "Sample_information.txt"))==FALSE){
+  message("Sample information sheet not present, aborting")
+  quit()}
+if (file.exists(paste0(input_dir, "read_numbers.txt"))==FALSE){
+  message("Read numbers file not found, aborting")
+  quit()}
 
 ###############################################################################
 #Functions
@@ -156,7 +168,7 @@ for (i in row.names(sample_info)){
   }else{
     ""
   }
-  TOTAL_REF = if (FLANK_A_ORIENT == "FW"){
+  GLOBAL_TOTAL_REF = if (FLANK_A_ORIENT == "FW"){
     substr(contig_seq, start= Primer_pos, stop= Primer_pos+MAX_DIST_FLANK_B_END+PRIMER_TO_DSB)
   }else if (FLANK_A_ORIENT=="RV"){
     as.character(reverseComplement(DNAString(
@@ -174,7 +186,7 @@ for (i in row.names(sample_info)){
   
   data_improved  = data %>%
     
-    #filter(QNAME == "A00379:701:H2YJWDSX5:4:1264:30481:22122") %>%
+    #filter(QNAME == "A00379:436:H3CHWDMXY:1:2448:17381:24674") %>%
     
     #Count number of Ns and remove any reads with Ns
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
@@ -1008,9 +1020,9 @@ for (i in row.names(sample_info)){
                                        FLANK_A_ORIENT == "RV" ~ as.integer(FLANK_A_START_POS - (FLANK_A_LEN -1)),
                                        TRUE ~ ERROR_NUMBER)) %>%
     
-    rowwise() %>%
+    #rowwise() %>%
     mutate(SEQ_1_WO_A = substr(SEQ_1, start = FLANK_A_LEN + 1, stop = SEQ_1_LEN)) %>%
-    ungroup() %>%
+    #ungroup() %>%
     #calculate FLANK A DEL length
     mutate(
       FLANK_A_DEL = case_when(
@@ -1027,6 +1039,7 @@ for (i in row.names(sample_info)){
   ###############################################################################
   
   data_improved6 = data_improved5b %>%
+    mutate(TOTAL_REF = GLOBAL_TOTAL_REF) %>%
     #FLANK_B_REF. This ref includes homology.
     rowwise() %>%
     mutate(FLANK_B_REF =
@@ -1047,32 +1060,26 @@ for (i in row.names(sample_info)){
     }else{""}) %>%
     ungroup() %>%
     mutate(FLANK_B_MATCH_LEN = nchar(FLANK_B_MATCH)) %>% 
-    rowwise() %>%
-    mutate(NO_MATCH = if_else(FLANK_B_MATCH_LEN == 0 & FLANK_B_REF != "NA",
-                              TRUE,
-                              FALSE)) %>%
+
+    mutate(NO_MATCH = case_when(FLANK_B_MATCH_LEN == 0 & FLANK_B_REF != "NA" ~ TRUE,
+                                TRUE ~ FALSE)) %>% 
     
-    ungroup() %>%
+
     mutate(
       hasPROBLEM = if_else(NO_MATCH == FALSE,
                            as.logical(hasPROBLEM),
                            TRUE)) %>%
     
     #flank b start position including MH
+    mutate(FLANK_B_START_POS_MH = case_when(FLANK_B_REF != "NA" & FLANK_B_ORIENT == "FW" ~ as.integer(FLANK_B_END_POS-(FLANK_B_MATCH_LEN-1)),
+                                            FLANK_B_REF != "NA" & FLANK_B_ORIENT == "RV" ~ as.integer(FLANK_B_END_POS+(FLANK_B_MATCH_LEN-1)),
+                                            TRUE ~ FLANK_B_START_POS)) %>%
+
     rowwise() %>%
-    mutate(FLANK_B_START_POS_MH = if (FLANK_B_REF != "NA"){
-      if (FLANK_B_ORIENT == "FW"){
-        FLANK_B_END_POS-(FLANK_B_MATCH_LEN-1)
-      }else{
-        FLANK_B_END_POS+(FLANK_B_MATCH_LEN-1)
-      }
-    }else{
-      FLANK_B_START_POS
-    }) %>%
-    
     mutate(FLANK_B_LEN_MH = if_else(FLANK_B_ORIENT == "FW",
                                     FLANK_B_END_POS-(FLANK_B_START_POS_MH-1),
                                     FLANK_B_START_POS_MH-(FLANK_B_END_POS-1))) %>%
+    
     #Extract the MH sequence
     mutate(MH = if (CASE_WT == FALSE & FLANK_B_CHROM != "NOT_FOUND" & FLANK_B_CHROM != "ERROR") {
       if (FLANK_B_CHROM == FOCUS_CONTIG & (abs(FlankAUltEnd - FLANK_B_END_POS) < MAX_DIST_FLANK_B_END) & FLANK_A_ORIENT == FLANK_B_ORIENT & (FLANK_A_LEN > (SEQ_1_LEN - FLANK_B_LEN_MH))) {
@@ -1135,21 +1142,11 @@ for (i in row.names(sample_info)){
   ###############################################################################
   
   data_improved7 = data_improved6 %>%
-    rowwise() %>%
-  
-    #calculate FLANK B DEL length.
-    mutate(FLANK_B_DEL =
-             if (CASE_WT == TRUE) {
-               0
-             }else if (FLANK_B_REF!="NA"){
-               if (FLANK_B_ORIENT == "FW"){
-                 as.integer(FLANK_B_START_POS_DEL - (FlankAUltEnd+1))
-               }else {
-                 as.integer((FlankAUltEnd-1) - FLANK_B_START_POS_DEL)
-               }
-             }else{
-               ERROR_NUMBER
-             }) %>%
+    mutate(FLANK_B_DEL = case_when(CASE_WT == TRUE ~ as.integer(0),
+                                 CASE_WT != TRUE & FLANK_B_REF !="NA" & FLANK_B_ORIENT == "FW" ~ as.integer(FLANK_B_START_POS_DEL - (FlankAUltEnd+1)),
+                                   CASE_WT != TRUE & FLANK_B_REF !="NA" & FLANK_B_ORIENT == "RV" ~ as.integer((FlankAUltEnd-1) - FLANK_B_START_POS_DEL),
+                                   TRUE ~ ERROR_NUMBER
+                                   ))%>%
     
     #calculate total deletion length
     mutate(delSize = if_else(
@@ -1161,7 +1158,7 @@ for (i in row.names(sample_info)){
     mutate(MH = if_else(delSize <= 0,
                         "",
                         MH)) %>%
-    
+
     #determine the filler sequence 
     mutate(
       FILLER = if_else(
@@ -1180,7 +1177,7 @@ for (i in row.names(sample_info)){
       hasPROBLEM = if_else(FLANK_B_LEN_DEL >= FLANK_B_LEN_MIN,
                            as.logical(hasPROBLEM),
                            TRUE)) %>%
-
+    rowwise()%>%
     #count the number of mismatches that were ignored
     mutate(mismatch_found = if (FLANK_B_MATCH != ""){
       if ( (nrow(as.data.frame(matchPattern(pattern= FLANK_A_MATCH, subject=SEQ_1, max.mismatch=0))))>0 & (nrow(as.data.frame(matchPattern(pattern= FLANK_B_MATCH, subject=SEQ_1, max.mismatch=0))))>0){
@@ -1189,7 +1186,8 @@ for (i in row.names(sample_info)){
         TRUE
       }}else{
         FALSE
-      })
+      }) %>% 
+    ungroup()
   
   function_time("Step 9 took ")
   
@@ -1212,11 +1210,10 @@ for (i in row.names(sample_info)){
     ) %>%
     
     #Add a check for insertion size = deletion size. That may indicate an incorrect call due to mismatches. Throw away those junctions resembling wt sequences.
+    
+    mutate(POT_FAKE_INS = case_when(insSize == delSize & delSize > 9 ~ as.character(substr(TOTAL_REF, start = FLANK_A_LEN, stop = FLANK_A_LEN + insSize -1)),
+                                    TRUE ~ "")) %>%
     rowwise() %>%
-    mutate(
-      POT_FAKE_INS = if_else(insSize == delSize & delSize > 9,
-                             as.character(substr(TOTAL_REF, start = FLANK_A_LEN, stop = FLANK_A_LEN + insSize -1)),
-                             "")) %>%
     mutate(FAKE_DELIN_CHECK = if (insSize == delSize & delSize > 0) {
       if ((countPattern(
         DNAString(FILLER),
@@ -1232,9 +1229,12 @@ for (i in row.names(sample_info)){
     else{
       FALSE
     }) %>%
+    ungroup() %>%
     mutate(CASE_WT = if_else(FAKE_DELIN_CHECK == TRUE,
                              TRUE,
                              CASE_WT))%>%
+
+
     #fix a bunch of things because of the updated CASE_WT
     mutate(
       delRelativeStart = if_else(CASE_WT == TRUE,
@@ -1261,6 +1261,7 @@ for (i in row.names(sample_info)){
       FLANK_B_ISFORWARD = if_else(FLANK_B_START_POS < FLANK_B_END_POS,
                                   TRUE,
                                   FALSE)) %>%
+    rowwise() %>%
     #fix the FLANK_B_START_POS again if the event is wt
     mutate(FLANK_B_START_POS = if (delSize == 0 & insSize == 0){
       if (FLANK_A_ORIENT == "FW"){
@@ -1271,10 +1272,10 @@ for (i in row.names(sample_info)){
     }else{
       FLANK_B_START_POS_DEL
     }) %>%
+    ungroup() %>%
     #recalculate the FLANK B del
-    mutate(FLANK_B_LEN_DEL = if_else(FLANK_B_ORIENT == "FW",
-                                     FLANK_B_END_POS - FLANK_B_START_POS,
-                                     FLANK_B_START_POS - FLANK_B_END_POS)) %>%
+    mutate(FLANK_B_LEN_DEL = case_when(FLANK_B_ORIENT == "FW" ~ (FLANK_B_END_POS - FLANK_B_START_POS),
+                                     TRUE ~ FLANK_B_START_POS - FLANK_B_END_POS)) %>%
     
     #Filter short flank Bs again, with the newly calculated flank b len
     filter(FLANK_B_LEN_DEL >= FLANK_B_LEN_MIN) %>%
@@ -1329,7 +1330,7 @@ for (i in row.names(sample_info)){
     summarize(
       countEvents = sum(countEvents_init),
       Max_BaseQual_1_max = max(Max_BaseQual_1),
-      QNAME_first_first = first(QNAME_first),
+      Name = first(QNAME_first),
       SEQ_1_first = first(SEQ_1),
       SEQ_2_first_first = first(SEQ_2_first)
     ) %>%
@@ -1350,7 +1351,7 @@ for (i in row.names(sample_info)){
     
     #select the most important columns
     select(
-      QNAME_first_first,
+      Name,
       FILE_NAME,
       PRIMER_SEQ,
       delRelativeStart,
@@ -1383,7 +1384,11 @@ for (i in row.names(sample_info)){
     ) %>%
     
     #rename column for SIQplotter
-    rename(Alias = FILE_NAME)
+    rename(Alias = FILE_NAME) %>%
+    
+    #add required columns for SIQplotter
+    mutate(getHomologyColor= "grey",
+           )
   
   function_time("Step 10 took ")
   
@@ -1426,7 +1431,6 @@ for (i in row.names(sample_info)){
   saveWorkbook(work_book, file = paste0(output_dir, Sample, "_", RunID, "_CISGUIDE_V_", hash_little, ".xlsx"), overwrite = TRUE)
   
   function_time("Step 12 took ")
-  
 }
 
 sample_list = list.files(path=output_dir, pattern = "\\.xlsx")
@@ -1439,3 +1443,11 @@ work_book2 <- createWorkbook()
 addWorksheet(work_book2, "rawData")
 writeData(work_book2, sheet = 1, wb)
 saveWorkbook(work_book2, file = paste0(output_dir, "CISGUIDE_V_", hash_little, ".xlsx"), overwrite = TRUE)
+
+#Write an additional sheet with read number info
+read_numbers_info = read.csv(paste0(input_dir, "read_numbers.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
+wb_numbers = read_numbers_info %>%
+  
+writeData(work_book2, sheet = 2, wb_numbers)
+saveWorkbook(work_book2, file = paste0(output_dir, "CISGUIDE_V_", hash_little, ".xlsx"), overwrite = TRUE)
+

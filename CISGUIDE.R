@@ -100,7 +100,8 @@ for (i in row.names(sample_info)){
   FlankBUltStart = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(FlankBUltStart))
   DNASample = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DNA))
   Ecotype = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Ecotype))
-
+  Library = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Sample))
+  
   if (file.exists(paste0(input_dir, PLASMID, ".fa"))==FALSE){
     message("Reference fasta not found")
     next
@@ -1020,9 +1021,7 @@ for (i in row.names(sample_info)){
                                        FLANK_A_ORIENT == "RV" ~ as.integer(FLANK_A_START_POS - (FLANK_A_LEN -1)),
                                        TRUE ~ ERROR_NUMBER)) %>%
     
-    #rowwise() %>%
     mutate(SEQ_1_WO_A = substr(SEQ_1, start = FLANK_A_LEN + 1, stop = SEQ_1_LEN)) %>%
-    #ungroup() %>%
     #calculate FLANK A DEL length
     mutate(
       FLANK_A_DEL = case_when(
@@ -1176,19 +1175,15 @@ for (i in row.names(sample_info)){
     mutate(
       hasPROBLEM = if_else(FLANK_B_LEN_DEL >= FLANK_B_LEN_MIN,
                            as.logical(hasPROBLEM),
-                           TRUE)) %>%
-    rowwise()%>%
-    #count the number of mismatches that were ignored
-    mutate(mismatch_found = if (FLANK_B_MATCH != ""){
-      if ( (nrow(as.data.frame(matchPattern(pattern= FLANK_A_MATCH, subject=SEQ_1, max.mismatch=0))))>0 & (nrow(as.data.frame(matchPattern(pattern= FLANK_B_MATCH, subject=SEQ_1, max.mismatch=0))))>0){
-        FALSE
-      }else{
-        TRUE
-      }}else{
-        FALSE
-      }) %>% 
-    ungroup()
-  
+                           TRUE))  %>%
+    
+    mutate(SEQ_1_A = substr(SEQ_1, 1, FLANK_A_LEN)) %>%
+    mutate(SEQ_1_B = substr(SEQ_1, SEQ_1_LEN - (FLANK_B_MATCH_LEN -1), SEQ_1_LEN)) %>%
+    
+    mutate(mismatch_found = case_when(SEQ_1_A != FLANK_A_MATCH ~ TRUE,
+                                      SEQ_1_B != FLANK_B_MATCH ~ TRUE,
+                                      TRUE ~ FALSE)) 
+    
   function_time("Step 9 took ")
   
   ###############################################################################
@@ -1383,12 +1378,8 @@ for (i in row.names(sample_info)){
       TRIM_LEN
     ) %>%
     
-    #rename column for SIQplotter
-    rename(Alias = FILE_NAME) %>%
-    
     #add required columns for SIQplotter
-    mutate(getHomologyColor= "grey",
-           )
+    mutate(getHomologyColor= "grey")
   
   function_time("Step 10 took ")
   
@@ -1397,7 +1388,7 @@ for (i in row.names(sample_info)){
   ###############################################################################
   
   #calculate the fraction of reads with the same outcomes
-  data_improved9 = data_improved8c %>% group_by(Alias, PRIMER_SEQ) %>% summarize(SumCountEvents =
+  data_improved9 = data_improved8c %>% group_by(FILE_NAME, PRIMER_SEQ) %>% summarize(SumCountEvents =
                                                                                   sum(countEvents))
   function_time("Step 11 took ")
   
@@ -1405,7 +1396,7 @@ for (i in row.names(sample_info)){
   #Process data: step 12
   ###############################################################################
   
-  data_improved10 = left_join(data_improved8c, data_improved9, by = c("Alias", "PRIMER_SEQ")) %>%
+  data_improved10 = left_join(data_improved8c, data_improved9, by = c("FILE_NAME", "PRIMER_SEQ")) %>%
     mutate(fraction = countEvents / SumCountEvents) %>%
     mutate(SumCountEvents = NULL,
            FlankAUltEnd = FlankAUltEnd,
@@ -1415,7 +1406,8 @@ for (i in row.names(sample_info)){
            DNASample = DNASample,
            Ecotype = Ecotype,
            RunID = RunID,
-           program_version = hash)
+           program_version = hash,
+           Alias = paste0(Library, "_", RunID))
   
   #filter out duplicate position artefacts
   data_improved11 = data_improved10 %>% group_by(FLANK_B_CHROM, FLANK_B_START_POS) %>% summarize(countEventsPosSum = sum(countEvents))
@@ -1446,7 +1438,10 @@ saveWorkbook(work_book2, file = paste0(output_dir, "CISGUIDE_V_", hash_little, "
 
 #Write an additional sheet with read number info
 read_numbers_info = read.csv(paste0(input_dir, "read_numbers.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
-wb_numbers = read_numbers_info %>%
+wb_numbers = read_numbers_info %>% 
+  mutate(Alias = paste0(Sample, "_", RunID))%>%
+  mutate(Sample = NULL,
+         RunID = NULL)
 
 addWorksheet(work_book2, "Information")
 writeData(work_book2, sheet = 2, wb_numbers)

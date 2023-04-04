@@ -786,7 +786,7 @@ echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 echo "Processing fw reads of ${i}"
 samtools view -uF 0x100 ${WORKPATH}/bams/${CURRENTSAMPLE}_${CURRENTRUNID}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800 | samtools view -uf 0x80 | samtools view -uF 0x8 | samtools view -F 0x10 | sort -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50 && length($10)>89){print $0}}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_fw_0.txt
-cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_fw_0.txt | sed -n -e 's/^.*SA:/SA:/p' | sed -n -e 's/;*.$/;/p' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_fw_1.txt
+cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_fw_0.txt | sed -En 's/.*(SA:Z:.*;)|.*/\1/p' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_fw_1.txt
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_fw_0.txt | awk -v OFS="\t" -v FS="\t" '{print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_fw_2.txt
 paste -d $'\t' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_fw_2.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_fw_1.txt | awk -v OFS="\t" -v FS="\t" '{print $0, "FALSE"}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_fw.txt
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
@@ -794,7 +794,7 @@ echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 echo "Processing rev reads of ${i}"
 samtools view -uF 0x100 ${WORKPATH}/bams/${CURRENTSAMPLE}_${CURRENTRUNID}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800| samtools view -uf 0x80 | samtools view -uF 0x8 | samtools view -f 0x10 | sort -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50 && length($10)>89){print $0}}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_0.txt
-cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_0.txt | sed -n -e 's/^.*SA:/SA:/p' | sed -n -e 's/;*.$/;/p' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_1.txt
+cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_0.txt | sed -En 's/.*(SA:Z:.*;)|.*/\1/p' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_1.txt
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_0.txt | awk -v OFS="\t" -v FS="\t" '{print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_2.txt
 paste -d $'\t' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_2.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_1.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv.txt
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
@@ -811,14 +811,14 @@ echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 echo "Processing fw mates of accepted reads of ${i}"
 samtools view -uF 0x100 ${WORKPATH}/bams/${CURRENTSAMPLE}_${CURRENTRUNID}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800| samtools view -uf 0x40 | samtools view -uF 0x8 | samtools view -f 0x10 | sort -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50){print $0}}' | grep -f ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_all_names.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_fw_0.txt
-cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_fw_0.txt | sed -n -e 's/^.*SA:/SA:/p' | sed -n -e 's/;*.$/;/p' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_fw_1.txt
+cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_fw_0.txt | sed -En 's/.*(SA:Z:.*;)|.*/\1/p' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_fw_1.txt
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_fw_0.txt | awk -v OFS="\t" -v FS="\t" '{print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_fw_2.txt
 paste -d $'\t' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_fw_2.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_fw_1.txt | awk -v OFS="\t" -v FS="\t" '{print $0, "FALSE"}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_fw.txt
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 echo "Processing rev mates of accepted reads of ${i}"
 samtools view -uF 0x100 ${WORKPATH}/bams/${CURRENTSAMPLE}_${CURRENTRUNID}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800| samtools view -uf 0x40 | samtools view -uF 0x8 | samtools view -F 0x10 | sort -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50){print $0}}' | grep -f ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_all_names.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv_0.txt
-cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv_0.txt | sed -n -e 's/^.*SA:/SA:/p' | sed -n -e 's/;*.$/;/p' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv_1.txt
+cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv_0.txt | sed -En 's/.*(SA:Z:.*;)|.*/\1/p' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv_1.txt
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv_0.txt | awk -v OFS="\t" -v FS="\t" '{print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv_2.txt
 paste -d $'\t' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv_2.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv_1.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv.txt
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"

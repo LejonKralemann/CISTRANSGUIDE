@@ -439,10 +439,6 @@ for (i in row.names(sample_info)){
   
   data_improved2 = data_improved1 %>%
     
-    #temp filters
-    filter(SATAG_1_1 != "XA") %>%
-    filter(SATAG_2_1 != "XA") %>%
-    
     #calculate read span length. This is basically equal to read length, plus deletion length within an alignment.
     rowwise() %>%
     mutate(READ_SPAN = sum(as.integer(CIGAR_1_N))) %>%

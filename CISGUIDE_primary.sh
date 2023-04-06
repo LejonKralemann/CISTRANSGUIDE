@@ -874,8 +874,8 @@ echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 echo "Removing temporary files"
 
-#rm -r ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}
-#rm ${WORKPATH}/file1.temp 
+rm -r ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}
+rm ${WORKPATH}/file1.temp 
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 done

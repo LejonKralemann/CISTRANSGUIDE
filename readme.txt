@@ -5,7 +5,7 @@ Install and run
 - Then install samtools, trimmomatic, and bwa-mem2 via the command "conda install -c bioconda <samtools/picard/trimmomatic/bwa-mem2>"
 - Then install dos2unix with "apt install dos2unix"
 - Place CISGUIDE_primary.sh, Sample_information.txt, fastq.gz files, and reference fastas ("PLASMID_NAME.fa") in your work directory.
-- Run the software with something like: bash shared/CISGUIDE_primary.sh -p shared -f FALSE -d OPT -t 150 |& tee -a shared/primary_log.txt
+- Run the software with something like: bash shared/CISGUIDE_primary.sh -p shared -f FALSE -d OFF -t 150 |& tee -a shared/primary_log.txt
 - The output is a folder per library, containing a .bam and .bam.bai file so that sequences may be visualized in a genome browser, and a text file ending in "_A.txt" containing all preprocessed reads.
 - Next, place the files that end in "_A.txt", the reference fastas (change minus sign to underscore), and Sample_information.txt in the CISGUIDE input folder. Then run the R script.
 - The output is one excel file per library showing on every row a unique event. Another excel file contains all data together.
@@ -42,7 +42,7 @@ UMISuffix: 		The part of the filename after File_name, but before the extention 
 General notes
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 - The reference fasta needs to have chromosome names starting with "Chr" (e.g. "Chr4"), not just a number.
-- Make sure that the reference fastas don't contain names with minus signs.
+- Make sure that the reference fastas don't contain names with minus signs. Not inside the file, nor in the name of the file.
 
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Special notes for fasta mode

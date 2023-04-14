@@ -16,11 +16,11 @@ Sample_information
 You need to create a file named "Sample_information.txt". This file needs to have one row per sample, each with the fields indicated below. Include a header row.
 
 Sample:			The name of the library sample. Example: "7C1_LB". This name should in principle be unique. If the samples have been sequenced multiple times, they can have the same name, as long as the RunID is different.
-Primer:			The secondary GUIDEseq primer sequence (GSP2).
+Primer:			The secondary GUIDEseq primer sequence (GSP2). Use 'NA' in fasta mode.
 File_name:		The part before "_R1.fastq.gz" or "_R2.fastq.gz".
 Ref:			The genome reference file name, containing all the chromosomes, as well as the plasmid sequence(s). Example: "pCAS-PPO.fa".
-P5_adapter:		Enter the full P5 adapter primer, without special characters. Degenerate bases allowed but will be automatically changed to N.
-P7_adapter:		Enter the full p7 adapter primer, without special characters. Degenerate bases allowed but will be automatically changed to N.
+P5_adapter:		Enter the full P5 adapter primer, without special characters. Degenerate bases allowed but will be automatically changed to N. Use 'NA' in fasta mode.
+P7_adapter:		Enter the full p7 adapter primer, without special characters. Degenerate bases allowed but will be automatically changed to N. Use 'NA' in fasta mode.
 Plasmid:		The name of the plasmid as written in the reference file. Example: "pCAS-PPO".
 DSB_chrom:		The chromosome or plasmid on which the primer sequence is located, should agree with the name in the reference fasta. Example:"Chr4".
 FlankAUltEnd:	The position on the DSB_chrom where flank A ends (if there are multiple possibilities, take the furthest downstream). Flank A is the flank starting with the primer. Flank A and Flank B may overlap.
@@ -31,8 +31,8 @@ Genotype: 		The name of the genotype of the organism that was sampled.
 Plasmid_alt: 	The name of the second plasmid, if a transformation with multiple plasmids has been performed. Enter "NA" if you only used 1 plasmid.
 DNA: 			Name of the DNA sample from which libraries were made. Often one DNA sample is used to do an LB, RB, FW, and RV reaction. Example: "7C1".
 RunID: 			Name of the sequencing run. This allows one to differentiate between samples that were sequenced multiple times, or to limit comparisons within runs to avoid effects of different sequencing depths between runs.
-LBSeq: 			NA, only used for fasta mode
-RBSeq: 			NA, only used for fasta mode
+LBSeq: 			Currently not in use
+RBSeq: 			Currently not in use
 Ecotype: 		The name of the ecotype of the organism that was samples. E.g. "Col-0".
 R1Suffix: 		The part of the filename after File_name, but before the extention .fastq.gz, for read 1.
 R2Suffix: 		The part of the filename after File_name, but before the extention .fastq.gz, for read 2.
@@ -44,24 +44,3 @@ General notes
 - The reference fasta needs to have chromosome names starting with "Chr" (e.g. "Chr4"), not just a number.
 - Make sure that the reference fastas don't contain names with minus signs. Not inside the file, nor in the name of the file.
 
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Special notes for fasta mode
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Sample:	The name of the list of sequences in fasta format.
-Primer:	Use "NA"
-File_name:	the part before ".fasta" 
-Ref:	Same as in fastq mode
-P5_adapter:	Use "NA"
-P7_adapter:	Use "NA"
-Plasmid:	Same as in fastq mode
-DSB_chrom:	Same as in fastq mode
-FlankAUltEnd:	Use "NA"
-Locus_name: Use "NA"
-FLANK_A_ORIENT: Use "NA"
-FlankBUltStart:	Use "NA"
-Genotype: Same as in fastq mode
-Plasmid_alt: Same as in fastq mode
-DNA: 
-RunID: Same as in fastq mode
-LBseq: Sequence of the left border repeat in the binary plasmid
-Rbseq: Sequence of the right border repeat in the binary plasmid

@@ -122,7 +122,7 @@ for (i in row.names(sample_info)){
   }else{
     ""
   })
-  
+  if (Primer_seq != "NA"){
   if (FLANK_A_ORIENT == "FW"){
     Primer_match = as.data.frame(matchPattern(pattern = Primer_seq, subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))  
     if (nrow(Primer_match) > 0 & nrow(Primer_match) < 2){
@@ -149,6 +149,7 @@ for (i in row.names(sample_info)){
     next
   }
   #calculate the length from primer to DSB
+
   PRIMER_TO_DSB = if (FLANK_A_ORIENT == "FW"){
     FlankAUltEnd - (Primer_pos -1)
   }else if (FLANK_A_ORIENT=="RV"){
@@ -156,10 +157,10 @@ for (i in row.names(sample_info)){
   }else{
     ERROR_NUMBER
   }
-  #set the minimum length of a read
-  MINLEN = PRIMER_TO_DSB+FLANK_B_LEN_MIN
+
 
   #get the REF seq for flank A. from primer start to DSB +3 if RV primer, not if FW primer. Because CAS9 can cut further away from the PAM, but not closer. So the FLANK_A_REF is going as far as FLANK A is allowed to go.
+
   FLANK_A_REF = if (FLANK_A_ORIENT == "FW"){
     substr(contig_seq, start= Primer_pos, stop= FlankAUltEnd)
   }else if (FLANK_A_ORIENT=="RV"){
@@ -169,6 +170,7 @@ for (i in row.names(sample_info)){
   }else{
     ""
   }
+
   GLOBAL_TOTAL_REF = if (FLANK_A_ORIENT == "FW"){
     substr(contig_seq, start= Primer_pos, stop= Primer_pos+MAX_DIST_FLANK_B_END+PRIMER_TO_DSB)
   }else if (FLANK_A_ORIENT=="RV"){
@@ -177,7 +179,17 @@ for (i in row.names(sample_info)){
     ))
   }else{
     ""
-  } 
+  }}
+  
+  #set the minimum length of a read
+  if (Primer_seq != "NA"){
+  MINLEN = PRIMER_TO_DSB+FLANK_B_LEN_MIN
+  }else{
+  MINLEN = 60
+  message("MINLEN set to 60 because no primer seq available")
+  }
+  
+  #the following things need to be obtained for fasta mode: PRIMER_TO_DSB (step7), FLANK_A_REF (step7), GLOBAL_TOTAL_REF (step8)
   
   function_time("Step 1 took ")
 
@@ -187,7 +199,7 @@ for (i in row.names(sample_info)){
   
   data_improved  = data %>%
     
-    #filter(QNAME == "A00379:436:H3CHWDMXY:1:2448:17381:24674") %>%
+    #filter(QNAME == "M02948:216:000000000-KB5K4:1:1105:13650:11523") %>%
     
     #Count number of Ns and remove any reads with Ns
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
@@ -1034,6 +1046,7 @@ for (i in row.names(sample_info)){
   ###############################################################################
   
   data_improved6 = data_improved5b %>%
+    #adjust for fasta:
     mutate(TOTAL_REF = GLOBAL_TOTAL_REF) %>%
     #FLANK_B_REF. This ref includes homology.
     rowwise() %>%

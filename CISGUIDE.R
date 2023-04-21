@@ -205,8 +205,6 @@ for (i in row.names(sample_info)){
   
   data_improved  = data %>%
     
-    #filter(QNAME == "M02948:216:000000000-KB5K4:1:1105:13650:11523") %>%
-    
     #Count number of Ns and remove any reads with Ns
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
            SEQ_1_LEN = nchar(SEQ_1)) %>%
@@ -278,7 +276,11 @@ for (i in row.names(sample_info)){
     mutate(PRIMER_POS_FAKE = if (FASTA_MODE == FALSE){
       as.integer(ERROR_NUMBER)
     }else{
+      if (FLANK_A_ORIENT == "FW"){
       as.integer(PRIMER_POS_FAKE_match@ranges@start)
+      }else{
+      as.integer(PRIMER_POS_FAKE_match@ranges@start)+29
+      }
     }) %>%
     mutate(PRIMER_TO_DSB = if (FASTA_MODE == FALSE){
       as.integer(PRIMER_TO_DSB_GLOBAL)

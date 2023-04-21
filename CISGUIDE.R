@@ -800,7 +800,7 @@ for (i in row.names(sample_info)){
     }else{
       "NOT_FOUND"
     }) %>%
-    ungroup()
+    ungroup() 
 
   
   function_time("Step 5 took ")
@@ -1207,7 +1207,9 @@ for (i in row.names(sample_info)){
     mutate(FLANK_B_LEN_DEL = if_else(FLANK_B_ORIENT == "FW",
                                      FLANK_B_END_POS-(FLANK_B_START_POS_DEL-1),
                                      FLANK_B_START_POS_DEL-(FLANK_B_END_POS-1))) %>%
+
     ungroup()
+  
   
   function_time("Step 8 took ")
   
@@ -1482,6 +1484,8 @@ for (i in row.names(sample_info)){
            Ecotype = Ecotype,
            RunID = RunID,
            program_version = hash,
+           Plasmid = PLASMID,
+           Plasmid_alt = PLASMID_ALT,
            Alias = paste0(Library, "_", RunID))
   
   #filter out duplicate position artefacts

@@ -1461,7 +1461,7 @@ for (i in row.names(sample_info)){
   ###############################################################################
   
   #calculate the fraction of reads with the same outcomes
-  data_improved9 = data_improved8c %>% group_by(FILE_NAME, PRIMER_SEQ) %>% summarize(SumCountEvents =
+  data_improved9 = data_improved8c %>% group_by(FILE_NAME) %>% summarize(SumCountEvents =
                                                                                   sum(countEvents))
   function_time("Step 11 took ")
   
@@ -1469,7 +1469,7 @@ for (i in row.names(sample_info)){
   #Process data: step 12
   ###############################################################################
   
-  data_improved10 = left_join(data_improved8c, data_improved9, by = c("FILE_NAME", "PRIMER_SEQ")) %>%
+  data_improved10 = left_join(data_improved8c, data_improved9, by = "FILE_NAME") %>%
     mutate(fraction = countEvents / SumCountEvents) %>%
     mutate(SumCountEvents = NULL,
            FlankAUltEnd = FlankAUltEnd,

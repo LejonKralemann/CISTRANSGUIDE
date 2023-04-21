@@ -300,10 +300,10 @@ for (i in row.names(sample_info)){
       GLOBAL_TOTAL_REF
     }else{
       if (FLANK_A_ORIENT == "FW"){
-        substr(contig_seq, start= PRIMER_POS_FAKE, stop= PRIMER_POS_FAKE+MAX_DIST_FLANK_B_END+PRIMER_TO_DSB_GLOBAL)
+        substr(contig_seq, start= PRIMER_POS_FAKE, stop= PRIMER_POS_FAKE+MAX_DIST_FLANK_B_END+PRIMER_TO_DSB)
       }else{
         as.character(reverseComplement(DNAString(
-          substr(contig_seq, start= PRIMER_POS_FAKE-(MAX_DIST_FLANK_B_END+PRIMER_TO_DSB_GLOBAL), stop= PRIMER_POS_FAKE))))
+          substr(contig_seq, start= PRIMER_POS_FAKE-(MAX_DIST_FLANK_B_END+PRIMER_TO_DSB), stop= PRIMER_POS_FAKE))))
       }}) %>%
     ungroup() %>%
     group_by(
@@ -325,7 +325,8 @@ for (i in row.names(sample_info)){
       TRIM_LEN,
       PRIMER_TO_DSB,
       FLANK_A_REF,
-      TOTAL_REF) %>%
+      TOTAL_REF,
+      PRIMER_POS_FAKE) %>%
     summarize(
       countEvents_init = n(),
       Max_BaseQual_1 = max(AvgBaseQual_1),
@@ -341,9 +342,15 @@ for (i in row.names(sample_info)){
   data_improved1 = data_improved %>%
     
     #check for expected position and orientation base on primer seqs
-    mutate(
-      FLANK_A_START_POS = Primer_pos
+    rowwise()%>%
+    mutate(FLANK_A_START_POS =
+      if (FASTA_MODE == FALSE){
+        Primer_pos
+      }else{
+        PRIMER_POS_FAKE
+      }
     )%>%
+    ungroup()%>%
     
     #calculate the number of alignments
     mutate(CIGAR_1_LEN = nchar(str_remove_all(CIGAR_1, "[1234567890]"))) %>%

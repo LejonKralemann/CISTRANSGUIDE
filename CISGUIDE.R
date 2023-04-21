@@ -123,6 +123,12 @@ for (i in row.names(sample_info)){
     ""
   })
   if (Primer_seq != "NA"){
+  FASTA_MODE = FALSE
+  }else{
+  FASTA_MODE = TRUE
+  }
+  
+  if (FASTA_MODE == FALSE){
   if (FLANK_A_ORIENT == "FW"){
     Primer_match = as.data.frame(matchPattern(pattern = Primer_seq, subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))  
     if (nrow(Primer_match) > 0 & nrow(Primer_match) < 2){
@@ -150,7 +156,7 @@ for (i in row.names(sample_info)){
   }
   #calculate the length from primer to DSB
 
-  PRIMER_TO_DSB = if (FLANK_A_ORIENT == "FW"){
+  PRIMER_TO_DSB_GLOBAL = if (FLANK_A_ORIENT == "FW"){
     FlankAUltEnd - (Primer_pos -1)
   }else if (FLANK_A_ORIENT=="RV"){
     Primer_pos - (FlankAUltEnd -1)
@@ -161,7 +167,7 @@ for (i in row.names(sample_info)){
 
   #get the REF seq for flank A. from primer start to DSB +3 if RV primer, not if FW primer. Because CAS9 can cut further away from the PAM, but not closer. So the FLANK_A_REF is going as far as FLANK A is allowed to go.
 
-  FLANK_A_REF = if (FLANK_A_ORIENT == "FW"){
+  FLANK_A_REF_GLOBAL = if (FLANK_A_ORIENT == "FW"){
     substr(contig_seq, start= Primer_pos, stop= FlankAUltEnd)
   }else if (FLANK_A_ORIENT=="RV"){
     as.character(reverseComplement(DNAString(
@@ -172,18 +178,18 @@ for (i in row.names(sample_info)){
   }
 
   GLOBAL_TOTAL_REF = if (FLANK_A_ORIENT == "FW"){
-    substr(contig_seq, start= Primer_pos, stop= Primer_pos+MAX_DIST_FLANK_B_END+PRIMER_TO_DSB)
+    substr(contig_seq, start= Primer_pos, stop= Primer_pos+MAX_DIST_FLANK_B_END+PRIMER_TO_DSB_GLOBAL)
   }else if (FLANK_A_ORIENT=="RV"){
     as.character(reverseComplement(DNAString(
-      substr(contig_seq, start= Primer_pos-(MAX_DIST_FLANK_B_END+PRIMER_TO_DSB), stop= Primer_pos))
+      substr(contig_seq, start= Primer_pos-(MAX_DIST_FLANK_B_END+PRIMER_TO_DSB_GLOBAL), stop= Primer_pos))
     ))
   }else{
     ""
   }}
   
   #set the minimum length of a read
-  if (Primer_seq != "NA"){
-  MINLEN = PRIMER_TO_DSB+FLANK_B_LEN_MIN
+  if (FASTA_MODE == FALSE){
+  MINLEN = PRIMER_TO_DSB_GLOBAL+FLANK_B_LEN_MIN
   }else{
   MINLEN = 60
   message("MINLEN set to 60 because no primer seq available")
@@ -253,7 +259,53 @@ for (i in row.names(sample_info)){
         (str_count(QUAL_1, pattern = "I") * 40)
     ) / (40 * nchar(QUAL_1))
     )) %>%
-    filter(AvgBaseQual_1 > MINBASEQUAL)%>%
+    filter(AvgBaseQual_1 > MINBASEQUAL) %>%
+    rowwise() %>%
+    #the lines below until the grouping are under investigation. Maybe doesn't work well yet. First make the code so taht the output is identical to the output before the changes of a non fasta sample. Then test the fasta data.
+    mutate(PRIMER_SEQ = if (FASTA_MODE == FALSE){
+      PRIMER_SEQ
+      }else{
+        substr(SEQ_1, 1, 30)
+      }) %>%
+    mutate(PRIMER_POS_FAKE_match = if (FASTA_MODE == FALSE){
+      NA
+    }else{
+      if (FLANK_A_ORIENT == "FW"){
+        list(matchPattern(DNAString(PRIMER_SEQ), DNAString(contig_seq), max.mismatch = 0))
+      }else{
+        list(matchPattern(as.character(reverseComplement(DNAString(PRIMER_SEQ))), DNAString(contig_seq), max.mismatch = 0))
+      }}) %>%
+    mutate(PRIMER_POS_FAKE = if (FASTA_MODE == FALSE){
+      as.integer(ERROR_NUMBER)
+    }else{
+      as.integer(PRIMER_POS_FAKE_match@ranges@start)
+    }) %>%
+    mutate(PRIMER_TO_DSB = if (FASTA_MODE == FALSE){
+      as.integer(PRIMER_TO_DSB_GLOBAL)
+    }else{
+      if (FLANK_A_ORIENT == "FW"){
+        FlankAUltEnd - (PRIMER_POS_FAKE -1)
+      }else{
+        PRIMER_POS_FAKE - (FlankAUltEnd -1)
+      }}) %>%
+    mutate(FLANK_A_REF = if (FASTA_MODE == FALSE){
+      FLANK_A_REF_GLOBAL
+    }else{
+      if (FLANK_A_ORIENT == "FW"){
+        substr(contig_seq, start= PRIMER_POS_FAKE, stop= FlankAUltEnd)
+      }else{
+        as.character(reverseComplement(DNAString(substr(contig_seq, start= FlankAUltEnd, stop= PRIMER_POS_FAKE))))
+      }}) %>%
+    mutate(TOTAL_REF = if (FASTA_MODE == FALSE){
+      GLOBAL_TOTAL_REF
+    }else{
+      if (FLANK_A_ORIENT == "FW"){
+        substr(contig_seq, start= PRIMER_POS_FAKE, stop= PRIMER_POS_FAKE+MAX_DIST_FLANK_B_END+PRIMER_TO_DSB_GLOBAL)
+      }else{
+        as.character(reverseComplement(DNAString(
+          substr(contig_seq, start= PRIMER_POS_FAKE-(MAX_DIST_FLANK_B_END+PRIMER_TO_DSB_GLOBAL), stop= PRIMER_POS_FAKE))))
+      }}) %>%
+    ungroup() %>%
     group_by(
       RNAME_1,
       POS_1,
@@ -270,7 +322,10 @@ for (i in row.names(sample_info)){
       PRIMER_SEQ,
       SEQ_1_LEN,
       DEDUP_METHOD,
-      TRIM_LEN) %>%
+      TRIM_LEN,
+      PRIMER_TO_DSB,
+      FLANK_A_REF,
+      TOTAL_REF) %>%
     summarize(
       countEvents_init = n(),
       Max_BaseQual_1 = max(AvgBaseQual_1),
@@ -1013,7 +1068,10 @@ for (i in row.names(sample_info)){
       hasPROBLEM,
       DEDUP_METHOD,
       TRIM_LEN,
-      countEvents_init
+      countEvents_init,
+      PRIMER_TO_DSB,
+      FLANK_A_REF,
+      TOTAL_REF
     ) %>%
     
     
@@ -1046,8 +1104,7 @@ for (i in row.names(sample_info)){
   ###############################################################################
   
   data_improved6 = data_improved5b %>%
-    #adjust for fasta:
-    mutate(TOTAL_REF = GLOBAL_TOTAL_REF) %>%
+
     #FLANK_B_REF. This ref includes homology.
     rowwise() %>%
     mutate(FLANK_B_REF =

@@ -144,21 +144,21 @@ else
 	mkdir ${WORKPATH}/bams
 fi
 
-echo "Looking for directory ${WORKPATH}/stats"
-if [[ -d "${WORKPATH}/stats" ]]
+echo "Looking for directory ${WORKPATH}/misc"
+if [[ -d "${WORKPATH}/misc" ]]
 then
 	echo "Directory already exists. Emptying..."
-	rm -r ${WORKPATH}/stats
-	mkdir ${WORKPATH}/stats
-	if [ -z "$(ls -A ${WORKPATH}/stats)" ]; then
+	rm -r ${WORKPATH}/misc
+	mkdir ${WORKPATH}/misc
+	if [ -z "$(ls -A ${WORKPATH}/misc)" ]; then
 		echo "Old files removed succesfully"
 	else
 		echo "Cleanup not succesful. Please restart your device and run again."
 		exit 1
 	fi
 else
-	echo "Directory does not exist, creating ${WORKPATH}/stats..."
-	mkdir ${WORKPATH}/stats
+	echo "Directory does not exist, creating ${WORKPATH}/misc..."
+	mkdir ${WORKPATH}/misc
 fi
 
 ################################################################################################################
@@ -368,13 +368,15 @@ echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 if [[ ${FASTASWITCH} = FALSE ]]
 then
 	echo ">p5" >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Illumina_adapters.fa
-	cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $5}}' | tr "[:lower:]" "[:upper:]" | tr "RYMKSWBDHV" "NNNNNNNNNN" >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Illumina_adapters.fa
+	cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $5}}' | sed 's/[*]//g' | tr "[:lower:]" "[:upper:]" | tr "RYMKSWBDHV" "NNNNNNNNNN" >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Illumina_adapters.fa
 	echo ">p5_RC" >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Illumina_adapters.fa
-	cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $5}}' | tr "[:lower:]" "[:upper:]" | tr "RYMKSWBDHV" "NNNNNNNNNN" | tr "ACGT" "TGCA" | rev >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Illumina_adapters.fa
+	cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $5}}' | sed 's/[*]//g' | tr "[:lower:]" "[:upper:]" | tr "RYMKSWBDHV" "NNNNNNNNNN" | tr "ACGT" "TGCA" | rev >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Illumina_adapters.fa
 	echo ">p7" >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Illumina_adapters.fa
-	cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $6}}' | tr "[:lower:]" "[:upper:]" | tr "RYMKSWBDHV" "NNNNNNNNNN" >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Illumina_adapters.fa
+	cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $6}}' | sed 's/[*]//g' | tr "[:lower:]" "[:upper:]" | tr "RYMKSWBDHV" "NNNNNNNNNN" >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Illumina_adapters.fa
 	echo ">p7_RC" >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Illumina_adapters.fa
-	cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $6}}' | tr "[:lower:]" "[:upper:]" | tr "RYMKSWBDHV" "NNNNNNNNNN" | tr "ACGT" "TGCA" | rev >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Illumina_adapters.fa
+	cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $6}}' | sed 's/[*]//g' | tr "[:lower:]" "[:upper:]" | tr "RYMKSWBDHV" "NNNNNNNNNN" | tr "ACGT" "TGCA" | rev >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Illumina_adapters.fa
+
+	cp ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Illumina_adapters.fa ${WORKPATH}/misc/${CURRENTSAMPLE}_${CURRENTRUNID}_Illumina_adapters.fa
 
 	echo "Removing adapters, cropping until ${CURRENTTRIMLEN} bp, and discarding reads shorter than 90 bp"
 	echo "###########################################################################"

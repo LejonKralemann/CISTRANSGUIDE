@@ -186,12 +186,19 @@ do
 if [[ -f "${WORKPATH}/${j}" ]]
 then
 	echo "Found ${j}"
-	if [[ -f "${WORKPATH}/${j}.bwt.2bit.64" ]] && [[ -f "${WORKPATH}/${j}.0123" ]] && [[ -f "${WORKPATH}/${j}.amb" ]] && [[ -f "${WORKPATH}/${j}.ann" ]] && [[ -f "${WORKPATH}/${j}.pac" ]]
+	NUM_CHROM=$(grep -c '^[\>][0123456789]' ${WORKPATH}/${j})
+	if (( NUM_CHROM > 0 ))
 	then
-		echo "BWA-mem2 index of ${WORKPATH}/${j} found"
+		echo "${NUM_CHROM} chromosome names start with a number, exiting";
+		exit 1
 	else
-		echo "Creating the index for ${j}"
-		bwa-mem2 index ${WORKPATH}/${j}
+		if [[ -f "${WORKPATH}/${j}.bwt.2bit.64" ]] && [[ -f "${WORKPATH}/${j}.0123" ]] && [[ -f "${WORKPATH}/${j}.amb" ]] && [[ -f "${WORKPATH}/${j}.ann" ]] && [[ -f "${WORKPATH}/${j}.pac" ]]
+		then
+			echo "BWA-mem2 index of ${WORKPATH}/${j} found"
+		else
+			echo "Creating the index for ${j}"
+			bwa-mem2 index ${WORKPATH}/${j}
+		fi
 	fi
 else
 	echo "Did not find ${j}, exiting";

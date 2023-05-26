@@ -1499,7 +1499,7 @@ for (i in row.names(sample_info)){
   work_book <- createWorkbook()
   addWorksheet(work_book, "rawData")
   writeData(work_book, sheet = 1, data_improved10)
-  saveWorkbook(work_book, file = paste0(output_dir, Sample, "_", RunID, "_CISGUIDE_V_", as.integer(Sys.time()),"_", hash_little, ".xlsx"), overwrite = TRUE)
+  saveWorkbook(work_book, file = paste0(output_dir, Sample, "_", RunID, "_CISGUIDE_V_", hash_little, "_", as.integer(Sys.time()), ".xlsx"), overwrite = TRUE)
   
   function_time("Step 12 took ")
 }
@@ -1523,5 +1523,5 @@ wb_numbers = read_numbers_info %>%
 
 addWorksheet(work_book2, "Information")
 writeData(work_book2, sheet = 2, wb_numbers)
-saveWorkbook(work_book2, file = paste0(output_dir, "CISGUIDE_V_", as.integer(Sys.time()),"_", hash_little, ".xlsx"), overwrite = TRUE)
+saveWorkbook(work_book2, file = paste0(output_dir, "Data_combined_CISGUIDE_V_", hash_little, "_", as.integer(Sys.time()), ".xlsx"), overwrite = TRUE)
 

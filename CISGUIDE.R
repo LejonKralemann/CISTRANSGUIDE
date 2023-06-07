@@ -96,18 +96,21 @@ for (i in row.names(sample_info)){
   Genotype = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Genotype))
   PLASMID = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Plasmid))
   PLASMID_ALT = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Plasmid_alt))
+  REF = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Ref))
   FlankAUltEnd = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(FlankAUltEnd))
   FlankBUltStart = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(FlankBUltStart))
   DNASample = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DNA))
   Ecotype = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Ecotype))
   Library = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Sample))
   
-  if (file.exists(paste0(input_dir, PLASMID, ".fa"))==FALSE){
+  if (file.exists(paste0(input_dir, REF))==FALSE){
     message("Reference fasta not found")
     next
+  }else{
+    message(paste0("Using ref ", input_dir, REF))
   }
   
-  genomeseq = readDNAStringSet(paste0(input_dir, PLASMID,".fa") , format="fasta")
+  genomeseq = readDNAStringSet(paste0(input_dir, REF) , format="fasta")
   contig_seq = as.character(eval(parse(text = paste0("genomeseq$", FOCUS_CONTIG))))
   Primer_seq = str_replace_all(as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Primer)), "TCAGACGTGTGCTCTTCCGATCT", "")
   Primer_match = as.data.frame(matchPattern(pattern = Primer_seq, subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))

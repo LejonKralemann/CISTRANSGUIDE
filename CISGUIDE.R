@@ -1038,11 +1038,12 @@ for (i in row.names(sample_info)){
     
     #Search SEQ_1 for a sequence surrounding the DSB (meaning the cut has not been made or repaired perfectly)
     #search with allowing 1bp mismatch, but give different output whether the match is perfect or not
+    #note it only checks the first hit
     rowwise() %>%
     mutate(DSB_AREA_CHECK = list(matchPattern(DNAString(DSB_AREA_SEQ), DNAString(SEQ_1), max.mismatch = 1))) %>%
     mutate(DSB_AREA_COUNT = length(DSB_AREA_CHECK@ranges)) %>%
     mutate(DSB_AREA_HIT = if(DSB_AREA_COUNT>0){
-      if (SEQ_1_LEN >= (DSB_AREA_CHECK@ranges@start+DSB_AREA_CHECK@ranges@width-1)){
+      if (SEQ_1_LEN >= (DSB_AREA_CHECK@ranges@start[1]+DSB_AREA_CHECK@ranges@width[1]-1)){
         as.character(DSB_AREA_CHECK[[1]])}else{""}
     }else{""} ) %>%
     ungroup()%>%
@@ -1057,6 +1058,9 @@ for (i in row.names(sample_info)){
       DSB_AREA_INTACT==TRUE | DSB_AREA_1MM==TRUE),
       TRUE,
       FALSE)) %>%
+    mutate(DSB_HIT_MULTI = if_else(DSB_AREA_COUNT>1,
+                                   "TRUE",
+                                   "FALSE")) %>%
   
     #select only columns that are used from now to save space
     select(
@@ -1064,6 +1068,7 @@ for (i in row.names(sample_info)){
       SEQ_1,
       DSB_AREA_INTACT,
       DSB_AREA_1MM,
+      DSB_HIT_MULTI,
       CASE_WT,
       MATE_FLANK_B_CHROM,
       FLANK_B_START_POS,
@@ -1398,6 +1403,7 @@ for (i in row.names(sample_info)){
       FAKE_DELIN_CHECK,
       DSB_AREA_INTACT,
       DSB_AREA_1MM,
+      DSB_HIT_MULTI,
       hasPROBLEM,
       DEDUP_METHOD,
       TRIM_LEN
@@ -1453,6 +1459,7 @@ for (i in row.names(sample_info)){
       SEQ_2_first_first,
       DSB_AREA_INTACT,
       DSB_AREA_1MM,
+      DSB_HIT_MULTI,
       hasPROBLEM,
       DEDUP_METHOD,
       TRIM_LEN

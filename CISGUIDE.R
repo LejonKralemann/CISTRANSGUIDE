@@ -394,7 +394,6 @@ for (i in row.names(sample_info)){
     ) %>%
     mutate(
       SATAG_1_2 = NULL,
-      SATAG_1_7 = NULL,
       SATAG_1_8 = NULL,
       SATAG_1_13 = NULL,
       SATAG_1_14 = NULL,
@@ -457,7 +456,6 @@ for (i in row.names(sample_info)){
     ) %>%
     mutate(
       SATAG_2_2 = NULL,
-      SATAG_2_7 = NULL,
       SATAG_2_8 = NULL,
       SATAG_2_13 = NULL,
       SATAG_2_14 = NULL,
@@ -479,6 +477,10 @@ for (i in row.names(sample_info)){
       SATAG_2_12_N = list(stri_remove_empty(SATAG_2_12_N))
     )  %>%
     ungroup() %>%
+    
+    #remove reads with ambiguous supplementary alignments
+    filter(SATAG_1_7 > 0) %>%
+    filter(SATAG_2_7 > 0) %>%
     
     #make certain columns integers, for calculating
     mutate(
@@ -1465,6 +1467,7 @@ for (i in row.names(sample_info)){
       TRIM_LEN
     ) %>%
     
+
     #add required columns for SIQplotter
     mutate(getHomologyColor= "grey")
   
@@ -1474,7 +1477,7 @@ for (i in row.names(sample_info)){
   #Process data: step 11
   ###############################################################################
   
-  #calculate the fraction of reads with the same outcomes
+  #calculate the fraction of reads with a certain outcome within a library
   data_improved9 = data_improved8c %>% group_by(FILE_NAME) %>% summarize(SumCountEvents =
                                                                                   sum(countEvents))
   function_time("Step 11 took ")
@@ -1498,13 +1501,7 @@ for (i in row.names(sample_info)){
            Plasmid_alt = PLASMID_ALT,
            Alias = paste0(Library, "_", RunID))
   
-  #filter out duplicate position artefacts
-  data_improved11 = data_improved10 %>% group_by(FLANK_B_CHROM, FLANK_B_START_POS) %>% summarize(countEventsPosSum = sum(countEvents))
-  data_improved12 = data_improved10 %>% group_by(FLANK_B_CHROM, FLANK_B_START_POS) %>% summarize(countEventsPosMax = max(countEvents))
-  data_improved13 = left_join(data_improved11, data_improved12, by = c("FLANK_B_CHROM", "FLANK_B_START_POS")) %>% mutate(MajorFractionAtPos = countEventsPosMax / countEventsPosSum) 
-  data_improved14 = left_join(data_improved10, data_improved13, by = c("FLANK_B_CHROM", "FLANK_B_START_POS")) %>% mutate(FractionAtPos=countEvents/countEventsPosSum) 
-  
-  
+
   #write an excel sheet as output
   work_book <- createWorkbook()
   addWorksheet(work_book, "rawData")

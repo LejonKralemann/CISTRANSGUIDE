@@ -34,8 +34,8 @@ RunID: 			Name of the sequencing run. This allows one to differentiate between s
 LBSeq: 			Currently not in use
 RBSeq: 			Currently not in use
 Ecotype: 		The name of the ecotype of the organism that was samples. E.g. "Col-0".
-R1Suffix: 		The part of the filename after File_name, but before the extention .fastq.gz, for read 1.
-R2Suffix: 		The part of the filename after File_name, but before the extention .fastq.gz, for read 2.
+R1Suffix: 		The part of the filename after File_name, but before the extention .fastq.gz, for read 1 (the read sequenced from the p5 adapter).
+R2Suffix: 		The part of the filename after File_name, but before the extention .fastq.gz, for read 2 (the read sequenced from the p7 adapter).
 UMISuffix: 		The part of the filename after File_name, but before the extention .fastq.gz, for the UMI.
 
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------

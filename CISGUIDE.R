@@ -479,8 +479,8 @@ for (i in row.names(sample_info)){
     ungroup() %>%
     
     #remove reads with ambiguous supplementary alignments
-    filter(SATAG_1_7 > 0) %>%
-    filter(SATAG_2_7 > 0) %>%
+    filter(SATAG_1_7 > 30) %>%
+    filter(SATAG_2_7 > 30) %>%
     
     #make certain columns integers, for calculating
     mutate(

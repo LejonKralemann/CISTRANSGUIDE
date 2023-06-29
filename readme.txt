@@ -19,8 +19,8 @@ Sample:			The name of the library sample. Example: "7C1_LB". This name should in
 Primer:			The secondary GUIDEseq primer sequence (GSP2). Use 'NA' in fasta mode.
 File_name:		The part before "_R1.fastq.gz" or "_R2.fastq.gz". This name needs to be unique in this list.
 Ref:			The genome reference file name, containing all the chromosomes, as well as the plasmid sequence(s). Example: "pCAS-PPO.fa".
-P5_adapter:		Enter the full P5 adapter primer, without special characters. Degenerate bases allowed but will be automatically changed to N. Use 'NA' in fasta mode.
-P7_adapter:		Enter the full p7 adapter primer, without special characters. Degenerate bases allowed but will be automatically changed to N. Use 'NA' in fasta mode.
+P5_adapter:		Enter the full P5 adapter primer, without special characters, in upper case. Degenerate bases allowed but will be automatically changed to N. Use 'NA' in fasta mode.
+P7_adapter:		Enter the full p7 adapter primer, without special characters, in upper case. Degenerate bases allowed but will be automatically changed to N. Use 'NA' in fasta mode.
 Plasmid:		The name of the plasmid as written in the reference file. Example: "pCAS-PPO".
 DSB_chrom:		The chromosome or plasmid on which the primer sequence is located, should agree with the name in the reference fasta. Example:"Chr4".
 FlankAUltEnd:	The position on the DSB_chrom where flank A ends (if there are multiple possibilities, take the furthest downstream). Flank A is the flank starting with the primer. Flank A and Flank B may overlap.

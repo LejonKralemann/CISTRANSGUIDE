@@ -28,7 +28,6 @@ fi
 WORKPATH=~
 FASTASWITCH="FALSE"
 CURRENTTRIMLEN=999999
-DEDUPOPT=OFF
 StartTime=$(date +%s)
 Help()
 {
@@ -37,7 +36,6 @@ Help()
    echo "h     Print this Help."
    echo "p     Set work path. default: home directory"
    echo "f     Switches to fasta mode if TRUE. default: FALSE."
-   echo "d     Sets deduplicate option. OFF= no dup filtering, OPT=dup filtering, UMI=UMI consolidation. default:OFF"
    echo "t     Sets trimming length. Value indicate maximum number of nt to keep. default:999999 (meaning no trimming is performed)."
    echo
 }
@@ -52,9 +50,6 @@ while getopts "hp:f:d:k:t:" option; do
 		 ;;
       f) # Enter TRUE or FALSE
          FASTASWITCH=$OPTARG
-		 ;;
-      d) #duplicate filtering options
-         DEDUPOPT=$OPTARG
 		 ;;
       t) #duplicate filtering options
          CURRENTTRIMLEN=$OPTARG
@@ -324,7 +319,7 @@ samtools sort -o ${WORKPATH}/bams/${CURRENTSAMPLE}_${CURRENTRUNID}.sorted.bam ${
 samtools index ${WORKPATH}/bams/${CURRENTSAMPLE}_${CURRENTRUNID}.sorted.bam ${WORKPATH}/bams/${CURRENTSAMPLE}_${CURRENTRUNID}.sorted.bam.bai
 
 echo "Creating empty output files"
-> ${WORKPATH}/file1.temp | awk -v OFS="\t" -v FS="\t" ' BEGIN{print "QNAME", "RNAME_1", "POS_1", "CIGAR_1", "SEQ_1", "QUAL_1", "SATAG_1", "SEQ_RCed_1", "RNAME_2", "POS_2", "CIGAR_2", "SEQ_2", "QUAL_2", "SATAG_2", "SEQ_RCed_2", "FILE_NAME", "PRIMER_SEQ", "DEDUP_METHOD", "TRIM_LEN"}' > ${WORKPATH}/input/${CURRENTSAMPLE}_${CURRENTRUNID}_A.txt
+> ${WORKPATH}/file1.temp | awk -v OFS="\t" -v FS="\t" ' BEGIN{print "QNAME", "RNAME_1", "POS_1", "CIGAR_1", "SEQ_1", "QUAL_1", "SATAG_1", "SEQ_RCed_1", "RNAME_2", "POS_2", "CIGAR_2", "SEQ_2", "QUAL_2", "SATAG_2", "SEQ_RCed_2", "FILE_NAME", "PRIMER_SEQ", "TRIM_LEN"}' > ${WORKPATH}/input/${CURRENTSAMPLE}_${CURRENTRUNID}_A.txt
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 ################################################################################################################
@@ -345,6 +340,7 @@ echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 #remove supplementary and secondary alignment reads (this information is already present in the SAtag, and in fact the sup/sec reads do not contain the full info)
 #remove unmapped reads
 #only keep reads with MAPQ above 50
+#reverse complement the reads that have been reverse complemented by the mapper. Do not reverse complement the mates (unneccesary waste of computing power), but do output RCed = TRUE, because this is used in downstream analysis.
 
 echo "Processing forward reads of ${i}: discarding unmapped reads or reads with unmapped mates, discarding supplementary or secondary alignment reads, discarding reads with MAPQ <51"
 samtools view -uF 0x100 ${WORKPATH}/bams/${CURRENTSAMPLE}_${CURRENTRUNID}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800 | samtools view -uf 0x80 | samtools view -uF 0x8 | samtools view -F 0x10 | sort -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50){print $0}}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_fw_0.txt
@@ -363,22 +359,14 @@ paste -d $'\t' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_2.tx
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 echo "Reverse complementing reverse reads of ${i}"
-awk -v OFS="\t" -v FS="\t" '{print $10}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv.txt | tr ACGTacgt TGCAtgca | rev > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_RCseqs.txt
-paste ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_RCseqs.txt | awk -v OFS="\t" -v FS="\t" '{print $1, $2, $3, $4, $5, $6, $7, $8, $9, $13, $11, $12, "TRUE"}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_RCed.txt
+cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv.txt | awk -v OFS="\t" -v FS="\t" '{print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, "TRUE"}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_RCed.txt
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
-if [[ ${FASTASWITCH} = FALSE ]]
-then
-	echo "Combining forward and reverse reads and keeping only those starting with primer seq ${PRIMERSEQ}"
-	cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_fw.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_RCed.txt | sort -k 1,1 | awk -v OFS="\t" -v FS="\t" -v test="$PRIMERSEQ" '$10 ~ "^"test {print}'  > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_all.txt
-	awk -v OFS="\t" -v FS="\t" '{print $1}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_all.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_all_names.txt
-	echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
-else
-	echo "Combining forward and reverse reads, ignoring primer seq"
-	cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_fw.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_RCed.txt | sort -k 1,1 > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_all.txt
-	awk -v OFS="\t" -v FS="\t" '{print $1}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_all.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_all_names.txt
-	echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
-fi
+echo "Combining forward and reverse reads"
+cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_fw.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_rv_RCed.txt | sort -k 1,1 > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_all.txt
+awk -v OFS="\t" -v FS="\t" '{print $1}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_all.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_all_names.txt
+echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
+
 
 echo "Processing forward mates of accepted reads of ${i}: discarding unmapped reads or reads with unmapped mates, discarding supplementary or secondary alignment reads, discarding reads with MAPQ <51"
 samtools view -uF 0x100 ${WORKPATH}/bams/${CURRENTSAMPLE}_${CURRENTRUNID}.sorted.bam | samtools view -uF 0x4 | samtools view -uF 0x800| samtools view -uf 0x40 | samtools view -uF 0x8 | samtools view -f 0x10 | sort -k 1,1 | awk -v OFS="\t" -v FS="\t" '{ if ($5>50){print $0}}' | grep -f ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_all_names.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_fw_0.txt
@@ -395,8 +383,7 @@ paste -d $'\t' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv_2.txt ${WOR
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 echo "Reverse complementing reverse mates of ${i}"
-awk -v OFS="\t" -v FS="\t" '{print $10}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv.txt | tr ACGTacgt TGCAtgca | rev > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv_RCseqs.txt
-paste ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv_RCseqs.txt | awk -v OFS="\t" -v FS="\t" '{print $1, $2, $3, $4, $5, $6, $7, $8, $9, $13, $11, $12, "TRUE"}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv_RCed.txt
+cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv.txt | awk -v OFS="\t" -v FS="\t" '{print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, "TRUE"}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_rv_RCed.txt
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 echo "Combining forward and reverse mates of ${i}"
@@ -415,7 +402,7 @@ echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 ################################################################################################################
 
 echo "Counting reads of ${CURRENTSAMPLE} ${CURRENTRUNID}"
-RAWNO=$(( $(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}${CURRENTR1SUFFIX}.fastq | wc -l)/4 )) 
+RAWNO=$(( $(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1.fastq | wc -l)/4 )) 
 echo "RAWNO: ${RAWNO}"
 cat ${WORKPATH}/input/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTFILE="${i}" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v CURRENTRUNID="${CURRENTRUNID}" -v RAWNO="${RAWNO}" -v FOCUSLOCUS="${FOCUSLOCUS}" ' END{print CURRENTSAMPLE, CURRENTRUNID, CURRENTFILE, FOCUSLOCUS, "Raw", RAWNO}' >> ${WORKPATH}/input/read_numbers.txt
 

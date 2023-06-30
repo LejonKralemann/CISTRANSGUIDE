@@ -115,6 +115,7 @@ for (i in row.names(sample_info)){
   genomeseq = readDNAStringSet(paste0(input_dir, REF) , format="fasta")
   contig_seq = as.character(eval(parse(text = paste0("genomeseq$", FOCUS_CONTIG))))
   Primer_seq = str_replace_all(as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Primer)), "TCAGACGTGTGCTCTTCCGATCT", "")
+  Primer_seq_len = nchar(Primer_seq)
   Primer_match = as.data.frame(matchPattern(pattern = Primer_seq, subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))
   Primer_RC_match = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(Primer_seq))), subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))
   FLANK_A_ORIENT = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(FLANK_A_ORIENT))
@@ -250,6 +251,14 @@ for (i in row.names(sample_info)){
     #filter away low quality reads
     filter(AvgBaseQual_1_max > MINBASEQUAL) %>%
     rowwise() %>%
+    #RC SEQ1 if wrong orientation
+    mutate(SEQ_1 = if (SEQ_RCed_1 == TRUE) {as.character(reverseComplement(DNAString(SEQ_1)))
+  }else{SEQ_1}) %>%
+    ungroup() %>%
+    mutate(SEQ_1_start = substr(SEQ_1, 1, Primer_seq_len)) %>%
+    #then remove reads that dont begin with the primer
+    filter(SEQ_1_start == Primer_seq) %>%
+    
     #the lines below until the grouping are under investigation. Maybe doesn't work well yet. First make the code so that the output is identical to the output before the changes of a non fasta sample. Then test the fasta data.
     mutate(PRIMER_SEQ = if (FASTA_MODE == FALSE){
       PRIMER_SEQ
@@ -299,33 +308,6 @@ for (i in row.names(sample_info)){
           substr(contig_seq, start= PRIMER_POS_FAKE-(MAX_DIST_FLANK_B_END+PRIMER_TO_DSB), stop= PRIMER_POS_FAKE))))
       }}) %>%
     ungroup() 
-    #%>%
-    #group_by(
-  #    RNAME_1,
-   #   POS_1,
-   #   CIGAR_1,
-   #   SATAG_1,
-   #   SEQ_RCed_1,
-   #   SEQ_1,
-   #   RNAME_2,
-   #   POS_2,
-   #   CIGAR_2,
-   #   SATAG_2,
-   #   SEQ_RCed_2,
-   #   FILE_NAME,
-   ##   PRIMER_SEQ,
-   #   SEQ_1_LEN,
-   #   DEDUP_METHOD,
-   #   TRIM_LEN,
-   #   PRIMER_TO_DSB,
-   #   FLANK_A_REF,
-   #   TOTAL_REF,
-   #   PRIMER_POS_FAKE) %>%
-   # summarize(
-   #   countEvents_init = n(),
-   #   Max_BaseQual_1 = max(AvgBaseQual_1),
-   #   QNAME_first = first(QNAME),
-   #   SEQ_2_first = first(SEQ_2))
   
   function_time("Step 2 took ")
   

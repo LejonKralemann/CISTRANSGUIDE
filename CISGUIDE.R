@@ -8,24 +8,26 @@ if (require(stringdist)==FALSE){install.packages("stringdist")}
 if (require(tidyverse)==FALSE){install.packages("tidyverse")}
 if (require(openxlsx)==FALSE){install.packages("openxlsx")}
 
-
-
 ###############################################################################
-#set parameters
+#set parameters - adjustable
 ###############################################################################
 input_dir= "./input/"
 output_dir= "./output/"
-hash=system("git rev-parse HEAD", intern=TRUE)
-hash_little=substr(hash, 1, 8)
-NF_NUMBER = as.integer(-99999999) #don't change
-ERROR_NUMBER = as.integer(99999999) #don't change
-MINBASEQUAL = 0.75 #minimum base quality
+MINBASEQUAL = 30 #minimum base quality (phred)
 MAX_DIST_FLANK_B_END = 10000 #distance from end of flank B to DSB, determines max deletion size and also affects maximum insertion size
 FLANK_B_LEN_MIN = 15 #minimum length of flank B. Also affects size of DSB_AREA_SEQ (2x FLANK_B_LEN_MIN)
 LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick to determine locus info
+DEBUG=FALSE #if on, reads will not be discarded when a problem has been detected, but flagged.
+
+###############################################################################
+#set parameters - non-adjustable
+###############################################################################
+NF_NUMBER = as.integer(-99999999) #don't change
+ERROR_NUMBER = as.integer(99999999) #don't change
+hash=system("git rev-parse HEAD", intern=TRUE)
+hash_little=substr(hash, 1, 8)
 sample_info = read.csv(paste0(input_dir, "Sample_information.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
 TIME_START=as.numeric(Sys.time())*1000
-DEBUG=FALSE #if on, reads will not be discarded when a problem has been detected, but flagged.
 
 ###############################################################################
 #Initial checks
@@ -216,53 +218,39 @@ for (i in row.names(sample_info)){
     #filter away reads that are too short
     filter(!(SEQ_1_LEN < MINLEN)) %>%
     
-    #calculate the average base quality, and filter away low quality reads
-    mutate(AvgBaseQual_1 =   ((
-      (str_count(QUAL_1, pattern = '\\"') * 1) +
-        (str_count(QUAL_1, pattern = "#") * 2) +
-        (str_count(QUAL_1, pattern = "\\$") * 3) +
-        (str_count(QUAL_1, pattern = "%") * 4) +
-        (str_count(QUAL_1, pattern = "&") * 5) +
-        (str_count(QUAL_1, pattern = "'") * 6) +
-        (str_count(QUAL_1, pattern = "\\(") * 7) +
-        (str_count(QUAL_1, pattern = "\\)") * 8) +
-        (str_count(QUAL_1, pattern = "\\*") * 9) +
-        (str_count(QUAL_1, pattern = "\\+") * 10) +
-        (str_count(QUAL_1, pattern = ",") * 11) +
-        (str_count(QUAL_1, pattern = "\\-") * 12) +
-        (str_count(QUAL_1, pattern = "\\.") * 13) +
-        (str_count(QUAL_1, pattern = "/") * 14) +
-        (str_count(QUAL_1, pattern = "0") * 15) +
-        (str_count(QUAL_1, pattern = "1") * 16) +
-        (str_count(QUAL_1, pattern = "2") * 17) +
-        (str_count(QUAL_1, pattern = "3") * 18) +
-        (str_count(QUAL_1, pattern = "4") * 19) +
-        (str_count(QUAL_1, pattern = "5") * 20) +
-        (str_count(QUAL_1, pattern = "6") * 21) +
-        (str_count(QUAL_1, pattern = "7") * 22) +
-        (str_count(QUAL_1, pattern = "8") * 23) +
-        (str_count(QUAL_1, pattern = "9") * 24) +
-        (str_count(QUAL_1, pattern = ":") * 25) +
-        (str_count(QUAL_1, pattern = ";") * 26) +
-        (str_count(QUAL_1, pattern = "<") * 27) +
-        (str_count(QUAL_1, pattern = "=") * 28) +
-        (str_count(QUAL_1, pattern = ">") * 29) +
-        (str_count(QUAL_1, pattern = "\\?") * 30) +
-        (str_count(QUAL_1, pattern = "@") * 31) +
-        (str_count(QUAL_1, pattern = "A") * 32) +
-        (str_count(QUAL_1, pattern = "B") * 33) +
-        (str_count(QUAL_1, pattern = "C") * 34) +
-        (str_count(QUAL_1, pattern = "D") * 35) +
-        (str_count(QUAL_1, pattern = "E") * 36) +
-        (str_count(QUAL_1, pattern = "F") * 37) +
-        (str_count(QUAL_1, pattern = "G") * 38) +
-        (str_count(QUAL_1, pattern = "H") * 39) +
-        (str_count(QUAL_1, pattern = "I") * 40)
-    ) / (40 * nchar(QUAL_1))
-    )) %>%
-    filter(AvgBaseQual_1 > MINBASEQUAL) %>%
+    #calculate the average base quality
+    rowwise()%>%
+    mutate(AvgBaseQual_1 = mean(utf8ToInt(QUAL_1)-33)) %>%
+    mutate(AvgBaseQual_2 = mean(utf8ToInt(QUAL_2)-33)) %>%
+    ungroup()%>%
+    #count reads, taking the highest quals
+    group_by(
+      RNAME_1,
+      POS_1,
+      CIGAR_1,
+      SEQ_1,
+      SATAG_1,
+      SEQ_RCed_1,
+      RNAME_2,
+      POS_2,
+      CIGAR_2,
+      SEQ_2,
+      SATAG_2,
+      SEQ_RCed_2,
+      FILE_NAME,
+      PRIMER_SEQ,
+      DEDUP_METHOD,
+      TRIM_LEN,
+      SEQ_1_LEN) %>%
+    arrange(desc(AvgBaseQual_1), desc(AvgBaseQual_2)) %>%
+    summarize(countReads = n(),
+              AvgBaseQual_1_max = dplyr::first(AvgBaseQual_1),
+              AvgBaseQual_2_max = dplyr::first(AvgBaseQual_2),
+              QNAME_first = dplyr::first(QNAME))%>%
+    #filter away low quality reads
+    filter(AvgBaseQual_1_max > MINBASEQUAL) %>%
     rowwise() %>%
-    #the lines below until the grouping are under investigation. Maybe doesn't work well yet. First make the code so taht the output is identical to the output before the changes of a non fasta sample. Then test the fasta data.
+    #the lines below until the grouping are under investigation. Maybe doesn't work well yet. First make the code so that the output is identical to the output before the changes of a non fasta sample. Then test the fasta data.
     mutate(PRIMER_SEQ = if (FASTA_MODE == FALSE){
       PRIMER_SEQ
       }else{
@@ -310,33 +298,34 @@ for (i in row.names(sample_info)){
         as.character(reverseComplement(DNAString(
           substr(contig_seq, start= PRIMER_POS_FAKE-(MAX_DIST_FLANK_B_END+PRIMER_TO_DSB), stop= PRIMER_POS_FAKE))))
       }}) %>%
-    ungroup() %>%
-    group_by(
-      RNAME_1,
-      POS_1,
-      CIGAR_1,
-      SATAG_1,
-      SEQ_RCed_1,
-      SEQ_1,
-      RNAME_2,
-      POS_2,
-      CIGAR_2,
-      SATAG_2,
-      SEQ_RCed_2,
-      FILE_NAME,
-      PRIMER_SEQ,
-      SEQ_1_LEN,
-      DEDUP_METHOD,
-      TRIM_LEN,
-      PRIMER_TO_DSB,
-      FLANK_A_REF,
-      TOTAL_REF,
-      PRIMER_POS_FAKE) %>%
-    summarize(
-      countEvents_init = n(),
-      Max_BaseQual_1 = max(AvgBaseQual_1),
-      QNAME_first = first(QNAME),
-      SEQ_2_first = first(SEQ_2))
+    ungroup() 
+    #%>%
+    #group_by(
+  #    RNAME_1,
+   #   POS_1,
+   #   CIGAR_1,
+   #   SATAG_1,
+   #   SEQ_RCed_1,
+   #   SEQ_1,
+   #   RNAME_2,
+   #   POS_2,
+   #   CIGAR_2,
+   #   SATAG_2,
+   #   SEQ_RCed_2,
+   #   FILE_NAME,
+   ##   PRIMER_SEQ,
+   #   SEQ_1_LEN,
+   #   DEDUP_METHOD,
+   #   TRIM_LEN,
+   #   PRIMER_TO_DSB,
+   #   FLANK_A_REF,
+   #   TOTAL_REF,
+   #   PRIMER_POS_FAKE) %>%
+   # summarize(
+   #   countEvents_init = n(),
+   #   Max_BaseQual_1 = max(AvgBaseQual_1),
+   #   QNAME_first = first(QNAME),
+   #   SEQ_2_first = first(SEQ_2))
   
   function_time("Step 2 took ")
   
@@ -1078,16 +1067,17 @@ for (i in row.names(sample_info)){
       FLANK_B_ORIENT,
       FLANK_B_CHROM,
       FILE_NAME,
-      Max_BaseQual_1,
+      AvgBaseQual_1_max,
+      AvgBaseQual_2_max,
       MATE_FLANK_B_CHROM_AGREE,
-      SEQ_2_first,
+      SEQ_2,
       QNAME_first,
       SEQ_1_LEN,
       FLANK_A_START_POS,
       hasPROBLEM,
       DEDUP_METHOD,
       TRIM_LEN,
-      countEvents_init,
+      countReads,
       PRIMER_TO_DSB,
       FLANK_A_REF,
       TOTAL_REF
@@ -1382,8 +1372,6 @@ for (i in row.names(sample_info)){
     }
     
     data_improved8c=data_improved8b %>%
-    #sort the rows in order to have the ones with the highest base quality at the top
-    arrange(desc(SEQ_1_LEN), desc(Max_BaseQual_1)) %>%
     
     #calculate the number of events
     group_by(
@@ -1410,12 +1398,15 @@ for (i in row.names(sample_info)){
       DEDUP_METHOD,
       TRIM_LEN
     ) %>%
+      #sort the rows in order to have the ones with the highest base quality at the top
+      arrange(desc(SEQ_1_LEN), desc(AvgBaseQual_1_max), desc(AvgBaseQual_2_max)) %>%
     summarize(
-      countEvents = sum(countEvents_init),
-      Max_BaseQual_1_max = max(Max_BaseQual_1),
+      countUniqueReadPairs = n(),
+      countReadsSum = sum(countReads),
+      AvgBaseQual_1_max_max = max(AvgBaseQual_1_max),
       Name = first(QNAME_first),
       SEQ_1_first = first(SEQ_1),
-      SEQ_2_first_first = first(SEQ_2_first)
+      SEQ_2_first = first(SEQ_2)
     ) %>%
     
     #Add a subject and type column. Also add two extra columns for SIQplotter that are equal to the other del columns.
@@ -1441,7 +1432,8 @@ for (i in row.names(sample_info)){
       delRelativeStartTD,
       delRelativeEnd,
       delRelativeEndTD,
-      countEvents,
+      countUniqueReadPairs,
+      countReadsSum,
       FLANK_B_CHROM,
       FLANK_B_START_POS,
       FLANK_B_ISFORWARD,
@@ -1456,9 +1448,9 @@ for (i in row.names(sample_info)){
       delSize,
       Type,
       Subject,
-      Max_BaseQual_1_max,
+      AvgBaseQual_1_max_max,
       SEQ_1_first,
-      SEQ_2_first_first,
+      SEQ_2_first,
       DSB_AREA_INTACT,
       DSB_AREA_1MM,
       DSB_HIT_MULTI,
@@ -1478,8 +1470,8 @@ for (i in row.names(sample_info)){
   ###############################################################################
   
   #calculate the fraction of reads with a certain outcome within a library
-  data_improved9 = data_improved8c %>% group_by(FILE_NAME) %>% summarize(SumCountEvents =
-                                                                                  sum(countEvents))
+  data_improved9 = data_improved8c %>% group_by(FILE_NAME) %>% summarize(countReadsTotal =
+                                                                                  sum(countReadsSum))
   function_time("Step 11 took ")
   
   ###############################################################################
@@ -1487,8 +1479,8 @@ for (i in row.names(sample_info)){
   ###############################################################################
   
   data_improved10 = left_join(data_improved8c, data_improved9, by = "FILE_NAME") %>%
-    mutate(fraction = countEvents / SumCountEvents) %>%
-    mutate(SumCountEvents = NULL,
+    mutate(fraction = countReadsSum / countReadsTotal) %>%
+    mutate(countReadsTotal = NULL,
            FlankAUltEnd = FlankAUltEnd,
            FLANK_A_ORIENT = FLANK_A_ORIENT,
            FOCUS_CONTIG = FOCUS_CONTIG,

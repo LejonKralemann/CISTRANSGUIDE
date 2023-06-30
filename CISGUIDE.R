@@ -1404,9 +1404,9 @@ for (i in row.names(sample_info)){
       countUniqueReadPairs = n(),
       countReadsSum = sum(countReads),
       AvgBaseQual_1_max_max = max(AvgBaseQual_1_max),
-      Name = first(QNAME_first),
-      SEQ_1_first = first(SEQ_1),
-      SEQ_2_first = first(SEQ_2)
+      Name = dplyr::first(QNAME_first),
+      SEQ_1_first = dplyr::first(SEQ_1),
+      SEQ_2_first = dplyr::first(SEQ_2)
     ) %>%
     
     #Add a subject and type column. Also add two extra columns for SIQplotter that are equal to the other del columns.

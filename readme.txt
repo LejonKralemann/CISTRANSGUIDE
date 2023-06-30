@@ -47,6 +47,5 @@ General notes
 
 -p	Set work path. default: home directory
 -f	Switches to fasta mode if TRUE. default: FALSE.
--d	Sets deduplicate option. OFF= no dup filtering, OPT=dup filtering, UMI=UMI consolidation. default:OFF
 -t 	Trimming length. Value indicate maximum number of nt to keep. default: 999999 (meaning no trimming is performed).
 

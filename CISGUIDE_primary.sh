@@ -84,22 +84,6 @@ else
 	exit 1
 fi
 
-#check the duplicate filtering option
-case $DEDUPOPT in
-	OPT) 
-	echo "Program set to filter optical duplicates"
-	;;
-	UMI) 
-	echo "Program set to remove duplicates by UMI consolidation"
-	;;
-	OFF) 
-	echo "Duplicate removal switched off"
-	;;
-	*) 
-	echo "Duplicate removal switched off"
-	;;
-esac
-
 #check whether fasta switch is acivated
 if [[ ${FASTASWITCH} = TRUE ]]
 then
@@ -279,7 +263,7 @@ echo "checking for the presence of the sequencing data files..."
 if [[ -f "${WORKPATH}/${i}${CURRENTR1SUFFIX}.fastq.gz" ]]
 then
 	echo "Found ${WORKPATH}/${i}${CURRENTR1SUFFIX}.fastq.gz, unzipping ..."
-	gunzip -c ${WORKPATH}/${i}${CURRENTR1SUFFIX}.fastq.gz > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}${CURRENTR1SUFFIX}.fastq
+	gunzip -c ${WORKPATH}/${i}${CURRENTR1SUFFIX}.fastq.gz > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1.fastq
 else
 	echo "Did not find ${WORKPATH}/${i}${CURRENTR1SUFFIX}.fastq.gz, moving to the next sample";
 	rm -r ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}
@@ -288,84 +272,12 @@ fi
 if [[ -f "${WORKPATH}/${i}${CURRENTR2SUFFIX}.fastq.gz" ]]
 then
 	echo "Found ${WORKPATH}/${i}${CURRENTR2SUFFIX}.fastq.gz, unzipping ..."
-	gunzip -c ${WORKPATH}/${i}${CURRENTR2SUFFIX}.fastq.gz > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}${CURRENTR2SUFFIX}.fastq
+	gunzip -c ${WORKPATH}/${i}${CURRENTR2SUFFIX}.fastq.gz > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R2.fastq
 else
 	echo "Did not find ${WORKPATH}/${i}${CURRENTR2SUFFIX}.fastq.gz, moving to the next sample";
 	continue
 fi
 
-case $DEDUPOPT in
-	UMI)#checking for the presence of the UMI file 
-		CURRENTUMISUFFIX=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" -v i="$i" 'FNR>1{if($3==i) {print $22}}')
-		echo "Current UMI suffix: ${CURRENTUMISUFFIX}"
-		if [[ -f "${WORKPATH}/${i}${CURRENTUMISUFFIX}.fastq.gz" ]]
-		then
-			echo "Found ${WORKPATH}/${i}${CURRENTUMISUFFIX}.fastq.gz, unzipping..."
-			gunzip -c ${WORKPATH}/${i}${CURRENTUMISUFFIX}.fastq.gz > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}${CURRENTUMISUFFIX}.fastq
-		else
-			echo "Did not find ${WORKPATH}/${i}${CURRENTUMISUFFIX}.fastq.gz, moving to the next sample";
-			continue
-		fi
-		;;
-	*) 	#no need to check for the presence of the UMI file 
-		echo "Skipping UMI"
-		;;
-esac
-echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
-
-################################################################################################################
-#fastq to tab separated
-################################################################################################################
-
-echo "Reformatting R1 data..."
-awk -v FS="\t" 'ORS=NR%4?FS:RS' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}${CURRENTR1SUFFIX}.fastq |
-sed -E 's/[[:space:]]/\t/g' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1.txt
-
-echo "Reformatting R2 data..."
-awk -v FS="\t" 'ORS=NR%4?FS:RS' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}${CURRENTR2SUFFIX}.fastq |
-sed -E 's/[[:space:]]/\t/g' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R2.txt
-
-
-case $DEDUPOPT in
-	UMI) #UMI consolidation
-		echo "Creating list of read names and UMIs..."
-		awk -v FS="\t" 'ORS=NR%4?FS:RS' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}${CURRENTUMISUFFIX}.fastq | awk -v FS="\t|[ ]" -v OFS="\t" '{print $1, $3}'> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/names_identifiers.txt
-		;;
-	OPT)
-		#making a list of fake "UMIs", which are all the same. This way proper optical duplicate filtering can take place
-		echo "Creating list of names without UMIs..."
-		cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1.txt | awk -v OFS="\t" -v FS="\t" '{print $1, "AAAAAAAA"}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/names_identifiers.txt
-		;;
-	*) 	#skip filtering
-		;;
-esac
-echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
-
-################################################################################################################
-#Dedupping
-################################################################################################################
-
-case $DEDUPOPT in
-	UMI|OPT) #from here UMI and OPT filtering use the same code
-		echo "Performing duplicate filtering..."
-		#first creating a file that contains the R1, R2 and UMI
-		paste ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R2.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/names_identifiers.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1_R2_UMI_combined.txt
-		#then sort and only leaving the unique ones, based only on the sequences of course
-		cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1_R2_UMI_combined.txt | sort -u -k3,3 -k8,8 -k12 > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1_R2_UMI_combined_dedupped.txt
-		awk -v OFS="\t" -v FS="\t" '{print $1}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1_R2_UMI_combined_dedupped.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/dedup_names.txt
-		#creating a list of duplicate reads, for troubleshooting
-		grep -v -f ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/dedup_names.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1_R2_UMI_combined.txt > ${WORKPATH}/stats/${CURRENTSAMPLE}_${CURRENTRUNID}_Duplicate_pairs.txt
-		#creating deduplicated R1 file in fastq format
-		awk -v OFS="\t" -v FS="\t" '{print $1, $3, $4, $5}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1_R2_UMI_combined_dedupped.txt | sed -E 's/\t/\n/g' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1_dedupped.fastq
-		#creating deduplicated R2 file in fastq format
-		awk -v OFS="\t" -v FS="\t" '{print $6, $8, $9, $10}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1_R2_UMI_combined_dedupped.txt | sed -E 's/\t/\n/g' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R2_dedupped.fastq
-		;;
-	*) 	#skip filtering
-		echo "Skipping duplicate filtering..."
-		cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}${CURRENTR1SUFFIX}.fastq > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1_dedupped.fastq
-		cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}${CURRENTR2SUFFIX}.fastq > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R2_dedupped.fastq
-		;;
-esac
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 ################################################################################################################
@@ -387,13 +299,13 @@ then
 
 	echo "Removing adapters, cropping until ${CURRENTTRIMLEN} bp, and discarding reads shorter than 90 bp"
 	echo "###########################################################################"
-	trimmomatic PE ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1_dedupped.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R2_dedupped.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_paired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_unpaired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_unpaired.fastq ILLUMINACLIP:${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Illumina_adapters.fa:2:30:10:1:TRUE CROP:${CURRENTTRIMLEN} MINLEN:90 -phred33
+	trimmomatic PE ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R2.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_paired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_unpaired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_unpaired.fastq ILLUMINACLIP:${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Illumina_adapters.fa:2:30:10:1:TRUE CROP:${CURRENTTRIMLEN} MINLEN:90 -phred33
 	echo "###########################################################################"
 	echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 else
 	echo "Cropping until ${CURRENTTRIMLEN} bp, and discarding reads shorter than 90 bp"
 	echo "###########################################################################"
-	trimmomatic PE ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1_dedupped.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R2_dedupped.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_paired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_unpaired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_unpaired.fastq CROP:${CURRENTTRIMLEN} MINLEN:90 -phred33
+	trimmomatic PE ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R2.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_paired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_unpaired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_unpaired.fastq CROP:${CURRENTTRIMLEN} MINLEN:90 -phred33
 	echo "###########################################################################"
 	echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 fi
@@ -493,7 +405,7 @@ echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 echo "Combining selected reads and mates of ${i}, and write mapping info plus options to output"
 join -j 1 -o 1.1,1.3,1.4,1.6,1.10,1.11,1.12,1.13,2.3,2.4,2.6,2.10,2.11,2.12,2.13 -t $'\t' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Primer_reads_all.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Mates_all.txt | 
-awk -v OFS="\t" -v FS="\t" -v i="$i" -v PRIMERSEQ="$PRIMERSEQ" -v DEDUPOPT="$DEDUPOPT" -v CURRENTTRIMLEN="$CURRENTTRIMLEN" ' {print $0, i, PRIMERSEQ, DEDUPOPT, CURRENTTRIMLEN}'  >> ${WORKPATH}/input/${CURRENTSAMPLE}_${CURRENTRUNID}_A.txt
+awk -v OFS="\t" -v FS="\t" -v i="$i" -v PRIMERSEQ="$PRIMERSEQ" -v CURRENTTRIMLEN="$CURRENTTRIMLEN" ' {print $0, i, PRIMERSEQ, CURRENTTRIMLEN}'  >> ${WORKPATH}/input/${CURRENTSAMPLE}_${CURRENTRUNID}_A.txt
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 
@@ -506,17 +418,6 @@ echo "Counting reads of ${CURRENTSAMPLE} ${CURRENTRUNID}"
 RAWNO=$(( $(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}${CURRENTR1SUFFIX}.fastq | wc -l)/4 )) 
 echo "RAWNO: ${RAWNO}"
 cat ${WORKPATH}/input/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTFILE="${i}" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v CURRENTRUNID="${CURRENTRUNID}" -v RAWNO="${RAWNO}" -v FOCUSLOCUS="${FOCUSLOCUS}" ' END{print CURRENTSAMPLE, CURRENTRUNID, CURRENTFILE, FOCUSLOCUS, "Raw", RAWNO}' >> ${WORKPATH}/input/read_numbers.txt
-
-case $DEDUPOPT in
-	UMI|OPT) 
-		DEDUPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/dedup_names.txt  | wc -l)
-		;;
-	*) 	
-		DEDUPNO=${RAWNO}
-		;;
-esac
-echo "DEDUPNO: ${DEDUPNO}"
-cat ${WORKPATH}/input/read_numbers.txt | awk -v OFS="\t" -v FS="\t" -v CURRENTFILE="${i}" -v CURRENTSAMPLE="${CURRENTSAMPLE}" -v CURRENTRUNID="${CURRENTRUNID}" -v DEDUPNO="${DEDUPNO}" -v FOCUSLOCUS="${FOCUSLOCUS}" ' END{print CURRENTSAMPLE, CURRENTRUNID, CURRENTFILE, FOCUSLOCUS, "Dedupped", DEDUPNO}' >> ${WORKPATH}/input/read_numbers.txt
 
 MAPNO=$(cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}.sam | grep -Ev '^(\@)' | awk '$3 != "*" {print $0}' | sort -u -t$'\t' -k1,1 | wc -l)
 echo "MAPNO: ${MAPNO}"

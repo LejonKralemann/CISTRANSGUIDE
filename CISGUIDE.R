@@ -1009,7 +1009,36 @@ for (i in row.names(sample_info)){
 
   data_improved5b = data_improved5 %>%
     
-    #Search SEQ_1 for a sequence surrounding the DSB (meaning the cut has not been made or repaired perfectly)
+    #intermediate counting to reduce the amount of work
+    group_by(
+      PRIMER_SEQ,
+      SEQ_1,
+      MATE_FLANK_B_CHROM,
+      FLANK_B_START_POS,
+      FLANK_B_END_POS,
+      FLANK_B_ORIENT,
+      FLANK_B_CHROM,
+      FILE_NAME,
+      MATE_FLANK_B_CHROM_AGREE,
+      SEQ_1_LEN,
+      FLANK_A_START_POS,
+      hasPROBLEM,
+      DEDUP_METHOD,
+      TRIM_LEN,
+      PRIMER_TO_DSB,
+      FLANK_A_REF,
+      TOTAL_REF
+    )%>%
+    arrange(desc(AvgBaseQual_1_max), desc(AvgBaseQual_2_max)) %>%
+    summarize(AvgBaseQual_1_max_max = dplyr::first(AvgBaseQual_1_max),
+              AvgBaseQual_2_max_max = dplyr::first(AvgBaseQual_2_max),
+              SEQ_2_first = dplyr::first(SEQ_2),
+              QNAME_first_first = dplyr::first(QNAME_first),
+              countReadsSum = sum(countReads),
+              countUniqueReadPairs = n()
+              ) %>%
+  
+    #Search SEQ_1 for a sequence surrounding the DSB (meaning the cut has not been made or has been repaired perfectly)
     #search with allowing 1bp mismatch, but give different output whether the match is perfect or not
     #note it only checks the first hit
     rowwise() %>%
@@ -1034,38 +1063,6 @@ for (i in row.names(sample_info)){
     mutate(DSB_HIT_MULTI = if_else(DSB_AREA_COUNT>1,
                                    "TRUE",
                                    "FALSE")) %>%
-  
-    #select only columns that are used from now to save space
-    select(
-      PRIMER_SEQ,
-      SEQ_1,
-      DSB_AREA_INTACT,
-      DSB_AREA_1MM,
-      DSB_HIT_MULTI,
-      CASE_WT,
-      MATE_FLANK_B_CHROM,
-      FLANK_B_START_POS,
-      FLANK_B_END_POS,
-      FLANK_B_ORIENT,
-      FLANK_B_CHROM,
-      FILE_NAME,
-      AvgBaseQual_1_max,
-      AvgBaseQual_2_max,
-      MATE_FLANK_B_CHROM_AGREE,
-      SEQ_2,
-      QNAME_first,
-      SEQ_1_LEN,
-      FLANK_A_START_POS,
-      hasPROBLEM,
-      DEDUP_METHOD,
-      TRIM_LEN,
-      countReads,
-      PRIMER_TO_DSB,
-      FLANK_A_REF,
-      TOTAL_REF
-    ) %>%
-    
-    
     mutate(FLANK_A_REF_LEN = as.integer(nchar(FLANK_A_REF))) %>%
     
     
@@ -1377,18 +1374,17 @@ for (i in row.names(sample_info)){
       DSB_AREA_1MM,
       DSB_HIT_MULTI,
       hasPROBLEM,
-      DEDUP_METHOD,
       TRIM_LEN
     ) %>%
       #sort the rows in order to have the ones with the highest base quality at the top
-      arrange(desc(SEQ_1_LEN), desc(AvgBaseQual_1_max), desc(AvgBaseQual_2_max)) %>%
-    summarize(
-      countUniqueReadPairs = n(),
-      countReadsSum = sum(countReads),
-      AvgBaseQual_1_max_max = max(AvgBaseQual_1_max),
-      Name = dplyr::first(QNAME_first),
-      SEQ_1_first = dplyr::first(SEQ_1),
-      SEQ_2_first = dplyr::first(SEQ_2)
+      arrange(desc(SEQ_1_LEN), desc(AvgBaseQual_1_max_max), desc(AvgBaseQual_2_max_max)) %>%
+      summarize(
+        UniqueReadCount = sum(countUniqueReadPairs),
+        ReadCount = sum(countReadsSum),
+        SEQ_1_AvgBaseQual = max(AvgBaseQual_1_max_max),
+        Name = dplyr::first(QNAME_first_first),
+        SEQ_1_first = dplyr::first(SEQ_1),
+        SEQ_2_first_first = dplyr::first(SEQ_2_first)
     ) %>%
     
     #Add a subject and type column. Also add two extra columns for SIQplotter that are equal to the other del columns.
@@ -1414,8 +1410,8 @@ for (i in row.names(sample_info)){
       delRelativeStartTD,
       delRelativeEnd,
       delRelativeEndTD,
-      countUniqueReadPairs,
-      countReadsSum,
+      UniqueReadCount,
+      ReadCount,
       FLANK_B_CHROM,
       FLANK_B_START_POS,
       FLANK_B_ISFORWARD,
@@ -1430,14 +1426,13 @@ for (i in row.names(sample_info)){
       delSize,
       Type,
       Subject,
-      AvgBaseQual_1_max_max,
+      SEQ_1_AvgBaseQual,
       SEQ_1_first,
-      SEQ_2_first,
+      SEQ_2_first_first,
       DSB_AREA_INTACT,
       DSB_AREA_1MM,
       DSB_HIT_MULTI,
       hasPROBLEM,
-      DEDUP_METHOD,
       TRIM_LEN
     ) %>%
     
@@ -1452,8 +1447,8 @@ for (i in row.names(sample_info)){
   ###############################################################################
   
   #calculate the fraction of reads with a certain outcome within a library
-  data_improved9 = data_improved8c %>% group_by(FILE_NAME) %>% summarize(countReadsTotal =
-                                                                                  sum(countReadsSum))
+  data_improved9 = data_improved8c %>% group_by(FILE_NAME) %>% summarize(ReadCountTotal =
+                                                                                  sum(ReadCount))
   function_time("Step 11 took ")
   
   ###############################################################################
@@ -1461,7 +1456,7 @@ for (i in row.names(sample_info)){
   ###############################################################################
   
   data_improved10 = left_join(data_improved8c, data_improved9, by = "FILE_NAME") %>%
-    mutate(fraction = countReadsSum / countReadsTotal) %>%
+    mutate(fraction = ReadCount / ReadCountTotal) %>%
     mutate(countReadsTotal = NULL,
            FlankAUltEnd = FlankAUltEnd,
            FLANK_A_ORIENT = FLANK_A_ORIENT,

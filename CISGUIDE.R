@@ -240,7 +240,6 @@ for (i in row.names(sample_info)){
       SEQ_RCed_2,
       FILE_NAME,
       PRIMER_SEQ,
-      DEDUP_METHOD,
       TRIM_LEN,
       SEQ_1_LEN) %>%
     arrange(desc(AvgBaseQual_1), desc(AvgBaseQual_2)) %>%
@@ -1023,7 +1022,6 @@ for (i in row.names(sample_info)){
       SEQ_1_LEN,
       FLANK_A_START_POS,
       hasPROBLEM,
-      DEDUP_METHOD,
       TRIM_LEN,
       PRIMER_TO_DSB,
       FLANK_A_REF,

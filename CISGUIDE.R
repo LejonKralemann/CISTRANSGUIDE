@@ -449,9 +449,16 @@ for (i in row.names(sample_info)){
     ungroup() %>%
     
     #remove reads with ambiguous supplementary alignments
+    rowwise()%>%
+    mutate(SATAG_1_7=if(is.na(SATAG_1_7)){ as.integer(99)
+      }else{
+        as.integer(SATAG_1_7)})%>%
+    mutate(SATAG_2_7=if(is.na(SATAG_2_7)){ as.integer(99)
+    }else{
+      as.integer(SATAG_2_7)})%>%
     filter(SATAG_1_7 > 30) %>%
     filter(SATAG_2_7 > 30) %>%
-    
+
     #make certain columns integers, for calculating
     mutate(
       POS_2 = as.integer(POS_2),

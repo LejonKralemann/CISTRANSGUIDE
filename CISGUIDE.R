@@ -170,6 +170,10 @@ for (i in row.names(sample_info)){
     ERROR_NUMBER
   }
 
+  if (PRIMER_TO_DSB_GLOBAL>300){
+    message("primer too far away from the DSB. Did you fill in the Sample_information sheet correctly?")
+    next
+  }
 
   #get the REF seq for flank A. from primer start to DSB +3 if RV primer, not if FW primer. Because CAS9 can cut further away from the PAM, but not closer. So the FLANK_A_REF is going as far as FLANK A is allowed to go.
 

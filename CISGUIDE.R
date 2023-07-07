@@ -259,7 +259,7 @@ for (i in row.names(sample_info)){
   }else{SEQ_1}) %>%
     ungroup() %>%
     mutate(SEQ_1_start = substr(SEQ_1, 1, Primer_seq_len)) %>%
-    #then remove reads that dont begin with the primer
+    #then remove reads that don't begin with the primer
     filter(SEQ_1_start == Primer_seq) %>%
     
     #the lines below until the grouping are under investigation. Maybe doesn't work well yet. First make the code so that the output is identical to the output before the changes of a non fasta sample. Then test the fasta data.

@@ -426,13 +426,15 @@ for (i in row.names(sample_info)){
   ###############################################################################
   
   data_improved3b = data_improved3 %>%
+    mutate(FLANK_B_CLOSE_BY = case_when(abs(FlankAUltEnd - FLANK_B_END_POS) < MAX_DIST_FLANK_B_END ~ TRUE,
+                                        TRUE ~ FALSE)) %>%
     #FLANK_B_REF. This ref includes homology.
     rowwise() %>%
     mutate(FLANK_B_REF =
              if (CASE_WT == TRUE) {
                "NA"
              }else if (FLANK_B_CHROM == FOCUS_CONTIG & 
-                       (abs(FlankAUltEnd - FLANK_B_END_POS) < MAX_DIST_FLANK_B_END) & 
+                       FLANK_B_CLOSE_BY==TRUE & 
                        FLANK_A_ORIENT == FLANK_B_ORIENT){
                if (FLANK_B_ORIENT == "FW" & 
                    FLANK_A_START_POS < (FLANK_B_END_POS-(SEQ_1_LEN-1)) & 
@@ -446,17 +448,16 @@ for (i in row.names(sample_info)){
                  if (FLANK_B_ORIENT == "FW"){
                  substr(as.character(eval(parse(text = paste0("genomeseq$", FLANK_B_CHROM)))), FLANK_B_END_POS-(SEQ_1_LEN-1), FLANK_B_END_POS)
                  }else{
-                   substr(as.character(eval(parse(text = paste0("genomeseq$", FLANK_B_CHROM)))), FLANK_B_END_POS, FLANK_B_END_POS+(SEQ_1_LEN-1))
+                   as.character(reverseComplement(DNAString(substr(as.character(eval(parse(text = paste0("genomeseq$", FLANK_B_CHROM)))), FLANK_B_END_POS, FLANK_B_END_POS+(SEQ_1_LEN-1)))))
                  }
                }
              }else{
                if (FLANK_B_ORIENT == "FW"){
                  substr(as.character(eval(parse(text = paste0("genomeseq$", FLANK_B_CHROM)))), FLANK_B_END_POS-(SEQ_1_LEN-1), FLANK_B_END_POS)
                }else{
-                 substr(as.character(eval(parse(text = paste0("genomeseq$", FLANK_B_CHROM)))), FLANK_B_END_POS, FLANK_B_END_POS+(SEQ_1_LEN-1))
+                 as.character(reverseComplement(DNAString(substr(as.character(eval(parse(text = paste0("genomeseq$", FLANK_B_CHROM)))), FLANK_B_END_POS, FLANK_B_END_POS+(SEQ_1_LEN-1)))))
                }
              }) %>%
-    #for some reason the line below seems to output the wrong thing for read M02948:256:000000000-L3V4G:1:1118:10879:6087
     mutate(FLANK_B_MATCH = if (FLANK_B_REF != "NA"){stri_reverse(matcher_skipper(stri_reverse(FLANK_B_REF), stri_reverse(SEQ_1)))
     }else{""}) %>%
     ungroup() %>%
@@ -485,7 +486,7 @@ for (i in row.names(sample_info)){
     
     #Extract the MH sequence
     mutate(MH = if (CASE_WT == FALSE & FLANK_B_CHROM != "NOT_FOUND" & FLANK_B_CHROM != "ERROR") {
-      if (FLANK_B_CHROM == FOCUS_CONTIG & (abs(FlankAUltEnd - FLANK_B_END_POS) < MAX_DIST_FLANK_B_END) & FLANK_A_ORIENT == FLANK_B_ORIENT & (FLANK_A_LEN > (SEQ_1_LEN - FLANK_B_LEN_MH))) {
+      if (FLANK_B_CHROM == FOCUS_CONTIG & FLANK_B_CLOSE_BY==TRUE & FLANK_A_ORIENT == FLANK_B_ORIENT & (FLANK_A_LEN > (SEQ_1_LEN - FLANK_B_LEN_MH))) {
         if (FLANK_B_ORIENT == "FW") {
           if (FLANK_A_END_POS >= FLANK_B_START_POS_MH) {
             ""
@@ -506,33 +507,20 @@ for (i in row.names(sample_info)){
       #if wt or flank b not identified
       ""
     }) %>%   
-    #flank B start pos excluding MH for del calculation
-    mutate(FLANK_B_START_POS_DEL = if (CASE_WT == TRUE){
-      if (FLANK_A_ORIENT=="FW"){
-        FLANK_A_END_POS+1
-      }else{
-        FLANK_A_END_POS-1
-      }
-    }else{
-      if (FLANK_B_REF != "NA"){#if focus locus, right orientation
-        if (nchar(MH) == 0){
-          if (FLANK_B_ORIENT == "FW" & FLANK_A_END_POS >= FLANK_B_START_POS_MH){#case of insertion 
-            FLANK_A_END_POS+1
-          }else if (FLANK_B_ORIENT == "RV" & FLANK_A_END_POS <= FLANK_B_START_POS_MH){#case of insertion  
-            FLANK_A_END_POS-1
-          }else{#in case of deletion
-            FLANK_B_START_POS_MH
-          }
-        }else{#if there is MH
-          if (FLANK_B_ORIENT == "FW"){
-            FLANK_B_START_POS_MH + nchar(MH)
-          }else{#if RV
-            FLANK_B_START_POS_MH - nchar(MH)
-          }
+    #flank B start pos excluding MH (for del calculation)
+      mutate(FLANK_B_START_POS_DEL = if (CASE_WT == TRUE){
+        if (FLANK_A_ORIENT=="FW"){
+          FLANK_A_END_POS+1
+        }else{
+          FLANK_A_END_POS-1
         }
-      }else{#in non focus locus cases or weird duplications
-        FLANK_B_START_POS
-      }})   %>%
+      }else{
+        if (FLANK_B_ORIENT == "FW"){
+          FLANK_B_START_POS_MH + nchar(MH)
+        }else{#if RV
+          FLANK_B_START_POS_MH - nchar(MH)
+        }})%>%
+      #calculate length of flank B minus the MH
     mutate(FLANK_B_LEN_DEL = if_else(FLANK_B_ORIENT == "FW",
                                      FLANK_B_END_POS-(FLANK_B_START_POS_DEL-1),
                                      FLANK_B_START_POS_DEL-(FLANK_B_END_POS-1))) %>%
@@ -548,11 +536,19 @@ for (i in row.names(sample_info)){
   
   data_improved5 = data_improved4 %>%
     mutate(FLANK_B_DEL = case_when(CASE_WT == TRUE ~ as.integer(0),
-                                 CASE_WT != TRUE & FLANK_B_REF !="NA" & FLANK_B_ORIENT == "FW" ~ as.integer(FLANK_B_START_POS_DEL - (FlankAUltEnd+1)),
-                                   CASE_WT != TRUE & FLANK_B_REF !="NA" & FLANK_B_ORIENT == "RV" ~ as.integer((FlankAUltEnd-1) - FLANK_B_START_POS_DEL),
+                                   CASE_WT == FALSE & 
+                                     FLANK_B_CHROM == FOCUS_CONTIG & 
+                                     FLANK_B_CLOSE_BY==TRUE & 
+                                     FLANK_A_ORIENT == FLANK_B_ORIENT & 
+                                     FLANK_B_ORIENT == "FW" ~ as.integer(FLANK_B_START_POS_DEL - (FlankAUltEnd+1)),
+                                   CASE_WT == FALSE & 
+                                     FLANK_B_CHROM == FOCUS_CONTIG & 
+                                     FLANK_B_CLOSE_BY==TRUE & 
+                                     FLANK_A_ORIENT == FLANK_B_ORIENT & 
+                                     FLANK_B_ORIENT == "RV" ~ as.integer((FlankAUltEnd-1) - FLANK_B_START_POS_DEL),
                                    TRUE ~ ERROR_NUMBER
                                    ))%>%
-    
+
     #calculate total deletion length
     mutate(delSize = if_else(
       FLANK_B_DEL != ERROR_NUMBER,
@@ -674,12 +670,11 @@ for (i in row.names(sample_info)){
       FLANK_B_START_POS_DEL
     }) %>%
     ungroup() %>%
+    #might be something wrong:
+    
     #recalculate the FLANK B del
     mutate(FLANK_B_LEN_DEL = case_when(FLANK_B_ORIENT == "FW" ~ (FLANK_B_END_POS - FLANK_B_START_POS),
                                      TRUE ~ FLANK_B_START_POS - FLANK_B_END_POS)) %>%
-    
-    #Filter short flank Bs again, with the newly calculated flank b len
-    filter(FLANK_B_LEN_DEL >= FLANK_B_LEN_MIN) %>%
     
     #flag erroneous events, and filter these away
     mutate(

@@ -294,13 +294,13 @@ then
 
 	echo "Removing adapters, cropping until ${CURRENTTRIMLEN} bp, and discarding reads shorter than 60 bp"
 	echo "###########################################################################"
-	trimmomatic PE ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R2.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_paired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_unpaired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_unpaired.fastq ILLUMINACLIP:${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Illumina_adapters.fa:2:30:10:1:TRUE CROP:${CURRENTTRIMLEN} TRAILING:30 AVGQUAL:30 MINLEN:60  -phred33
+	trimmomatic PE ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R2.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_paired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_unpaired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_unpaired.fastq ILLUMINACLIP:${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/Illumina_adapters.fa:2:30:10:1:TRUE CROP:${CURRENTTRIMLEN} TRAILING:30 AVGQUAL:35 MINLEN:60  -phred33
 	echo "###########################################################################"
 	echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 else
 	echo "Cropping until ${CURRENTTRIMLEN} bp, and discarding reads shorter than 60 bp"
 	echo "###########################################################################"
-	trimmomatic PE ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R2.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_paired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_unpaired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_unpaired.fastq CROP:${CURRENTTRIMLEN} TRAILING:30 AVGQUAL:30 MINLEN:60  -phred33
+	trimmomatic PE ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R2.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_paired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_unpaired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired.fastq ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_unpaired.fastq CROP:${CURRENTTRIMLEN} TRAILING:30 AVGQUAL:35 MINLEN:60  -phred33
 	echo "###########################################################################"
 	echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 fi
@@ -368,18 +368,18 @@ echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 echo "Processing forward reads of ${i}: discarding unmapped, supplementary, secondary, and ambiguous reads"
 
-#for the 3 files remove those reads that are unmapped, or supplementary/secondary, or mapq == 0
+#for the 3 files remove those reads that are unmapped, or supplementary/secondary, or mapq <2
 samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30.bam |
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -F 0x10 |
-awk -v OFS="\t" -v FS="\t" '{print $1, $3, "FW"}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt
+awk -v OFS="\t" -v FS="\t" '{ if ($5>1 && $6=="30M"){print $1, $3, "FW"}}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt
 
 samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30.bam |
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -f 0x10 |
-awk -v OFS="\t" -v FS="\t" '{print $1, $3, "RV"}' >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt
+awk -v OFS="\t" -v FS="\t" '{ if ($5>1 && $6=="30M"){print $1, $3, "RV"}}' >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt
 
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt | sort -k 1,1  > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names_sorted.txt
 
@@ -390,26 +390,26 @@ samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSA
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -F 0x10 |
-awk -v OFS="\t" -v FS="\t" '{ if ($5>0){print $1, $3, $4, $5, "FW"}}'  > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names.txt
+awk -v OFS="\t" -v FS="\t" '{ if ($5>1 && $6=="30M"){print $1, $3, $4, $5, "FW"}}'  > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names.txt
 
 samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30.bam |
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -f 0x10 |
-awk -v OFS="\t" -v FS="\t" '{ if ($5>0){print $1, $3, $4, $5, "RV"}}'  >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names.txt
+awk -v OFS="\t" -v FS="\t" '{ if ($5>1 && $6=="30M"){print $1, $3, $4, $5, "RV"}}'  >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names.txt
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names.txt | sort -k 1,1  > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names_sorted.txt
 
 samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30.bam |
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -F 0x10 |
-awk -v OFS="\t" -v FS="\t" '{ if ($5>0){print $1, $3, $4, $5, "FW"}}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names.txt
+awk -v OFS="\t" -v FS="\t" '{ if ($5>1 && $6=="30M"){print $1, $3, $4, $5, "FW"}}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names.txt
 
 samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30.bam |
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -f 0x10 |
-awk -v OFS="\t" -v FS="\t" '{ if ($5>0){print $1, $3, $4, $5, "RV"}}' >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names.txt
+awk -v OFS="\t" -v FS="\t" '{ if ($5>1 && $6=="30M"){print $1, $3, $4, $5, "RV"}}' >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names.txt
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names.txt | sort -k 1,1  > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names_sorted.txt
 
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
@@ -449,8 +449,8 @@ echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 echo "Removing temporary files"
 
-#rm -r ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}
-#rm ${WORKPATH}/file1.temp 
+rm -r ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}
+rm ${WORKPATH}/file1.temp 
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 done

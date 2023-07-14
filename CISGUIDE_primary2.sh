@@ -176,7 +176,7 @@ then
 			echo "Bowtie2 index of ${WORKPATH}/${j} found"
 		else
 			echo "Creating the index for ${j}"
-			bowtie2-build ${WORKPATH}/${CURRENTREF} ${WORKPATH}/${CURRENTREF}
+			bowtie2-build ${WORKPATH}/${j} ${WORKPATH}/${j}
 		fi
 	fi
 else

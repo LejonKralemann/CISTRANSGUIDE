@@ -7,7 +7,7 @@ Install and run
 - Place CISGUIDE_primary.sh, Sample_information.txt, fastq.gz files, and reference fastas ("PLASMID_NAME.fa") in your work directory.
 - Run the software with something like: bash shared/CISGUIDE_primary.sh -p shared -f FALSE |& tee -a shared/primary_log.txt
 - The output is a folder per library, containing a .bam and .bam.bai file so that sequences may be visualized in a genome browser, and a text file ending in "_A.txt" containing all preprocessed reads.
-- Next, place the files that end in "_A.txt", the reference fastas (change minus sign to underscore), and Sample_information.txt in the CISGUIDE input folder. Then run the R script.
+- Next, place the files that end in "_A.txt", the reference fastas (change minus sign to underscore), and Sample_information.txt in the CISGUIDE input folder. Then run the R script (CISGUIDE.R).
 - The output is one excel file per library showing on every row a unique event. Another excel file contains all data together.
 
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------

@@ -1,12 +1,12 @@
 ###############################################################################
 #install and load packages
 ###############################################################################
-if (require(BSgenome)==FALSE){install.packages("BSgenome")}
-if (require(Biostrings)==FALSE){install.packages("Biostrings")}
-if (require(stringi)==FALSE){install.packages("stringi")}
-if (require(stringdist)==FALSE){install.packages("stringdist")}
-if (require(tidyverse)==FALSE){install.packages("tidyverse")}
-if (require(openxlsx)==FALSE){install.packages("openxlsx")}
+if (require(BSgenome)==FALSE){install.packages("BSgenome", repos = "http://cran.us.r-project.org")}
+if (require(Biostrings)==FALSE){install.packages("Biostrings", repos = "http://cran.us.r-project.org")}
+if (require(stringi)==FALSE){install.packages("stringi", repos = "http://cran.us.r-project.org")}
+if (require(stringdist)==FALSE){install.packages("stringdist", repos = "http://cran.us.r-project.org")}
+if (require(tidyverse)==FALSE){install.packages("tidyverse", repos = "http://cran.us.r-project.org")}
+if (require(openxlsx)==FALSE){install.packages("openxlsx", repos = "http://cran.us.r-project.org")}
 
 ###############################################################################
 #set parameters - adjustable
@@ -106,7 +106,7 @@ for (i in row.names(sample_info)){
   Library = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Sample))
   
   if (file.exists(paste0(input_dir, REF))==FALSE){
-    message("Reference fasta not found")
+    message("Reference fasta not found. Moving to next sample.")
     next
   }else{
     message(paste0("Using ref ", input_dir, REF))
@@ -114,6 +114,10 @@ for (i in row.names(sample_info)){
   
   genomeseq = readDNAStringSet(paste0(input_dir, REF) , format="fasta")
   contig_seq = as.character(eval(parse(text = paste0("genomeseq$", FOCUS_CONTIG))))
+  if (length(contig_seq)==0){
+    message("Focus contig not found in reference fasta. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
+    next 
+  }
   Primer_seq = str_replace_all(as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Primer)), "TCAGACGTGTGCTCTTCCGATCT", "")
   Primer_seq_len = nchar(Primer_seq)
   Primer_match = as.data.frame(matchPattern(pattern = Primer_seq, subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))

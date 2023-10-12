@@ -1,11 +1,22 @@
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Install and run
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-- Install bioconda. Download the .sh file from the website www.anaconda.org and run it (bash miniconda.sh). 
-- Then install samtools, trimmomatic, and bwa-mem2 via the command "conda install -c bioconda <samtools/picard/trimmomatic/bwa-mem2>"
+- Install conda and packages: 
+	Download the .sh file from the website www.anaconda.org and run it (bash miniconda.sh). 
+	Add channels for bioconda:
+		conda create -n bio
+		conda activate bio
+		conda config --add channels defaults
+		conda config --add channels bioconda
+		conda config --add channels conda-forge
+		conda config --set channel_priority strict
+	Note that conda may start per default in base, in which case you need to do "conda deactivate" and then "conda activate bio"
+	Then install samtools, picard, trimmomatic, and bwa-mem2 via the command "conda install -c bioconda <package>". Replace <package> with the package name.
 - Then install dos2unix with "apt install dos2unix"
 - Place CISGUIDE_primary.sh, Sample_information.txt, fastq.gz files, and reference fastas ("PLASMID_NAME.fa") in your work directory.
-- Run the software with something like: bash shared/CISGUIDE_primary.sh -p shared -f FALSE |& tee -a shared/primary_log.txt
+- Run the software with something like: 
+	bash shared/CISGUIDE_primary2.sh -p shared -f FALSE |& tee -a shared/primary_log.txt
+	Replace "shared" with the name of the folder in which the files are
 - The output is a folder per library, containing a .bam and .bam.bai file so that sequences may be visualized in a genome browser, and a text file ending in "_A.txt" containing all preprocessed reads.
 - Next, place the files that end in "_A.txt", the reference fastas (change minus sign to underscore), and Sample_information.txt in the CISGUIDE input folder. Then run the R script (CISGUIDE.R).
 - The output is one excel file per library showing on every row a unique event. Another excel file contains all data together.
@@ -49,3 +60,8 @@ General notes
 -f	Switches to fasta mode if TRUE. default: FALSE.
 -t 	Trimming length. Value indicate maximum number of nt to keep. default: 999999 (meaning no trimming is performed).
 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+CISGUIDE2
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+New version of CISGUIDE. Use CISGUIDE_primary2.sh in combination with CISGUIDE2.R
+It does the mapping in a different way which simplifies it and allows for more flexibility

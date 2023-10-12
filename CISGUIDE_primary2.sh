@@ -2,9 +2,9 @@
 ################################################################################################################
 #Check for dependencies
 ################################################################################################################
-if ! command -v bwa-mem2 &> /dev/null
+if ! command -v bowtie2 &> /dev/null
 then
-    echo "Please first install bwa-mem2 before running the CISGUIDE program"
+    echo "Please first install bowtie2 before running the CISGUIDE program"
     exit 1
 fi
 if ! command -v samtools &> /dev/null
@@ -352,7 +352,7 @@ samtools sort -o ${WORKPATH}/bams/${CURRENTSAMPLE}_${CURRENTRUNID}_reverse_last3
 samtools index ${WORKPATH}/bams/${CURRENTSAMPLE}_${CURRENTRUNID}_reverse_last30.sorted.bam ${WORKPATH}/bams/${CURRENTSAMPLE}_${CURRENTRUNID}_reverse_last30.sorted.bam.bai
 
 echo "Creating empty output files"
-> ${WORKPATH}/file1.temp | awk -v OFS="\t" -v FS="\t" ' BEGIN{print "QNAME", "A_CHROM", "A_POS", "A_MAPQ", "A_ORIENT", "FLANK_B_CHROM", "B_POS", "B_MAPQ", "FLANK_B_ORIENT", "MATE_FLANK_B_CHROM", "MATE_B_ORIENT", "SEQ_1", "QUAL_1", "SEQ_2", "QUAL_2", "FILE_NAME", "PRIMER_SEQ", "TRIM_LEN"}' > ${WORKPATH}/input/${CURRENTSAMPLE}_${CURRENTRUNID}_A.txt
+> ${WORKPATH}/file1.temp | awk -v OFS="\t" -v FS="\t" ' BEGIN{print "QNAME", "A_CHROM", "A_POS", "A_MAPQ", "A_ORIENT", "FLANK_B_CHROM", "B_POS", "B_MAPQ", "FLANK_B_ORIENT", "MATE_FLANK_B_CHROM", "MATE_B_ORIENT", "MATE_B_POS", "SEQ_1", "QUAL_1", "SEQ_2", "QUAL_2", "FILE_NAME", "PRIMER_SEQ", "TRIM_LEN"}' > ${WORKPATH}/input/${CURRENTSAMPLE}_${CURRENTRUNID}_A.txt
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 ################################################################################################################
@@ -373,13 +373,13 @@ samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSA
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -F 0x10 |
-awk -v OFS="\t" -v FS="\t" '{ if ($5>1 && $6=="30M"){print $1, $3, "FW"}}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt
+awk -v OFS="\t" -v FS="\t" '{ if ($5>1 && $6=="30M"){print $1, $3, "FW", $4}}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt
 
 samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30.bam |
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -f 0x10 |
-awk -v OFS="\t" -v FS="\t" '{ if ($5>1 && $6=="30M"){print $1, $3, "RV"}}' >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt
+awk -v OFS="\t" -v FS="\t" '{ if ($5>1 && $6=="30M"){print $1, $3, "RV", $4}}' >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt
 
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt | sort -k 1,1  > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names_sorted.txt
 
@@ -416,8 +416,8 @@ echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 echo "writing to output"
 join -j 1 -o 1.1,1.2,1.3,1.4,1.5,2.2,2.3,2.4,2.5 -t $'\t' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names_sorted.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names_sorted.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1R2_select1.txt
-join -j 1 -o 1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2.2,2.3 -t $'\t' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1R2_select1.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names_sorted.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1R2_select2.txt
-join -j 1 -o 1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,1.10,1.11,2.2,2.3,2.4,2.5 -t $'\t' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1R2_select2.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1R2.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1R2_select3.txt 
+join -j 1 -o 1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2.2,2.3,2.4 -t $'\t' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1R2_select1.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names_sorted.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1R2_select2.txt
+join -j 1 -o 1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,1.10,1.11,1.12,2.2,2.3,2.4,2.5 -t $'\t' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1R2_select2.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1R2.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1R2_select3.txt 
 
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1R2_select3.txt |
 awk -v OFS="\t" -v FS="\t" -v i="$i" -v PRIMERSEQ="$PRIMERSEQ" -v CURRENTTRIMLEN="$CURRENTTRIMLEN" ' {print $0, i, PRIMERSEQ, CURRENTTRIMLEN}'  >> ${WORKPATH}/input/${CURRENTSAMPLE}_${CURRENTRUNID}_A.txt

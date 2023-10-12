@@ -1,7 +1,7 @@
 ###############################################################################
 #install and load packages
 ###############################################################################
-if (require(BSgenome)==FALSE){install.packages("BSgenome", repos = "http://cran.us.r-project.org")}
+#if (require(BSgenome)==FALSE){install.packages("BSgenome", repos = "http://cran.us.r-project.org")}
 if (require(Biostrings)==FALSE){install.packages("Biostrings", repos = "http://cran.us.r-project.org")}
 if (require(stringi)==FALSE){install.packages("stringi", repos = "http://cran.us.r-project.org")}
 if (require(stringdist)==FALSE){install.packages("stringdist", repos = "http://cran.us.r-project.org")}
@@ -240,6 +240,7 @@ for (i in row.names(sample_info)){
       FLANK_B_ORIENT,
       MATE_FLANK_B_CHROM,
       MATE_B_ORIENT,
+      MATE_B_POS,
       SEQ_1,
       SEQ_2,
       FILE_NAME,
@@ -334,7 +335,16 @@ for (i in row.names(sample_info)){
     #note that the two reads are in two different orientations, so the B orientation should not agree
     mutate(MATE_FLANK_B_CHROM_AGREE = if_else(FLANK_B_CHROM == MATE_FLANK_B_CHROM & FLANK_B_ORIENT != MATE_FLANK_B_CHROM,
                                               TRUE,
-                                              FALSE))
+                                              FALSE)) %>%
+    #calculate the end position of the B flank in the mate. This is the end the furthest away from the junction.
+    #not yet tested
+    mutate(MATE_B_END_POS = case_when(MATE_B_ORIENT=="FW" ~ as.integer(MATE_B_POS),
+                                      MATE_B_ORIENT=="RV" ~ as.integer(MATE_B_POS + 29),
+                                       TRUE ~ ERROR_NUMBER))  %>%
+    #then calculate the difference between the end of the primary read and the end of the mate.
+    mutate(ANCHOR_DIST = case_when(MATE_B_ORIENT=="RV" ~ as.integer(MATE_B_END_POS - FLANK_B_END_POS),
+                                      MATE_B_ORIENT=="FW" ~ as.integer(FLANK_B_END_POS - MATE_B_END_POS),
+                                      TRUE ~ ERROR_NUMBER))  
 
   function_time("Step 3 took ")
   
@@ -366,15 +376,15 @@ for (i in row.names(sample_info)){
       TRIM_LEN,
       PRIMER_TO_DSB,
       FLANK_A_REF,
-      TOTAL_REF
+      TOTAL_REF,
+      ANCHOR_DIST
     )%>%
     arrange(desc(AvgBaseQual_1_max), desc(AvgBaseQual_2_max)) %>%
     summarize(AvgBaseQual_1_max_max = dplyr::first(AvgBaseQual_1_max),
               AvgBaseQual_2_max_max = dplyr::first(AvgBaseQual_2_max),
               SEQ_2_first = dplyr::first(SEQ_2),
               QNAME_first_first = dplyr::first(QNAME_first),
-              countReadsSum = sum(countReads),
-              countUniqueReadPairs = n()
+              countReadsSum = sum(countReads)
               ) %>%
   
     #Search SEQ_1 for a sequence surrounding the DSB (meaning the cut has not been made or has been repaired perfectly)
@@ -717,31 +727,63 @@ for (i in row.names(sample_info)){
       insSize,
       delSize,
       homologyLength,
-      mismatch_found,
       FAKE_DELIN_CHECK,
       DSB_AREA_INTACT,
       DSB_AREA_1MM,
       DSB_HIT_MULTI,
       hasPROBLEM,
-      TRIM_LEN
+      TRIM_LEN,
+      ANCHOR_DIST
     ) %>%
       #sort the rows in order to have the ones with the highest base quality at the top
       arrange(desc(SEQ_1_LEN), desc(AvgBaseQual_1_max_max), desc(AvgBaseQual_2_max_max)) %>%
       summarize(
-        UniqueReadCount = sum(countUniqueReadPairs),
-        ReadCount = sum(countReadsSum),
-        SEQ_1_AvgBaseQual = max(AvgBaseQual_1_max_max),
-        Name = dplyr::first(QNAME_first_first),
-        SEQ_1_first = dplyr::first(SEQ_1),
-        SEQ_2_first_first = dplyr::first(SEQ_2_first)
+        ReadCount_pre = sum(countReadsSum),
+        SEQ_1_AvgBaseQual_pre = max(AvgBaseQual_1_max_max),
+        Name_pre = dplyr::first(QNAME_first_first),
+        SEQ_1_first_pre = dplyr::first(SEQ_1),
+        SEQ_2_first_first_pre = dplyr::first(SEQ_2_first)
     ) %>%
+      ungroup()%>%
+      #second grouping and summarizing to get the anchor numbers
+      group_by(
+        FILE_NAME,
+        PRIMER_SEQ,
+        delRelativeStart,
+        delRelativeEnd,
+        FLANK_B_CHROM,
+        FLANK_B_START_POS,
+        MATE_FLANK_B_CHROM,
+        MATE_FLANK_B_CHROM_AGREE,
+        FLANK_B_ISFORWARD,
+        FILLER,
+        MH,
+        insSize,
+        delSize,
+        homologyLength,
+        FAKE_DELIN_CHECK,
+        DSB_AREA_INTACT,
+        DSB_AREA_1MM,
+        DSB_HIT_MULTI,
+        hasPROBLEM,
+        TRIM_LEN
+      )%>%
+      summarize(
+        ReadCount = sum(ReadCount_pre),
+        SEQ_1_AvgBaseQual = max(SEQ_1_AvgBaseQual_pre),
+        Name = dplyr::first(Name_pre),
+        SEQ_1_first = dplyr::first(SEQ_1_first_pre),
+        SEQ_2_first_first = dplyr::first(SEQ_2_first_first_pre),
+        AnchorCount = n(),
+        AnchorDistMax = max(ANCHOR_DIST)
+      ) %>%
     
     #Add a subject and type column. Also add two extra columns for SIQplotter that are equal to the other del columns.
     mutate(
       Subject = FOCUS_LOCUS,
       Type = case_when(
-        delSize == 0 & insSize == 0 & mismatch_found == FALSE & FAKE_DELIN_CHECK == FALSE & DSB_AREA_1MM==FALSE ~ "WT",
-        (delSize == 0 & insSize == 0 & mismatch_found == TRUE) | FAKE_DELIN_CHECK==TRUE | DSB_AREA_1MM==TRUE | (DSB_AREA_INTACT == TRUE & FLANK_A_ORIENT=="FW" & FLANK_B_START_POS != FlankAUltEnd+1) | (DSB_AREA_INTACT == TRUE & FLANK_A_ORIENT=="RV" & FLANK_B_START_POS != FlankAUltEnd-1)  ~ "SNV",
+        delSize == 0 & insSize == 0 & FAKE_DELIN_CHECK == FALSE & DSB_AREA_1MM==FALSE ~ "WT",
+        FAKE_DELIN_CHECK==TRUE | DSB_AREA_1MM==TRUE | (DSB_AREA_INTACT == TRUE & FLANK_A_ORIENT=="FW" & FLANK_B_START_POS != FlankAUltEnd+1) | (DSB_AREA_INTACT == TRUE & FLANK_A_ORIENT=="RV" & FLANK_B_START_POS != FlankAUltEnd-1)  ~ "WT",
         delSize != 0 & delSize != ERROR_NUMBER & insSize == 0 ~ "DELETION",
         insSize != 0 & delSize == 0 ~ "INSERTION",
         delSize != 0 & delSize != ERROR_NUMBER & insSize != 0 ~ "DELINS",
@@ -759,14 +801,14 @@ for (i in row.names(sample_info)){
       delRelativeStartTD,
       delRelativeEnd,
       delRelativeEndTD,
-      UniqueReadCount,
+      AnchorCount,
+      AnchorDistMax,
       ReadCount,
       FLANK_B_CHROM,
       FLANK_B_START_POS,
       FLANK_B_ISFORWARD,
       MATE_FLANK_B_CHROM,
       MATE_FLANK_B_CHROM_AGREE,
-      mismatch_found,
       FAKE_DELIN_CHECK,
       FILLER,
       MH,

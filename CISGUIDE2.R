@@ -17,7 +17,8 @@ MINBASEQUAL = 30 #minimum base quality (phred)
 MAX_DIST_FLANK_B_END = 10000 #distance from end of flank B to DSB, determines max deletion size and also affects maximum insertion size
 FLANK_B_LEN_MIN = 15 #minimum length of flank B. Also affects size of DSB_AREA_SEQ (2x FLANK_B_LEN_MIN)
 LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick to determine locus info
-DEBUG=FALSE #if on, reads will not be discarded when a problem has been detected, but flagged.
+DEBUG=FALSE #if true, reads will not be discarded when a problem has been detected, but flagged.
+CISSWITCH=FALSE #if true, one step will be skipped to allow the analysis of different events at the same genomic location.
 
 ###############################################################################
 #set parameters - non-adjustable
@@ -216,7 +217,7 @@ for (i in row.names(sample_info)){
   #Process data: step 2
   ###############################################################################
   
-  data_improved  = data %>%
+  data_improved_a  = data %>%
     
     #Count number of Ns and remove any reads with Ns
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
@@ -225,12 +226,17 @@ for (i in row.names(sample_info)){
     
     #filter away reads that are too short
     filter(!(SEQ_1_LEN < MINLEN)) %>%
-    
     #calculate the average base quality
     rowwise() %>%
     mutate(AvgBaseQual_1 = mean(utf8ToInt(QUAL_1)-33)) %>%
     mutate(AvgBaseQual_2 = mean(utf8ToInt(QUAL_2)-33)) %>%
-    ungroup() %>%
+    ungroup()
+  
+  
+  if (CISSWITCH == TRUE){
+  
+  data_improved_b = data_improved_a %>%
+    
     #count reads, taking the highest quals
     group_by(
       A_CHROM,
@@ -251,7 +257,61 @@ for (i in row.names(sample_info)){
     summarize(countReads = n(),
               AvgBaseQual_1_max = dplyr::first(AvgBaseQual_1),
               AvgBaseQual_2_max = dplyr::first(AvgBaseQual_2),
-              QNAME_first = dplyr::first(QNAME)) %>%
+              QNAME_first = dplyr::first(QNAME)) 
+  }else{
+    #combine reads with the same 30bp start of the translocation read, and the same 30bp end of the a read.
+    data_improved_b = data_improved_a %>%
+      group_by(
+        A_CHROM,
+        A_POS,
+        MATE_FLANK_B_CHROM,
+        MATE_B_ORIENT,
+        MATE_B_POS,
+        TRIM_LEN,
+        PRIMER_SEQ,
+        FILE_NAME) %>%
+      arrange(desc(AvgBaseQual_1), desc(AvgBaseQual_2)) %>%
+      #several elements below are consensi, but I kept the names so the rest of the code does not need to be modified
+      summarize(countReads_pre = n(),
+                SEQ_1 = names(which.max(table(SEQ_1))),
+                Count_consensus = max(table(SEQ_1)),
+                FLANK_B_CHROM = names(which.max(table(FLANK_B_CHROM))),
+                B_POS = names(which.max(table(B_POS))),
+                FLANK_B_ORIENT = names(which.max(table(FLANK_B_ORIENT))),
+                QNAME = dplyr::first(QNAME),
+                AvgBaseQual_1_max = dplyr::first(AvgBaseQual_1),
+                AvgBaseQual_2_max = dplyr::first(AvgBaseQual_2),
+                SEQ_2 = dplyr::first(SEQ_2))%>%
+      mutate(SEQ_1_LEN = nchar(SEQ_1),
+               consensus_fraction = (Count_consensus / countReads_pre)) %>%
+      #remove translocations where the major outcome is not the at least 75% of the reads at this location 
+      filter(consensus_fraction >= 0.75)%>%
+        
+      #count reads, taking the highest quals
+      group_by(
+        A_CHROM,
+        A_POS,
+        FLANK_B_CHROM,
+        B_POS,
+        FLANK_B_ORIENT,
+        MATE_FLANK_B_CHROM,
+        MATE_B_ORIENT,
+        MATE_B_POS,
+        SEQ_1,
+        SEQ_2,
+        FILE_NAME,
+        PRIMER_SEQ,
+        TRIM_LEN,
+        SEQ_1_LEN) %>%
+      arrange(desc(AvgBaseQual_1), desc(AvgBaseQual_2)) %>%
+      summarize(countReads = sum(countReads_pre),
+                AvgBaseQual_1_max = dplyr::first(AvgBaseQual_1),
+                AvgBaseQual_2_max = dplyr::first(AvgBaseQual_2),
+                QNAME_first = dplyr::first(QNAME)) 
+  }
+  
+  
+  data_improved_c = data_improved_b %>%
 
     #then remove reads that don't begin with the primer
     mutate(SEQ_1_start = substr(SEQ_1, 1, Primer_seq_len)) %>%
@@ -313,7 +373,7 @@ for (i in row.names(sample_info)){
   #Process data: step 3
   ###############################################################################
   
-  data_improved1 = data_improved %>%
+  data_improved1 = data_improved_c %>%
     
     #check for expected position and orientation base on primer seqs
     rowwise()%>%

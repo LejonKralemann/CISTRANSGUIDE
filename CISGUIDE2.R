@@ -661,18 +661,8 @@ for (i in row.names(sample_info)){
         FlankAUltEnd - 1
       }
     }else{
-      FLANK_B_START_POS_DEL
+      FLANK_B_START_POS_MH
     }) %>%
-    ungroup() %>%
-    #might be something wrong:
-    
-    #recalculate the FLANK B del
-    mutate(FLANK_B_LEN_DEL = case_when(FLANK_B_ORIENT == "FW" ~ (FLANK_B_END_POS - FLANK_B_START_POS),
-                                     TRUE ~ FLANK_B_START_POS - FLANK_B_END_POS)) %>%
-    
-  
-
-    
     
       #flag erroneous events, and filter these away
     mutate(
@@ -681,7 +671,14 @@ for (i in row.names(sample_info)){
         TRUE,
         as.logical(hasPROBLEM)
       )
-    ) 
+    )%>%
+    
+    #calculate the minimum length of the read to capture the entire outcome
+    #then trim the reads to that minimum.
+    #any that have less than this minimum get removed
+    mutate(read_minimum_length = FLANK_A_LEN + insSize + 30)%>%
+    filter(SEQ_1_LEN >= read_minimum_length)%>%
+    mutate(SEQ_1_trimmed = substr(SEQ_1, 1, read_minimum_length))
   
   
   
@@ -723,7 +720,7 @@ for (i in row.names(sample_info)){
       )%>%
       summarize(
         ReadCount = n(),
-        SEQ_1_con = names(which.max(table(SEQ_1))),
+        SEQ_1_con = names(which.max(table(SEQ_1_trimmed))),
         Name = dplyr::first(QNAME_first),
         Count_consensus = max(table(SEQ_1)),
         AnchorCount = n_distinct(MATE_B_END_POS_list),
@@ -748,9 +745,9 @@ for (i in row.names(sample_info)){
           summarize(
             ReadCount = n(),
             Name = dplyr::first(QNAME_first),
-            Count_consensus = max(table(SEQ_1)),
+            Count_consensus = max(table(SEQ_1_trimmed)),
             AnchorCount = n_distinct(MATE_B_END_POS_list),
-            SEQ_1_con = names(which.max(table(SEQ_1))),
+            SEQ_1_con = names(which.max(table(SEQ_1_trimmed))),
             SEQ_2_con = names(which.max(table(SEQ_2_first))),
             MATE_B_END_POS_max = max(as.integer(MATE_B_END_POS_list)),
             MATE_B_END_POS_min = min(as.integer(MATE_B_END_POS_list)),
@@ -780,10 +777,10 @@ for (i in row.names(sample_info)){
                  DSB_AREA_1MM = DSB_AREA_1MM_con,
                  DSB_HIT_MULTI = DSB_HIT_MULTI_con
                  )%>%
-          #remove junctions where the dominant SEQ_1 sequence is not at least 3/4 of total SEQ_1's at this junction
-          filter(Consensus_freq >=0.75) %>%
-          #remove junctions with anchor count <3
-          filter(AnchorCount > 2)
+          #flag junctions when the dominant SEQ_1 sequence is not at least 3/4 of total SEQ_1's at this junction
+          mutate(hasProblem = if_else(Consensus_freq <0.75,
+                                      TRUE,
+                                      FALSE))
       }
         
     data_improved8 =data_improved8pre2 %>%
@@ -792,6 +789,12 @@ for (i in row.names(sample_info)){
       mutate(ANCHOR_DIST = case_when(FLANK_B_ORIENT=="FW" ~ as.integer(MATE_B_END_POS_max - FLANK_B_START_POS),
                                      FLANK_B_ORIENT=="RV" ~ as.integer(FLANK_B_START_POS - MATE_B_END_POS_min),
                                      TRUE ~ ERROR_NUMBER)) %>%
+      #flag as problematic
+      #when anchors are not far away enough
+      #when anchor count is too low
+      mutate(hasProblem = case_when(AnchorCount < 3 ~ TRUE,
+                                    ANCHOR_DIST < 150 ~ TRUE,
+                                    TRUE ~ as.logical(hasProblem)))%>%
       
     #Add a subject and type column. Also add two extra columns for SIQplotter that are equal to the other del columns.
     mutate(
@@ -835,7 +838,8 @@ for (i in row.names(sample_info)){
       DSB_AREA_INTACT,
       DSB_AREA_1MM,
       DSB_HIT_MULTI,
-      TRIM_LEN
+      TRIM_LEN,
+      hasProblem
     ) %>%
     
 

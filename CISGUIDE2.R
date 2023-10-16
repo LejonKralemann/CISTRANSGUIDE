@@ -1,7 +1,6 @@
 ###############################################################################
 #install and load packages
 ###############################################################################
-#if (require(BSgenome)==FALSE){install.packages("BSgenome", repos = "http://cran.us.r-project.org")}
 if (require(Biostrings)==FALSE){install.packages("Biostrings", repos = "http://cran.us.r-project.org")}
 if (require(stringi)==FALSE){install.packages("stringi", repos = "http://cran.us.r-project.org")}
 if (require(stringdist)==FALSE){install.packages("stringdist", repos = "http://cran.us.r-project.org")}
@@ -71,6 +70,10 @@ function_time <-function(text){
   TIME_CURRENT=as.numeric(Sys.time())*1000
   message(paste0(text, (TIME_CURRENT - TIME_START), " milliseconds"))
   TIME_START<<-as.numeric(Sys.time())*1000
+}
+Mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
 }
 
 ###############################################################################
@@ -232,12 +235,10 @@ for (i in row.names(sample_info)){
     mutate(AvgBaseQual_2 = mean(utf8ToInt(QUAL_2)-33)) %>%
     ungroup()
   
-  
-  if (CISSWITCH == TRUE){
-  
   data_improved_b = data_improved_a %>%
     
     #count reads, taking the highest quals
+    #acts as basic dupfilter
     group_by(
       A_CHROM,
       A_POS,
@@ -258,59 +259,7 @@ for (i in row.names(sample_info)){
               AvgBaseQual_1_max = dplyr::first(AvgBaseQual_1),
               AvgBaseQual_2_max = dplyr::first(AvgBaseQual_2),
               QNAME_first = dplyr::first(QNAME)) 
-  }else{
-    #combine reads with the same 30bp start of the translocation read, and the same 30bp end of the a read.
-    data_improved_b = data_improved_a %>%
-      group_by(
-        A_CHROM,
-        A_POS,
-        MATE_FLANK_B_CHROM,
-        MATE_B_ORIENT,
-        MATE_B_POS,
-        TRIM_LEN,
-        PRIMER_SEQ,
-        FILE_NAME) %>%
-      arrange(desc(AvgBaseQual_1), desc(AvgBaseQual_2)) %>%
-      #several elements below are consensi, but I kept the names so the rest of the code does not need to be modified
-      summarize(countReads_pre = n(),
-                SEQ_1 = names(which.max(table(SEQ_1))),
-                Count_consensus = max(table(SEQ_1)),
-                FLANK_B_CHROM = names(which.max(table(FLANK_B_CHROM))),
-                B_POS = names(which.max(table(B_POS))),
-                FLANK_B_ORIENT = names(which.max(table(FLANK_B_ORIENT))),
-                QNAME = dplyr::first(QNAME),
-                AvgBaseQual_1_max = dplyr::first(AvgBaseQual_1),
-                AvgBaseQual_2_max = dplyr::first(AvgBaseQual_2),
-                SEQ_2 = dplyr::first(SEQ_2))%>%
-      mutate(SEQ_1_LEN = nchar(SEQ_1),
-               consensus_fraction = (Count_consensus / countReads_pre)) %>%
-      #remove translocations where the major outcome is not the at least 75% of the reads at this location 
-      filter(consensus_fraction >= 0.75)%>%
-        
-      #count reads, taking the highest quals
-      group_by(
-        A_CHROM,
-        A_POS,
-        FLANK_B_CHROM,
-        B_POS,
-        FLANK_B_ORIENT,
-        MATE_FLANK_B_CHROM,
-        MATE_B_ORIENT,
-        MATE_B_POS,
-        SEQ_1,
-        SEQ_2,
-        FILE_NAME,
-        PRIMER_SEQ,
-        TRIM_LEN,
-        SEQ_1_LEN) %>%
-      arrange(desc(AvgBaseQual_1), desc(AvgBaseQual_2)) %>%
-      summarize(countReads = sum(countReads_pre),
-                AvgBaseQual_1_max = dplyr::first(AvgBaseQual_1),
-                AvgBaseQual_2_max = dplyr::first(AvgBaseQual_2),
-                QNAME_first = dplyr::first(QNAME)) 
-  }
-  
-  
+ 
   data_improved_c = data_improved_b %>%
 
     #then remove reads that don't begin with the primer
@@ -419,7 +368,8 @@ for (i in row.names(sample_info)){
     data_improved2 = data_improved1
   }
 
-  data_improved3 = data_improved2 %>%
+  if (CISSWITCH == TRUE){
+  data_improved3pre = data_improved2 %>%
     
     #intermediate counting to reduce the amount of work
     group_by(
@@ -444,9 +394,46 @@ for (i in row.names(sample_info)){
               AvgBaseQual_2_max_max = dplyr::first(AvgBaseQual_2_max),
               SEQ_2_first = dplyr::first(SEQ_2),
               QNAME_first_first = dplyr::first(QNAME_first),
-              countReadsSum = sum(countReads)
-              ) %>%
+              countReadsSum = sum(countReads),
+              AnchorCount = n_distinct(MATE_B_POS)
+              ) 
+  }else{
+   
+    data_improved3pre = data_improved2 %>%
+      ungroup()%>%
+      uncount(weights= countReads, .remove=TRUE)%>%
+      #produce a consensus based on flank_b_end_pos (rest will be the same anyways)
+      #this is the most important consensus making summarize
+      group_by(
+        PRIMER_SEQ,
+        MATE_FLANK_B_CHROM,
+        FLANK_B_END_POS,
+        FLANK_B_ORIENT,
+        FLANK_B_CHROM,
+        FILE_NAME,
+        MATE_FLANK_B_CHROM_AGREE,
+        FLANK_A_START_POS,
+        TRIM_LEN,
+        PRIMER_TO_DSB,
+        FLANK_A_REF,
+        TOTAL_REF
+      )%>%
+      summarize(SEQ_1_consensus = names(which.max(table(SEQ_1))),
+                Count_consensus = max(table(SEQ_1)), 
+                countReadsSum = n(),
+                AnchorCount = n_distinct(MATE_B_END_POS),
+                ANCHOR_DIST_max = max(ANCHOR_DIST),
+                QNAME_first_first = QNAME_first[which(SEQ_1 == max(SEQ_1))],
+                SEQ_2_first = SEQ_2[which(SEQ_1 == max(SEQ_1))])%>%
+      mutate(SEQ_1_LEN = nchar(SEQ_1_consensus)) %>%
+      mutate(Consensus_freq = Count_consensus/countReadsSum) %>% 
+      dplyr::rename(SEQ_1 = SEQ_1_consensus)%>%
+      #remove junctions where the dominant SEQ_1 sequence is not at least 3/4 of total SEQ_1's at this location 
+      filter(Consensus_freq>=0.75)
+
+  }
   
+  data_improved3 = data_improved3pre %>%
     #Search SEQ_1 for a sequence surrounding the DSB (meaning the cut has not been made or has been repaired perfectly)
     #search with allowing 1bp mismatch, but give different output whether the match is perfect or not
     #note it only checks the first hit
@@ -769,42 +756,9 @@ for (i in row.names(sample_info)){
       data_improved7 = data_improved6
     }
     
-    data_improved8=data_improved7 %>%
-    
-    #calculate the number of events
-    group_by(
-      FILE_NAME,
-      PRIMER_SEQ,
-      delRelativeStart,
-      delRelativeEnd,
-      FLANK_B_CHROM,
-      FLANK_B_START_POS,
-      MATE_FLANK_B_CHROM,
-      MATE_FLANK_B_CHROM_AGREE,
-      FLANK_B_ISFORWARD,
-      FILLER,
-      MH,
-      insSize,
-      delSize,
-      homologyLength,
-      FAKE_DELIN_CHECK,
-      DSB_AREA_INTACT,
-      DSB_AREA_1MM,
-      DSB_HIT_MULTI,
-      hasPROBLEM,
-      TRIM_LEN,
-      ANCHOR_DIST
-    ) %>%
-      #sort the rows in order to have the ones with the highest base quality at the top
-      arrange(desc(SEQ_1_LEN), desc(AvgBaseQual_1_max_max), desc(AvgBaseQual_2_max_max)) %>%
-      summarize(
-        ReadCount_pre = sum(countReadsSum),
-        SEQ_1_AvgBaseQual_pre = max(AvgBaseQual_1_max_max),
-        Name_pre = dplyr::first(QNAME_first_first),
-        SEQ_1_first_pre = dplyr::first(SEQ_1),
-        SEQ_2_first_first_pre = dplyr::first(SEQ_2_first)
-    ) %>%
-      ungroup()%>%
+         if (CISSWITCH == TRUE){
+      
+        data_improved8pre2 =data_improved7 %>%
       #second grouping and summarizing to get the anchor numbers
       group_by(
         FILE_NAME,
@@ -825,19 +779,63 @@ for (i in row.names(sample_info)){
         DSB_AREA_INTACT,
         DSB_AREA_1MM,
         DSB_HIT_MULTI,
-        hasPROBLEM,
         TRIM_LEN
       )%>%
       summarize(
         ReadCount = sum(ReadCount_pre),
-        SEQ_1_AvgBaseQual = max(SEQ_1_AvgBaseQual_pre),
         Name = dplyr::first(Name_pre),
         SEQ_1_first = dplyr::first(SEQ_1_first_pre),
         SEQ_2_first_first = dplyr::first(SEQ_2_first_first_pre),
-        AnchorCount = n(),
-        AnchorDistMax = max(ANCHOR_DIST)
-      ) %>%
-    
+        AnchorCountSum = sum(AnchorCountMax),
+        AnchorDistMax = max(ANCHOR_DIST_max)
+      ) 
+      }else{
+        
+        data_improved8pre2 =data_improved7 %>%
+          ungroup()%>%
+          uncount(weights= countReads, .remove=TRUE)%>%
+          #second grouping and summarizing to get the anchor numbers
+          group_by(
+            FILE_NAME,
+            PRIMER_SEQ,
+            FLANK_B_CHROM,
+            FLANK_B_START_POS,
+            MATE_FLANK_B_CHROM,
+            MATE_FLANK_B_CHROM_AGREE,
+            FLANK_B_ISFORWARD,
+            TRIM_LEN
+          )%>%
+          #probably have to fix the code below and run
+          #then check whether weird junctions are still there
+          #other note: check whether weird junctions have reads that dont start with the primer
+          #i could then first include reads that dont start with the primer, and then later see 
+          #if that is a considerable fraction...
+          summarize(
+            ReadCount = sum(ReadCount_pre),
+            Name = dplyr::first(Name_pre),
+            SEQ_1_first = dplyr::first(SEQ_1_first_pre),
+            SEQ_2_first_first = dplyr::first(SEQ_2_first_first_pre),
+            AnchorCountSum = sum(AnchorCountMax),
+            AnchorDistMax = max(ANCHOR_DIST_max),
+            delRelativeStart = as.integer(names(which.max(table(delRelativeStart)))),
+            delRelativeEnd = as.integer(names(which.max(table(delRelativeEnd)))),
+            FILLER = names(which.max(table(FILLER))),
+            MH = names(which.max(table(MH))),
+            insSize = as.integer(names(which.max(table(insSize)))),
+            delSize = as.integer(names(which.max(table(delSize)))),
+            homologyLength = as.integer(names(which.max(table(homologyLength)))),
+            FAKE_DELIN_CHECK = names(which.max(table(FAKE_DELIN_CHECK))),
+            DSB_AREA_INTACT = names(which.max(table(DSB_AREA_INTACT))),
+            DSB_AREA_1MM = names(which.max(table(DSB_AREA_1MM))),
+            DSB_HIT_MULTI = names(which.max(table(DSB_HIT_MULTI))),
+            Count_consensus_3 = ReadCount_pre[which(SEQ_1_first_pre == max(SEQ_1_first_pre))]
+          ) %>%
+          mutate(Consensus_freq_2 = Count_consensus_3/ReadCount)%>%
+          #remove junctions where the dominant SEQ_1 sequence is not at least 3/4 of total SEQ_1's at this junction
+          filter(Consensus_freq_2 >=0.75)
+      }
+          
+    data_improved8 =data_improved8pre2 %>%
     #Add a subject and type column. Also add two extra columns for SIQplotter that are equal to the other del columns.
     mutate(
       Subject = FOCUS_LOCUS,
@@ -861,7 +859,7 @@ for (i in row.names(sample_info)){
       delRelativeStartTD,
       delRelativeEnd,
       delRelativeEndTD,
-      AnchorCount,
+      AnchorCountSum,
       AnchorDistMax,
       ReadCount,
       FLANK_B_CHROM,
@@ -883,7 +881,6 @@ for (i in row.names(sample_info)){
       DSB_AREA_INTACT,
       DSB_AREA_1MM,
       DSB_HIT_MULTI,
-      hasPROBLEM,
       TRIM_LEN
     ) %>%
     

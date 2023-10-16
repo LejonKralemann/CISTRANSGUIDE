@@ -237,30 +237,47 @@ for (i in row.names(sample_info)){
   
   data_improved_b = data_improved_a %>%
     
+    
+    #calculate the end position of the B flank in the mate. This is the end the furthest away from the junction.
+    mutate(MATE_B_END_POS = case_when(MATE_B_ORIENT=="FW" ~ as.integer(MATE_B_POS),
+                                      MATE_B_ORIENT=="RV" ~ as.integer(MATE_B_POS + 29),
+                                      TRUE ~ ERROR_NUMBER))  %>%
+    
+    #test whether B flanks from read and mate are mapped to same chromosome, and agree on orientation.
+    #note that the two reads are in two different orientations, so the B orientation should not agree
+    mutate(MATE_FLANK_B_CHROM_AGREE = if_else(FLANK_B_CHROM == MATE_FLANK_B_CHROM & FLANK_B_ORIENT != MATE_B_ORIENT,
+                                              TRUE,
+                                              FALSE)) 
+    
+    
+    #remove rows where the chromosome of flank B as determined with read1 does not agree with read2
+    if(DEBUG==FALSE){
+      data_improvedc = data_improved_b %>% filter(MATE_FLANK_B_CHROM_AGREE == TRUE)
+    }else{
+      data_improvedc = data_improved_b
+    }
+    
+  data_improved1 = data_improvedc %>%
+  
     #count reads, taking the highest quals
     #acts as basic dupfilter
+    #and also summarizes anchors, but puts them in a list
     group_by(
       A_CHROM,
       A_POS,
       FLANK_B_CHROM,
       B_POS,
       FLANK_B_ORIENT,
-      MATE_FLANK_B_CHROM,
-      MATE_B_ORIENT,
-      MATE_B_POS,
       SEQ_1,
-      SEQ_2,
       FILE_NAME,
       PRIMER_SEQ,
       TRIM_LEN,
       SEQ_1_LEN) %>%
     arrange(desc(AvgBaseQual_1), desc(AvgBaseQual_2)) %>%
-    summarize(countReads = n(),
-              AvgBaseQual_1_max = dplyr::first(AvgBaseQual_1),
-              AvgBaseQual_2_max = dplyr::first(AvgBaseQual_2),
-              QNAME_first = dplyr::first(QNAME)) 
- 
-  data_improved_c = data_improved_b %>%
+    summarize(QNAME_first = dplyr::first(QNAME),
+              SEQ_2_first = dplyr::first(SEQ_2),
+              MATE_B_END_POS_list = toString(MATE_B_END_POS)
+              )%>%
 
     #then remove reads that don't begin with the primer
     mutate(SEQ_1_start = substr(SEQ_1, 1, Primer_seq_len)) %>%
@@ -322,7 +339,7 @@ for (i in row.names(sample_info)){
   #Process data: step 3
   ###############################################################################
   
-  data_improved1 = data_improved_c %>%
+  data_improved2 = data_improved1 %>%
     
     #check for expected position and orientation base on primer seqs
     rowwise()%>%
@@ -338,22 +355,8 @@ for (i in row.names(sample_info)){
     #calculate the end position of the B flank, in order to get the ref seq. This is the end the furthest away from the junction.
     mutate(FLANK_B_END_POS = case_when(FLANK_B_ORIENT=="RV" ~ as.integer(B_POS),
                                        FLANK_B_ORIENT=="FW" ~ as.integer(B_POS + 29),
-                                       TRUE ~ ERROR_NUMBER))  %>%
+                                       TRUE ~ ERROR_NUMBER))
     
-    #test whether B flanks from read and mate are mapped to same chromosome, and agree on orientation.
-    #note that the two reads are in two different orientations, so the B orientation should not agree
-    mutate(MATE_FLANK_B_CHROM_AGREE = if_else(FLANK_B_CHROM == MATE_FLANK_B_CHROM & FLANK_B_ORIENT != MATE_FLANK_B_CHROM,
-                                              TRUE,
-                                              FALSE)) %>%
-    #calculate the end position of the B flank in the mate. This is the end the furthest away from the junction.
-    #not yet tested
-    mutate(MATE_B_END_POS = case_when(MATE_B_ORIENT=="FW" ~ as.integer(MATE_B_POS),
-                                      MATE_B_ORIENT=="RV" ~ as.integer(MATE_B_POS + 29),
-                                       TRUE ~ ERROR_NUMBER))  %>%
-    #then calculate the difference between the end of the primary read and the end of the mate.
-    mutate(ANCHOR_DIST = case_when(MATE_B_ORIENT=="RV" ~ as.integer(MATE_B_END_POS - FLANK_B_END_POS),
-                                      MATE_B_ORIENT=="FW" ~ as.integer(FLANK_B_END_POS - MATE_B_END_POS),
-                                      TRUE ~ ERROR_NUMBER))  
 
   function_time("Step 3 took ")
   
@@ -361,79 +364,9 @@ for (i in row.names(sample_info)){
   #Process data: step 4
   ###############################################################################
   
-  #remove rows where the chromosome of flank B as determined with read1 does not agree with read2
-  if(DEBUG==FALSE){
-    data_improved2 = data_improved1 %>% filter(MATE_FLANK_B_CHROM_AGREE == TRUE)
-  }else{
-    data_improved2 = data_improved1
-  }
 
-  if (CISSWITCH == TRUE){
-  data_improved3pre = data_improved2 %>%
-    
-    #intermediate counting to reduce the amount of work
-    group_by(
-      PRIMER_SEQ,
-      SEQ_1,
-      MATE_FLANK_B_CHROM,
-      FLANK_B_END_POS,
-      FLANK_B_ORIENT,
-      FLANK_B_CHROM,
-      FILE_NAME,
-      MATE_FLANK_B_CHROM_AGREE,
-      SEQ_1_LEN,
-      FLANK_A_START_POS,
-      TRIM_LEN,
-      PRIMER_TO_DSB,
-      FLANK_A_REF,
-      TOTAL_REF,
-      ANCHOR_DIST
-    )%>%
-    arrange(desc(AvgBaseQual_1_max), desc(AvgBaseQual_2_max)) %>%
-    summarize(AvgBaseQual_1_max_max = dplyr::first(AvgBaseQual_1_max),
-              AvgBaseQual_2_max_max = dplyr::first(AvgBaseQual_2_max),
-              SEQ_2_first = dplyr::first(SEQ_2),
-              QNAME_first_first = dplyr::first(QNAME_first),
-              countReadsSum = sum(countReads),
-              AnchorCount = n_distinct(MATE_B_POS)
-              ) 
-  }else{
-   
-    data_improved3pre = data_improved2 %>%
-      ungroup()%>%
-      uncount(weights= countReads, .remove=TRUE)%>%
-      #produce a consensus based on flank_b_end_pos (rest will be the same anyways)
-      #this is the most important consensus making summarize
-      group_by(
-        PRIMER_SEQ,
-        MATE_FLANK_B_CHROM,
-        FLANK_B_END_POS,
-        FLANK_B_ORIENT,
-        FLANK_B_CHROM,
-        FILE_NAME,
-        MATE_FLANK_B_CHROM_AGREE,
-        FLANK_A_START_POS,
-        TRIM_LEN,
-        PRIMER_TO_DSB,
-        FLANK_A_REF,
-        TOTAL_REF
-      )%>%
-      summarize(SEQ_1_consensus = names(which.max(table(SEQ_1))),
-                Count_consensus = max(table(SEQ_1)), 
-                countReadsSum = n(),
-                AnchorCount = n_distinct(MATE_B_END_POS),
-                ANCHOR_DIST_max = max(ANCHOR_DIST),
-                QNAME_first_first = QNAME_first[which(SEQ_1 == max(SEQ_1))],
-                SEQ_2_first = SEQ_2[which(SEQ_1 == max(SEQ_1))])%>%
-      mutate(SEQ_1_LEN = nchar(SEQ_1_consensus)) %>%
-      mutate(Consensus_freq = Count_consensus/countReadsSum) %>% 
-      dplyr::rename(SEQ_1 = SEQ_1_consensus)%>%
-      #remove junctions where the dominant SEQ_1 sequence is not at least 3/4 of total SEQ_1's at this location 
-      filter(Consensus_freq>=0.75)
 
-  }
-  
-  data_improved3 = data_improved3pre %>%
+  data_improved3 = data_improved2 %>%
     #Search SEQ_1 for a sequence surrounding the DSB (meaning the cut has not been made or has been repaired perfectly)
     #search with allowing 1bp mismatch, but give different output whether the match is perfect or not
     #note it only checks the first hit
@@ -737,18 +670,21 @@ for (i in row.names(sample_info)){
     mutate(FLANK_B_LEN_DEL = case_when(FLANK_B_ORIENT == "FW" ~ (FLANK_B_END_POS - FLANK_B_START_POS),
                                      TRUE ~ FLANK_B_START_POS - FLANK_B_END_POS)) %>%
     
-    #flag erroneous events, and filter these away
+  
+
+    
+    
+      #flag erroneous events, and filter these away
     mutate(
       hasPROBLEM = if_else(
-        FLANK_B_CHROM == "ERROR" |
-          MATE_FLANK_B_CHROM == "NOT_FOUND" |
-          MATE_FLANK_B_CHROM == "ERROR" |
-          MATE_FLANK_B_CHROM_AGREE == FALSE |
-          (CASE_WT == TRUE & FLANK_B_CHROM != FOCUS_CONTIG),
+      CASE_WT == TRUE & FLANK_B_CHROM != FOCUS_CONTIG,
         TRUE,
         as.logical(hasPROBLEM)
       )
     ) 
+  
+  
+  
     #remove rows with problems
     if(DEBUG==FALSE){
       data_improved7 = data_improved6 %>% filter(hasPROBLEM == FALSE)
@@ -756,10 +692,13 @@ for (i in row.names(sample_info)){
       data_improved7 = data_improved6
     }
     
+  #here grouping will occur to determine the number of anchors.
+  #for TRANSGUIDE a consensus outcome will be determined
          if (CISSWITCH == TRUE){
       
         data_improved8pre2 =data_improved7 %>%
-      #second grouping and summarizing to get the anchor numbers
+          ungroup()%>%
+          separate_longer_delim(cols="MATE_B_END_POS_list", delim = ",") %>%
       group_by(
         FILE_NAME,
         PRIMER_SEQ,
@@ -770,6 +709,7 @@ for (i in row.names(sample_info)){
         MATE_FLANK_B_CHROM,
         MATE_FLANK_B_CHROM_AGREE,
         FLANK_B_ISFORWARD,
+        FLANK_B_ORIENT,
         FILLER,
         MH,
         insSize,
@@ -782,60 +722,77 @@ for (i in row.names(sample_info)){
         TRIM_LEN
       )%>%
       summarize(
-        ReadCount = sum(ReadCount_pre),
-        Name = dplyr::first(Name_pre),
-        SEQ_1_first = dplyr::first(SEQ_1_first_pre),
-        SEQ_2_first_first = dplyr::first(SEQ_2_first_first_pre),
-        AnchorCountSum = sum(AnchorCountMax),
-        AnchorDistMax = max(ANCHOR_DIST_max)
+        ReadCount = n(),
+        SEQ_1_con = names(which.max(table(SEQ_1))),
+        Name = dplyr::first(QNAME_first),
+        Count_consensus = max(table(SEQ_1)),
+        AnchorCount = n_distinct(MATE_B_END_POS_list),
+        SEQ_2_con = names(which.max(table(SEQ_2_first))),
+        MATE_B_END_POS_max = max(as.integer(MATE_B_END_POS_list)),
+        MATE_B_END_POS_min = min(as.integer(MATE_B_END_POS_list))
       ) 
       }else{
         
         data_improved8pre2 =data_improved7 %>%
           ungroup()%>%
-          uncount(weights= countReads, .remove=TRUE)%>%
-          #second grouping and summarizing to get the anchor numbers
+          separate_longer_delim(cols="MATE_B_END_POS_list", delim = ",") %>%
           group_by(
             FILE_NAME,
             PRIMER_SEQ,
             FLANK_B_CHROM,
             FLANK_B_START_POS,
-            MATE_FLANK_B_CHROM,
-            MATE_FLANK_B_CHROM_AGREE,
             FLANK_B_ISFORWARD,
+            FLANK_B_ORIENT,
             TRIM_LEN
           )%>%
-          #probably have to fix the code below and run
-          #then check whether weird junctions are still there
-          #other note: check whether weird junctions have reads that dont start with the primer
-          #i could then first include reads that dont start with the primer, and then later see 
-          #if that is a considerable fraction...
           summarize(
-            ReadCount = sum(ReadCount_pre),
-            Name = dplyr::first(Name_pre),
-            SEQ_1_first = dplyr::first(SEQ_1_first_pre),
-            SEQ_2_first_first = dplyr::first(SEQ_2_first_first_pre),
-            AnchorCountSum = sum(AnchorCountMax),
-            AnchorDistMax = max(ANCHOR_DIST_max),
-            delRelativeStart = as.integer(names(which.max(table(delRelativeStart)))),
-            delRelativeEnd = as.integer(names(which.max(table(delRelativeEnd)))),
-            FILLER = names(which.max(table(FILLER))),
-            MH = names(which.max(table(MH))),
-            insSize = as.integer(names(which.max(table(insSize)))),
-            delSize = as.integer(names(which.max(table(delSize)))),
-            homologyLength = as.integer(names(which.max(table(homologyLength)))),
-            FAKE_DELIN_CHECK = names(which.max(table(FAKE_DELIN_CHECK))),
-            DSB_AREA_INTACT = names(which.max(table(DSB_AREA_INTACT))),
-            DSB_AREA_1MM = names(which.max(table(DSB_AREA_1MM))),
-            DSB_HIT_MULTI = names(which.max(table(DSB_HIT_MULTI))),
-            Count_consensus_3 = ReadCount_pre[which(SEQ_1_first_pre == max(SEQ_1_first_pre))]
-          ) %>%
-          mutate(Consensus_freq_2 = Count_consensus_3/ReadCount)%>%
+            ReadCount = n(),
+            Name = dplyr::first(QNAME_first),
+            Count_consensus = max(table(SEQ_1)),
+            AnchorCount = n_distinct(MATE_B_END_POS_list),
+            SEQ_1_con = names(which.max(table(SEQ_1))),
+            SEQ_2_con = names(which.max(table(SEQ_2_first))),
+            MATE_B_END_POS_max = max(as.integer(MATE_B_END_POS_list)),
+            MATE_B_END_POS_min = min(as.integer(MATE_B_END_POS_list)),
+            delRelativeStart_con = names(which.max(table(delRelativeStart))),
+            delRelativeEnd_con = names(which.max(table(delRelativeEnd))),
+            FILLER_con = names(which.max(table(FILLER))),
+            MH_con =names(which.max(table(MH))),
+            insSize_con = names(which.max(table(insSize))),
+            delSize_con = names(which.max(table(delSize))),
+            homologyLength_con = names(which.max(table(homologyLength))),
+            FAKE_DELIN_CHECK_con = names(which.max(table(FAKE_DELIN_CHECK))),
+            DSB_AREA_INTACT_con = names(which.max(table(DSB_AREA_INTACT))),
+            DSB_AREA_1MM_con = names(which.max(table(DSB_AREA_1MM))),
+            DSB_HIT_MULTI_con = names(which.max(table(DSB_HIT_MULTI)))
+          )%>%
+          mutate(Consensus_freq = Count_consensus/ReadCount)%>%
+          #rename columns to that code below is compatible with both CISSWITCH==TRUE and CISSWITCH==FALSE
+          rename(delRelativeStart = delRelativeStart_con,
+                 delRelativeEnd = delRelativeEnd_con,
+                 FILLER = FILLER_con,
+                 MH = MH_con,
+                 insSize = insSize_con,
+                 delSize = delSize_con,
+                 homologyLength = homologyLength_con,
+                 FAKE_DELIN_CHECK = FAKE_DELIN_CHECK_con,
+                 DSB_AREA_INTACT = DSB_AREA_INTACT_con,
+                 DSB_AREA_1MM = DSB_AREA_1MM_con,
+                 DSB_HIT_MULTI = DSB_HIT_MULTI_con
+                 )%>%
           #remove junctions where the dominant SEQ_1 sequence is not at least 3/4 of total SEQ_1's at this junction
-          filter(Consensus_freq_2 >=0.75)
+          filter(Consensus_freq >=0.75) %>%
+          #remove junctions with anchor count <3
+          filter(AnchorCount > 2)
       }
-          
+        
     data_improved8 =data_improved8pre2 %>%
+      
+      #then calculate the difference between the end of the primary read and the end of the mate.
+      mutate(ANCHOR_DIST = case_when(FLANK_B_ORIENT=="FW" ~ as.integer(MATE_B_END_POS_max - FLANK_B_START_POS),
+                                     FLANK_B_ORIENT=="RV" ~ as.integer(FLANK_B_START_POS - MATE_B_END_POS_min),
+                                     TRUE ~ ERROR_NUMBER)) %>%
+      
     #Add a subject and type column. Also add two extra columns for SIQplotter that are equal to the other del columns.
     mutate(
       Subject = FOCUS_LOCUS,
@@ -859,14 +816,12 @@ for (i in row.names(sample_info)){
       delRelativeStartTD,
       delRelativeEnd,
       delRelativeEndTD,
-      AnchorCountSum,
-      AnchorDistMax,
+      AnchorCount,
+      ANCHOR_DIST,
       ReadCount,
       FLANK_B_CHROM,
       FLANK_B_START_POS,
       FLANK_B_ISFORWARD,
-      MATE_FLANK_B_CHROM,
-      MATE_FLANK_B_CHROM_AGREE,
       FAKE_DELIN_CHECK,
       FILLER,
       MH,
@@ -875,9 +830,8 @@ for (i in row.names(sample_info)){
       delSize,
       Type,
       Subject,
-      SEQ_1_AvgBaseQual,
-      SEQ_1_first,
-      SEQ_2_first_first,
+      SEQ_1_con,
+      SEQ_2_con,
       DSB_AREA_INTACT,
       DSB_AREA_1MM,
       DSB_HIT_MULTI,

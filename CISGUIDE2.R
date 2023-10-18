@@ -12,12 +12,12 @@ if (require(openxlsx)==FALSE){install.packages("openxlsx", repos = "http://cran.
 ###############################################################################
 input_dir= "./input/"
 output_dir= "./output/"
-MINBASEQUAL = 30 #minimum base quality (phred)
+MINMAPQUAL = 42 #minimum mapping quality (phred). 42 means a perfect, unambiguous match
 MAX_DIST_FLANK_B_END = 10000 #distance from end of flank B to DSB, determines max deletion size and also affects maximum insertion size
 FLANK_B_LEN_MIN = 15 #minimum length of flank B. Also affects size of DSB_AREA_SEQ (2x FLANK_B_LEN_MIN)
 LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick to determine locus info
 DEBUG=FALSE #if true, reads will not be discarded when a problem has been detected, but flagged.
-CISSWITCH=FALSE #if true, one step will be skipped to allow the analysis of different events at the same genomic location.
+CISSWITCH=FALSE #if true, one summarizing step will be skipped to allow the analysis of different events at the same genomic location. Use FALSE for TRANSGUIDE to perform enhanced artefact detection.
 
 ###############################################################################
 #set parameters - non-adjustable
@@ -67,9 +67,9 @@ matcher_skipper <-function(ref, seq1){
   }
 }
 function_time <-function(text){
-  TIME_CURRENT=as.numeric(Sys.time())*1000
+  TIME_CURRENT=round(as.numeric(Sys.time())*1000, digits=0)
   message(paste0(text, (TIME_CURRENT - TIME_START), " milliseconds"))
-  TIME_START<<-as.numeric(Sys.time())*1000
+  TIME_START<<-round(as.numeric(Sys.time())*1000, digits=0)
 }
 Mode <- function(x) {
   ux <- unique(x)
@@ -212,8 +212,6 @@ for (i in row.names(sample_info)){
   message("MINLEN set to 60 because no primer seq available")
   }
   
-  #the following things need to be obtained for fasta mode: PRIMER_TO_DSB (step7), FLANK_A_REF (step7), GLOBAL_TOTAL_REF (step8)
-  
   function_time("Step 1 took ")
 
   ###############################################################################
@@ -227,8 +225,13 @@ for (i in row.names(sample_info)){
            SEQ_1_LEN = nchar(SEQ_1)) %>%
     filter(NrN < 1) %>%
     
+    #remove reads that do not have perfectly mapped ends
+    filter(A_MAPQ >= MINMAPQUAL,
+           B_MAPQ >= MINMAPQUAL)%>%
+    
     #filter away reads that are too short
     filter(!(SEQ_1_LEN < MINLEN)) %>%
+    
     #calculate the average base quality
     rowwise() %>%
     mutate(AvgBaseQual_1 = mean(utf8ToInt(QUAL_1)-33)) %>%
@@ -236,7 +239,6 @@ for (i in row.names(sample_info)){
     ungroup()
   
   data_improved_b = data_improved_a %>%
-    
     
     #calculate the end position of the B flank in the mate. This is the end the furthest away from the junction.
     mutate(MATE_B_END_POS = case_when(MATE_B_ORIENT=="FW" ~ as.integer(MATE_B_POS),
@@ -248,17 +250,9 @@ for (i in row.names(sample_info)){
     mutate(MATE_FLANK_B_CHROM_AGREE = if_else(FLANK_B_CHROM == MATE_FLANK_B_CHROM & FLANK_B_ORIENT != MATE_B_ORIENT,
                                               TRUE,
                                               FALSE)) 
-    
-    
-    #remove rows where the chromosome of flank B as determined with read1 does not agree with read2
-    if(DEBUG==FALSE){
-      data_improvedc = data_improved_b %>% filter(MATE_FLANK_B_CHROM_AGREE == TRUE)
-    }else{
-      data_improvedc = data_improved_b
-    }
-    
-  data_improved1 = data_improvedc %>%
   
+  data_improved1 = data_improved_b %>%
+    
     #count reads, taking the highest quals
     #acts as basic dupfilter
     #and also summarizes anchors, but puts them in a list
@@ -272,7 +266,8 @@ for (i in row.names(sample_info)){
       FILE_NAME,
       PRIMER_SEQ,
       TRIM_LEN,
-      SEQ_1_LEN) %>%
+      SEQ_1_LEN,
+      MATE_FLANK_B_CHROM_AGREE) %>%
     arrange(desc(AvgBaseQual_1), desc(AvgBaseQual_2)) %>%
     summarize(QNAME_first = dplyr::first(QNAME),
               SEQ_2_first = dplyr::first(SEQ_2),
@@ -456,12 +451,10 @@ for (i in row.names(sample_info)){
     }else{""}) %>%
     ungroup() %>%
     mutate(FLANK_B_MATCH_LEN = nchar(FLANK_B_MATCH)) %>% 
-
+    #the following should not happen anymore, but I left it just in case
     mutate(NO_MATCH = case_when(FLANK_B_MATCH_LEN == 0 & FLANK_B_REF != "NA" ~ TRUE,
                                 TRUE ~ FALSE))  %>%
-    mutate(hasPROBLEM = if_else(NO_MATCH == FALSE,
-                       FALSE,
-                       TRUE)) 
+    filter(NO_MATCH == FALSE)
 
   
     data_improved4 = data_improved3b %>%
@@ -569,8 +562,8 @@ for (i in row.names(sample_info)){
     
     #mark cases where the FLANK_B_LEN is too short 
     mutate(
-      hasPROBLEM = if_else(FLANK_B_LEN_DEL >= FLANK_B_LEN_MIN,
-                           as.logical(hasPROBLEM),
+      hasProblem = if_else(FLANK_B_LEN_DEL >= FLANK_B_LEN_MIN,
+                           FALSE,
                            TRUE))  %>%
     
     mutate(SEQ_1_A = substr(SEQ_1, 1, FLANK_A_LEN)) %>%
@@ -666,10 +659,10 @@ for (i in row.names(sample_info)){
     
       #flag erroneous events, and filter these away
     mutate(
-      hasPROBLEM = if_else(
+      hasProblem = if_else(
       CASE_WT == TRUE & FLANK_B_CHROM != FOCUS_CONTIG,
         TRUE,
-        as.logical(hasPROBLEM)
+        as.logical(hasProblem)
       )
     )%>%
     
@@ -684,7 +677,7 @@ for (i in row.names(sample_info)){
   
     #remove rows with problems
     if(DEBUG==FALSE){
-      data_improved7 = data_improved6 %>% filter(hasPROBLEM == FALSE)
+      data_improved7 = data_improved6 %>% filter(hasProblem == FALSE)
     }else{
       data_improved7 = data_improved6
     }
@@ -716,7 +709,8 @@ for (i in row.names(sample_info)){
         DSB_AREA_INTACT,
         DSB_AREA_1MM,
         DSB_HIT_MULTI,
-        TRIM_LEN
+        TRIM_LEN,
+        hasProblem
       )%>%
       summarize(
         ReadCount = n(),
@@ -727,7 +721,8 @@ for (i in row.names(sample_info)){
         SEQ_2_con = names(which.max(table(SEQ_2_first))),
         MATE_B_END_POS_max = max(as.integer(MATE_B_END_POS_list)),
         MATE_B_END_POS_min = min(as.integer(MATE_B_END_POS_list))
-      ) 
+      )%>%
+          mutate(Consensus_freq = 1)
       }else{
         
         data_improved8pre2 =data_improved7 %>%
@@ -740,7 +735,9 @@ for (i in row.names(sample_info)){
             FLANK_B_START_POS,
             FLANK_B_ISFORWARD,
             FLANK_B_ORIENT,
-            TRIM_LEN
+            TRIM_LEN,
+            MATE_FLANK_B_CHROM_AGREE,
+            hasProblem
           )%>%
           summarize(
             ReadCount = n(),
@@ -763,6 +760,7 @@ for (i in row.names(sample_info)){
             DSB_AREA_1MM_con = names(which.max(table(DSB_AREA_1MM))),
             DSB_HIT_MULTI_con = names(which.max(table(DSB_HIT_MULTI)))
           )%>%
+          ungroup()%>%
           mutate(Consensus_freq = Count_consensus/ReadCount)%>%
           #rename columns to that code below is compatible with both CISSWITCH==TRUE and CISSWITCH==FALSE
           rename(delRelativeStart = delRelativeStart_con,
@@ -776,11 +774,7 @@ for (i in row.names(sample_info)){
                  DSB_AREA_INTACT = DSB_AREA_INTACT_con,
                  DSB_AREA_1MM = DSB_AREA_1MM_con,
                  DSB_HIT_MULTI = DSB_HIT_MULTI_con
-                 )%>%
-          #flag junctions when the dominant SEQ_1 sequence is not at least 3/4 of total SEQ_1's at this junction
-          mutate(hasProblem = if_else(Consensus_freq <0.75,
-                                      TRUE,
-                                      FALSE))
+                 )
       }
         
     data_improved8 =data_improved8pre2 %>%
@@ -794,6 +788,8 @@ for (i in row.names(sample_info)){
       #when anchor count is too low
       mutate(hasProblem = case_when(AnchorCount < 3 ~ TRUE,
                                     ANCHOR_DIST < 150 ~ TRUE,
+                                    Consensus_freq <0.75 ~ TRUE,
+                                    MATE_FLANK_B_CHROM_AGREE == FALSE ~ TRUE,
                                     TRUE ~ as.logical(hasProblem)))%>%
       
     #Add a subject and type column. Also add two extra columns for SIQplotter that are equal to the other del columns.
@@ -825,6 +821,7 @@ for (i in row.names(sample_info)){
       FLANK_B_CHROM,
       FLANK_B_START_POS,
       FLANK_B_ISFORWARD,
+      FLANK_B_ORIENT,
       FAKE_DELIN_CHECK,
       FILLER,
       MH,
@@ -892,9 +889,20 @@ wb = tibble()
 for (i in sample_list){
   wb=rbind(wb, read.xlsx(paste0(output_dir, i)))
 }
+
+wb_flag = wb %>% 
+  group_by(FLANK_B_START_POS) %>%
+  mutate(duplicate_position = if_else(n() > 1,
+                                      TRUE,
+                                      FALSE)) %>%
+  
+  ungroup()%>%
+  mutate(hasProblem = case_when(duplicate_position == TRUE ~ TRUE,
+                                TRUE ~ as.logical(hasProblem)))
+
 work_book2 <- createWorkbook()
 addWorksheet(work_book2, "rawData")
-writeData(work_book2, sheet = 1, wb)
+writeData(work_book2, sheet = 1, wb_flag)
 
 #Write an additional sheet with read number info
 read_numbers_info = read.csv(paste0(input_dir, "read_numbers.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)

@@ -12,12 +12,12 @@ if (require(openxlsx)==FALSE){install.packages("openxlsx", repos = "http://cran.
 ###############################################################################
 input_dir= "./input/"
 output_dir= "./output/"
-MINMAPQUAL = 42 #minimum mapping quality (phred). 42 means a perfect, unambiguous match
+MINMAPQUAL = 42 #minimum mapping quality (phred). 42 means a perfect, unambiguous match (well, should be)
 MAX_DIST_FLANK_B_END = 10000 #distance from end of flank B to DSB, determines max deletion size and also affects maximum insertion size
 FLANK_B_LEN_MIN = 30 #minimum length of flank B. Also determines the size of DSB_AREA_SEQ 
 LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick to determine locus info
-DEBUG=FALSE #if true, reads will not be discarded when a problem has been detected, but flagged.
-CISSWITCH=FALSE #if true, one summarizing step will be skipped to allow the analysis of different events at the same genomic location. Use FALSE for TRANSGUIDE to perform enhanced artefact detection and to remove reads that map only to T-DNA.
+GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
 
 ###############################################################################
 #set parameters - non-adjustable
@@ -238,7 +238,7 @@ for (i in row.names(sample_info)){
     mutate(AvgBaseQual_2 = mean(utf8ToInt(QUAL_2)-33)) %>%
     ungroup()
   
-  if (CISSWITCH==FALSE){
+  if (REMOVENONTRANS==TRUE){
     data_improved_b = data_improved_a %>%
       filter(FLANK_B_CHROM != FOCUS_CONTIG)
   }else{
@@ -617,7 +617,7 @@ for (i in row.names(sample_info)){
   
   #here grouping will occur to determine the number of anchors.
   #for TRANSGUIDE a consensus outcome will be determined
-         if (CISSWITCH == TRUE){
+         if (GROUPSAMEPOS == FALSE){
       
         data_improved8pre2 =data_improved6 %>%
           ungroup()%>%
@@ -694,7 +694,7 @@ for (i in row.names(sample_info)){
           )%>%
           ungroup()%>%
           mutate(Consensus_freq = Count_consensus/ReadCount)%>%
-          #rename columns to that code below is compatible with both CISSWITCH==TRUE and CISSWITCH==FALSE
+          #rename columns to that code below is compatible with TRANS and CISGUIDE
           rename(delRelativeStart = delRelativeStart_con,
                  delRelativeEnd = delRelativeEnd_con,
                  FILLER = FILLER_con,

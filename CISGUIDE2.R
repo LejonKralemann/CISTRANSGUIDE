@@ -12,12 +12,11 @@ if (require(openxlsx)==FALSE){install.packages("openxlsx", repos = "http://cran.
 ###############################################################################
 input_dir= "./input/"
 output_dir= "./output/"
-MINMAPQUAL = 42 #minimum mapping quality (phred). 42 means a perfect, unambiguous match (well, should be)
 MAX_DIST_FLANK_B_END = 10000 #distance from end of flank B to DSB, determines max deletion size and also affects maximum insertion size
-FLANK_B_LEN_MIN = 30 #minimum length of flank B. Also determines the size of DSB_AREA_SEQ 
 LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick to determine locus info
 GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
 REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
 
 ###############################################################################
 #set parameters - non-adjustable
@@ -28,6 +27,11 @@ hash=system("git rev-parse HEAD", intern=TRUE)
 hash_little=substr(hash, 1, 8)
 sample_info = read.csv(paste0(input_dir, "Sample_information.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
 TIME_START=round(as.numeric(Sys.time())*1000, digits=0)
+FLANK_B_LEN_MIN = 30 #minimum length of flank B. Also determines the size of DSB_AREA_SEQ. do not change because the preprocessing program will still be set at 30.
+MINMAPQUAL = 42 #minimum mapping quality (phred). 42 means a perfect, unambiguous match (well, should be)
+PercentageDone = 0 #var for indicating progress
+TotalFileSize = 0
+CurrentFileSize = 0
 
 ###############################################################################
 #Initial checks
@@ -77,8 +81,30 @@ Mode <- function(x) {
 }
 
 ###############################################################################
-#Process data: step 1
+#Process data: step 0
+#calculating total work
 ###############################################################################
+
+message("calculating total work")
+for (i in row.names(sample_info)){
+  Sample = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Sample))
+  RunID = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(RunID))
+  
+  if (file.exists(paste0(input_dir, Sample, "_", RunID, "_A.txt"))==FALSE){
+    next
+  }else{
+    TotalFileSize = TotalFileSize + (file.info((paste0(input_dir, Sample, "_", RunID, "_A.txt"))))$size
+  }
+}
+message(paste0("Total file size to process: ", TotalFileSize))
+
+
+###############################################################################
+#Process data: step 1
+#checking the file and reading metadata
+###############################################################################
+
+message("Checking file and reading metadata")
 
 for (i in row.names(sample_info)){
   Sample = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Sample))
@@ -89,6 +115,7 @@ for (i in row.names(sample_info)){
     next
   }else{
     message(paste0("Processing ",input_dir, Sample, "_", RunID, "_A.txt"))
+    CurrentFileSize = (file.info((paste0(input_dir, Sample, "_", RunID, "_A.txt"))))$size
   }
   
   data = read.csv(paste0(input_dir, Sample, "_", RunID, "_A.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
@@ -108,6 +135,7 @@ for (i in row.names(sample_info)){
   DNASample = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DNA))
   Ecotype = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Ecotype))
   Library = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Sample))
+  Family = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(family))
   
   if (file.exists(paste0(input_dir, REF))==FALSE){
     message("Reference fasta not found. Moving to next sample.")
@@ -807,6 +835,7 @@ for (i in row.names(sample_info)){
            program_version = hash,
            Plasmid = PLASMID,
            Plasmid_alt = PLASMID_ALT,
+           Family = Family,
            Alias = paste0(Library, "_", RunID))
   
 
@@ -817,6 +846,12 @@ for (i in row.names(sample_info)){
   saveWorkbook(work_book, file = paste0(output_dir, Sample, "_", RunID, "_CISGUIDE_V_", hash_little, "_", as.integer(Sys.time()), ".xlsx"), overwrite = TRUE)
   
   function_time("Step 9 took ")
+  
+
+  #show progress
+  PercentageDone = PercentageDone + ((CurrentFileSize/TotalFileSize)*100)
+  message(paste0("CISTRANSGUIDE analysis ", round(PercentageDone, digits=3), "% complete"))
+  
 }
 
 sample_list = list.files(path=output_dir, pattern = "\\.xlsx")
@@ -826,7 +861,13 @@ for (i in sample_list){
   wb=rbind(wb, read.xlsx(paste0(output_dir, i)))
 }
 
+#remove previously marked problematic events as well as duplicate positions
+if (REMOVEPROBLEMS == TRUE){
+  wb_family = wb %>% select(Family) %>% distinct()
+  if (nrow(wb_family == 1)){#if no families are indicated
+  
 wb_flag = wb %>% 
+  filter(hasProblem == FALSE)%>%
   group_by(FLANK_B_START_POS) %>%
   mutate(duplicate_position = if_else(n() > 1,
                                       TRUE,
@@ -835,6 +876,48 @@ wb_flag = wb %>%
   ungroup()%>%
   mutate(hasProblem = case_when(duplicate_position == TRUE ~ TRUE,
                                 TRUE ~ as.logical(hasProblem)))
+ 
+  }else{#take families into account 
+    wb_filter_total = wb %>% filter(Family == 99999999) #make an empty file
+    
+    for (i in wb_family$Family){ #cleanup per family
+    wb_current_family = wb %>% filter(Family == i) %>% select(FILE_NAME) %>% distinct() #make a list of files within the current family
+    wb_filter_subtotal = wb %>% filter(Family == 99999999) #make an empty file
+    
+    for (j in wb_current_family$FILE_NAME){ #per file in that family
+      
+      wb_filter_current = wb %>% 
+        filter(Family != i | FILE_NAME == j)%>% #events are either not of the current family, or they belong to the current file
+        group_by(FLANK_B_START_POS) %>%
+        mutate(duplicate_position = if_else(n() > 1,
+                                            TRUE,
+                                            FALSE)) %>%
+        
+        ungroup()%>%
+        filter(Family == i) #keep only events belonging to the current file
+      
+      wb_filter_subtotal = rbind(wb_filter_subtotal, wb_filter_current) #combine surviving events from the current family
+      
+    }
+    wb_filter_total = rbind(wb_filter_total, wb_filter_subtotal) #combining surviving events from all families
+    
+    }
+    #non-duplicate position events not belonging to a family
+    wb_nonfamily = wb %>% 
+      filter(Family == 0 )%>% 
+      group_by(FLANK_B_START_POS) %>%
+      mutate(duplicate_position = if_else(n() > 1,
+                                          TRUE,
+                                          FALSE)) %>%
+      
+      ungroup()
+    
+    wb_flag = rbind(wb_filter_total, wb_nonfamily) #combine surviving family and nonfamily events
+}
+}else{
+  wb_flag = wb
+}
+
 
 work_book2 <- createWorkbook()
 addWorksheet(work_book2, "rawData")
@@ -851,3 +934,4 @@ addWorksheet(work_book2, "Information")
 writeData(work_book2, sheet = 2, wb_numbers)
 saveWorkbook(work_book2, file = paste0(output_dir, "Data_combined_CISGUIDE_V_", hash_little, "_", as.integer(Sys.time()), ".xlsx"), overwrite = TRUE)
 
+message("CISTRANSGUIDE analysis has completed")

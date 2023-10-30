@@ -17,6 +17,7 @@ LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick
 GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
 REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
 REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
+ANCHORCUTOFF=10 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 
 ###############################################################################
 #set parameters - non-adjustable
@@ -96,7 +97,7 @@ for (i in row.names(sample_info)){
     TotalFileSize = TotalFileSize + (file.info((paste0(input_dir, Sample, "_", RunID, "_A.txt"))))$size
   }
 }
-message(paste0("Total file size to process: ", TotalFileSize))
+message(paste0("Total file size to process: ", TotalFileSize, " bytes"))
 
 
 ###############################################################################
@@ -106,21 +107,29 @@ message(paste0("Total file size to process: ", TotalFileSize))
 
 message("Checking file and reading metadata")
 
+#check whether input file exists
 for (i in row.names(sample_info)){
   Sample = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Sample))
   RunID = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(RunID))
   
   if (file.exists(paste0(input_dir, Sample, "_", RunID, "_A.txt"))==FALSE){
-    message("Primary processed file not found, moving to next sample")
+    message("Primary processed file not found, moving to the next sample")
     next
-  }else{
-    message(paste0("Processing ",input_dir, Sample, "_", RunID, "_A.txt"))
+  }else if (file.exists(paste0(output_dir, Sample, "_", RunID, "_CISGUIDE_V_", hash_little, ".xlsx"))==TRUE){   #check whether file has already been processed
+    message(paste0("File ", output_dir, Sample, "_", RunID, "_A.txt has already been processed, moving to the next sample"))
+    #show progress
     CurrentFileSize = (file.info((paste0(input_dir, Sample, "_", RunID, "_A.txt"))))$size
-  }
+    PercentageDone = PercentageDone + ((CurrentFileSize/TotalFileSize)*100)
+    message(paste0("CISTRANSGUIDE analysis ", round(PercentageDone, digits=3), "% complete"))
+    next
+    }else{
+      message(paste0("Processing ",input_dir, Sample, "_", RunID, "_A.txt"))
+      CurrentFileSize = (file.info((paste0(input_dir, Sample, "_", RunID, "_A.txt"))))$size
+    }
   
   data = read.csv(paste0(input_dir, Sample, "_", RunID, "_A.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
   if (nrow(data)==0){
-    message("Primary processed file empty, moving to next sample")
+    message("Primary processed file empty, moving to the next sample")
     next
   }
   
@@ -135,7 +144,7 @@ for (i in row.names(sample_info)){
   DNASample = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DNA))
   Ecotype = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Ecotype))
   Library = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Sample))
-  Family = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(family))
+  Family = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Family))
   
   if (file.exists(paste0(input_dir, REF))==FALSE){
     message("Reference fasta not found. Moving to next sample.")
@@ -364,6 +373,15 @@ for (i in row.names(sample_info)){
       }}) %>%
     ungroup() 
   
+  #check if any reads have survived
+  if (nrow(data_improved1)==0){
+    message(paste0("No reads surviving for sample ", DNASample))
+    #show progress
+    PercentageDone = PercentageDone + ((CurrentFileSize/TotalFileSize)*100)
+    message(paste0("CISTRANSGUIDE analysis ", round(PercentageDone, digits=3), "% complete"))
+    next
+  }
+  
   function_time("Step 2 took ")
   
   ###############################################################################
@@ -395,8 +413,6 @@ for (i in row.names(sample_info)){
   #Process data: step 4
   ###############################################################################
   
-
-
   data_improved3 = data_improved2 %>%
 
     #Find how much SEQ_1 matches with FLANK_A_REF. Allow 1 bp mismatch somewhere, if the alignment after that continues for at least another 10 bp.
@@ -749,9 +765,9 @@ for (i in row.names(sample_info)){
       #flag as problematic
       #when anchors are not far away enough
       #when anchor count is too low
-      mutate(hasProblem = case_when(AnchorCount < 3 ~ TRUE,
+      mutate(hasProblem = case_when(AnchorCount < ANCHORCUTOFF ~ TRUE,
                                     ANCHOR_DIST < 150 ~ TRUE,
-                                    Consensus_freq <0.75 ~ TRUE,
+                                    Consensus_freq < 0.75 ~ TRUE,
                                     MATE_FLANK_B_CHROM_AGREE == FALSE ~ TRUE,
                                     FAKE_DELIN_CHECK == TRUE ~ TRUE,
                                     DSB_AREA_INTACT==TRUE & (delSize !=0 | insSize != 0 | homologyLength != 0) ~ TRUE,
@@ -843,7 +859,7 @@ for (i in row.names(sample_info)){
   work_book <- createWorkbook()
   addWorksheet(work_book, "rawData")
   writeData(work_book, sheet = 1, data_improved10)
-  saveWorkbook(work_book, file = paste0(output_dir, Sample, "_", RunID, "_CISGUIDE_V_", hash_little, "_", as.integer(Sys.time()), ".xlsx"), overwrite = TRUE)
+  saveWorkbook(work_book, file = paste0(output_dir, Sample, "_", RunID, "_CISGUIDE_V_", hash_little, ".xlsx"), overwrite = TRUE)
   
   function_time("Step 9 took ")
   
@@ -854,6 +870,11 @@ for (i in row.names(sample_info)){
   
 }
 
+
+###############################################################################
+#Combine data: step 10
+###############################################################################
+
 sample_list = list.files(path=output_dir, pattern = "\\.xlsx")
 wb = tibble()
 
@@ -862,60 +883,163 @@ for (i in sample_list){
 }
 
 #remove previously marked problematic events as well as duplicate positions
-if (REMOVEPROBLEMS == TRUE){
-  wb_family = wb %>% select(Family) %>% distinct()
-  if (nrow(wb_family == 1)){#if no families are indicated
+if (REMOVEPROBLEMS == TRUE) {
+  message("removing problematic events")
+  total_data_positioncompare = wb %>%
+    #first remove events that are already determined to be problematic
+    filter(hasProblem == FALSE) %>%
+    filter(AnchorCount >= ANCHORCUTOFF) %>% #remove this later
+    #then sort the data based on genomic location
+    arrange(DNASample, FLANK_B_CHROM, FLANK_B_START_POS)%>%
+    #then check whether for each event, the one on the previous row is close by (within 10bp).
+    mutate(previous_pos = lag(FLANK_B_START_POS),
+           prev_sample = lag(DNASample),
+           prev_chrom = lag(FLANK_B_CHROM),
+           prev_subject = lag(Subject),
+           prev_orient = lag(FLANK_B_ISFORWARD))%>%
+    mutate(pos_dif = abs(previous_pos - FLANK_B_START_POS))%>%
+    mutate(sample_compare = if_else(prev_sample == DNASample,
+                                    TRUE,
+                                    FALSE))%>%
+    mutate(chrom_compare = if_else(prev_chrom == FLANK_B_CHROM,
+                                   TRUE,
+                                   FALSE))%>%
+    mutate(subject_compare = if_else(prev_subject == Subject,
+                                     TRUE,
+                                     FALSE))%>%
+    mutate(orient_compare = if_else(prev_orient == FLANK_B_ISFORWARD,
+                                    TRUE,
+                                    FALSE))%>%
+    mutate(same_as_prev = if_else(pos_dif < 11 & chrom_compare==TRUE & sample_compare == TRUE & subject_compare == TRUE & orient_compare == TRUE,
+                                  TRUE,
+                                  FALSE))%>%
+    mutate(ID = 0)
   
-wb_flag = wb %>% 
-  filter(hasProblem == FALSE)%>%
-  group_by(FLANK_B_START_POS) %>%
-  mutate(duplicate_position = if_else(n() > 1,
-                                      TRUE,
-                                      FALSE)) %>%
+  #assign IDs, each representing a separate event (meaning that are not too close to be considered the same event)
+  ID_prev = 0
+  for (i in 2:length(total_data_positioncompare$DNASample)){
+    if (total_data_positioncompare$same_as_prev[i] == TRUE){
+      total_data_positioncompare$ID[i] = ID_prev
+      ID_prev = total_data_positioncompare$ID[i]
+    }else{
+      total_data_positioncompare$ID[i] = ID_prev + 1
+      ID_prev = total_data_positioncompare$ID[i]
+    }
+  }
   
-  ungroup()%>%
-  mutate(hasProblem = case_when(duplicate_position == TRUE ~ TRUE,
-                                TRUE ~ as.logical(hasProblem)))
- 
-  }else{#take families into account 
-    wb_filter_total = wb %>% filter(Family == 99999999) #make an empty file
-    
-    for (i in wb_family$Family){ #cleanup per family
-    wb_current_family = wb %>% filter(Family == i) %>% select(FILE_NAME) %>% distinct() #make a list of files within the current family
-    wb_filter_subtotal = wb %>% filter(Family == 99999999) #make an empty file
-    
-    for (j in wb_current_family$FILE_NAME){ #per file in that family
-      
-      wb_filter_current = wb %>% 
-        filter(Family != i | FILE_NAME == j)%>% #events are either not of the current family, or they belong to the current file
+  #combine junctions with similar positions and get the characteristics of the consensus event from the event the most anchors 
+  total_data_near_positioncombined = total_data_positioncompare %>%
+    group_by(DNASample, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, Alias, Subject, ID, FOCUS_CONTIG, Genotype, Ecotype, Plasmid_alt, Family)%>%
+    summarize(AnchorCountSum = sum(AnchorCount), 
+              ReadCountSum = sum(ReadCount),
+              FLANK_B_START_POS_CON = as.integer(FLANK_B_START_POS[which.max(AnchorCount)]),
+              delRelativeStart_CON = as.integer(delRelativeStart[which.max(AnchorCount)]),
+              delRelativeStartTD_CON = as.integer(delRelativeStartTD[which.max(AnchorCount)]),
+              delRelativeEnd_CON = as.integer(delRelativeEnd[which.max(AnchorCount)]),
+              delRelativeEndTD_CON = as.integer(delRelativeEndTD[which.max(AnchorCount)]),
+              ANCHOR_DIST_CON = as.integer(ANCHOR_DIST[which.max(AnchorCount)]),
+              FILLER_CON = FILLER[which.max(AnchorCount)],
+              MH_CON = MH[which.max(AnchorCount)],
+              insSize_CON = as.integer(insSize[which.max(AnchorCount)]),
+              homologyLength_CON = as.integer(homologyLength[which.max(AnchorCount)]),
+              delSize_CON = as.integer(delSize[which.max(AnchorCount)]),
+              Type_CON = Type[which.max(AnchorCount)],
+              SEQ_1_con_CON = SEQ_1_con[which.max(AnchorCount)],
+              SEQ_2_con_CON = SEQ_2_con[which.max(AnchorCount)],
+              TRIM_LEN_CON = as.integer(TRIM_LEN[which.max(AnchorCount)]),
+              RunID_CON = RunID[which.max(AnchorCount)]
+              )%>%
+    ungroup()%>%
+    rename(FLANK_B_START_POS = FLANK_B_START_POS_CON,
+           delRelativeStart = delRelativeStart_CON,
+           delRelativeStartTD = delRelativeStartTD_CON,
+           delRelativeEnd = delRelativeEnd_CON,
+           delRelativeEndTD = delRelativeEndTD_CON,
+           ANCHOR_DIST = ANCHOR_DIST_CON,
+           FILLER = FILLER_CON,
+           MH = MH_CON,
+           insSize = insSize_CON,
+           homologyLength = homologyLength_CON,
+           delSize = delSize_CON,
+           Type = Type_CON,
+           SEQ_1_con = SEQ_1_con_CON,
+           SEQ_2_con = SEQ_2_con_CON,
+           RunID = RunID_CON,
+           TRIM_LEN = TRIM_LEN_CON)
+  
+  #get a list of families
+  wb_family = wb %>% select(Family) %>% distinct() %>% filter(Family!=0)
+  if (nrow(wb_family) == 0) {
+    message("no family info detected")
+    #if no families are indicated
+
+    wb_flag = total_data_near_positioncombined %>%
+        #then examine positions across samples and remove those that occur multiple times
         group_by(FLANK_B_START_POS) %>%
         mutate(duplicate_position = if_else(n() > 1,
                                             TRUE,
                                             FALSE)) %>%
-        
-        ungroup()%>%
-        filter(Family == i) #keep only events belonging to the current file
+        ungroup() %>%
+        filter(duplicate_position == FALSE)
       
-      wb_filter_subtotal = rbind(wb_filter_subtotal, wb_filter_current) #combine surviving events from the current family
-      
-    }
-    wb_filter_total = rbind(wb_filter_total, wb_filter_subtotal) #combining surviving events from all families
+  
+  } else{
+    message("taking family into consideration")
+    #take families into account
+    wb_filter_total = total_data_near_positioncombined %>% filter(Family == 99999999) #make an empty file
     
+    for (i in wb_family$Family) {
+      #cleanup per family
+      wb_current_family = total_data_near_positioncombined %>% filter(Family == i) %>% select(DNASample) %>% distinct() #make a list of samples within the current family
+      wb_filter_subtotal = total_data_near_positioncombined %>% filter(Family == 99999999) #make an empty file
+      
+      for (j in wb_current_family$DNASample) {
+        #per file in that family
+        
+        wb_filter_current = total_data_near_positioncombined %>%
+          filter(Family != i | DNASample == j) %>% #events are either not of the current family, or they belong to the current sample
+          group_by(FLANK_B_START_POS) %>%
+          mutate(duplicate_position = if_else(n() > 1,
+                                              TRUE,
+                                              FALSE)) %>%
+          
+          ungroup() %>%
+          filter(duplicate_position == FALSE &
+                   Family == i) #keep only events belonging to the current file, and remove duplicate positions
+        
+        wb_filter_subtotal = rbind(wb_filter_subtotal, wb_filter_current) #combine surviving events from the current family
+        
+      }
+      wb_filter_total = rbind(wb_filter_total, wb_filter_subtotal) #combining surviving events from all families
+      
     }
     #non-duplicate position events not belonging to a family
-    wb_nonfamily = wb %>% 
-      filter(Family == 0 )%>% 
+    wb_nonfamily = total_data_near_positioncombined %>%
+      filter(Family == 0) %>%
       group_by(FLANK_B_START_POS) %>%
       mutate(duplicate_position = if_else(n() > 1,
                                           TRUE,
                                           FALSE)) %>%
       
-      ungroup()
+      ungroup() %>%
+      filter(duplicate_position == FALSE)
     
-    wb_flag = rbind(wb_filter_total, wb_nonfamily) #combine surviving family and nonfamily events
-}
-}else{
-  wb_flag = wb
+    wb_flag = rbind(wb_filter_total, wb_nonfamily)  #combine surviving family and nonfamily events
+    
+  }
+} else{
+  message("flagging problems only")
+  wb_flag = wb %>%
+    group_by(FLANK_B_START_POS) %>%
+    mutate(duplicate_position = if_else(n() > 1,
+                                        TRUE,
+                                        FALSE)) %>%
+    
+    ungroup() %>%
+    mutate(hasProblem = case_when(
+      duplicate_position == TRUE ~ TRUE,
+      TRUE ~ as.logical(hasProblem)
+    ))
 }
 
 

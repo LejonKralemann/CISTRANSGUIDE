@@ -92,32 +92,51 @@ fi
 echo "Looking for directory ${WORKPATH}/input"
 if [[ -d "${WORKPATH}/input" ]]
 then
-	echo "Directory already exists. Emptying..."
-	rm -r ${WORKPATH}/input
-	mkdir ${WORKPATH}/input
-	if [ -z "$(ls -A ${WORKPATH}/input)" ]; then
-		echo "Old files removed succesfully"
+	echo "Directory input already exists. Do you wish to empty it? Enter y to confirm, or anything else to continue without emptying."
+	read user_answer
+	if [[ ${user_answer} == y ]]
+	then
+		echo "Emptying folder ..."
+		rm -r ${WORKPATH}/input
+		mkdir ${WORKPATH}/input
+		if [ -z "$(ls -A ${WORKPATH}/input)" ]; then
+			echo "Old files removed succesfully"
+			echo "creating empty read number file"
+			> ${WORKPATH}/file0.temp | awk -v OFS="\t" -v FS="\t" 'BEGIN {print "Sample", "RunID", "File", "Subject", "Type", "Reads"}' > ${WORKPATH}/input/read_numbers.txt
+		else
+			echo "Cleanup not succesful. Please restart your device and run again."
+			exit 1
+		fi
 	else
-		echo "Cleanup not succesful. Please restart your device and run again."
-		exit 1
+		echo "Keeping folder contents ..."
 	fi
 else
 	echo "Directory does not exist, creating ${WORKPATH}/input..."
 	mkdir ${WORKPATH}/input
+	echo "creating empty read number file"
+	> ${WORKPATH}/file0.temp | awk -v OFS="\t" -v FS="\t" 'BEGIN {print "Sample", "RunID", "File", "Subject", "Type", "Reads"}' > ${WORKPATH}/input/read_numbers.txt
+
 fi
 
 echo "Looking for directory ${WORKPATH}/bams"
 if [[ -d "${WORKPATH}/bams" ]]
 then
-	echo "Directory already exists. Emptying..."
-	rm -r ${WORKPATH}/bams
-	mkdir ${WORKPATH}/bams
-	if [ -z "$(ls -A ${WORKPATH}/bams)" ]; then
-		echo "Old files removed succesfully"
+	echo "Directory bams already exists. Do you wish to empty it? Enter y to confirm or anything else to continue without emptying."
+	read user_answer
+	if [[ ${user_answer} == y ]]
+	then
+		echo "Emptying folder ..."
+		rm -r ${WORKPATH}/bams
+		mkdir ${WORKPATH}/bams
+		if [ -z "$(ls -A ${WORKPATH}/bams)" ]; then
+			echo "Old files removed succesfully"
+		else
+			echo "Cleanup not succesful. Please restart your device and run again."
+			exit 1
+		fi
 	else
-		echo "Cleanup not succesful. Please restart your device and run again."
-		exit 1
-	fi
+		echo "Keeping folder contents ..."
+	fi	
 else
 	echo "Directory does not exist, creating ${WORKPATH}/bams..."
 	mkdir ${WORKPATH}/bams
@@ -189,11 +208,6 @@ done
 readarray -t LIST_FILES  < <(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t" 'FNR>1{print $3}' | sort | uniq) 
 echo "Processing the following files:" ${LIST_FILES[*]}
 
-> ${WORKPATH}/file0.temp | awk -v OFS="\t" -v FS="\t" 'BEGIN {print "Sample", "RunID", "File", "Subject", "Type", "Reads"}' > ${WORKPATH}/input/read_numbers.txt
-
-
-
-
 ################################################################################################################
 #start analysing files
 ################################################################################################################
@@ -228,6 +242,16 @@ FOCUSLOCUS=$(cat ${WORKPATH}/Sample_information.txt | awk -v OFS="\t" -v FS="\t"
 echo "Current focus locus: ${FOCUSLOCUS}"
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
+################################################################################################################
+#Check whether already processed
+################################################################################################################
+if [[ -f "${WORKPATH}/input/${CURRENTSAMPLE}_${CURRENTRUNID}_A.txt" ]]
+	then
+		echo "Sample ${CURRENTSAMPLE} already processed, moving to the next one";
+		continue
+	else
+		echo "Output file for sample ${CURRENTSAMPLE} does not exist yet";
+fi
 
 
 ################################################################################################################

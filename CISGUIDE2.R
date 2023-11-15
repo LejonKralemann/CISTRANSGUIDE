@@ -875,7 +875,8 @@ for (i in row.names(sample_info)){
 #Combine data: step 10
 ###############################################################################
 
-sample_list = list.files(path=output_dir, pattern = "\\.xlsx")
+pattern_files=paste0(hash_little, ".xlsx")
+sample_list = list.files(path=output_dir, pattern = pattern_files)
 wb = tibble()
 
 for (i in sample_list){
@@ -890,34 +891,30 @@ if (REMOVEPROBLEMS == TRUE) {
     filter(hasProblem == FALSE) %>%
     filter(AnchorCount >= ANCHORCUTOFF) %>% #remove this later
     #then sort the data based on genomic location
-    arrange(DNASample, FLANK_B_CHROM, FLANK_B_START_POS)%>%
+    arrange(Alias, FLANK_B_CHROM, FLANK_B_START_POS)%>%
     #then check whether for each event, the one on the previous row is close by (within 10bp).
     mutate(previous_pos = lag(FLANK_B_START_POS),
-           prev_sample = lag(DNASample),
+           prev_Alias = lag(Alias),
            prev_chrom = lag(FLANK_B_CHROM),
-           prev_subject = lag(Subject),
            prev_orient = lag(FLANK_B_ISFORWARD))%>%
     mutate(pos_dif = abs(previous_pos - FLANK_B_START_POS))%>%
-    mutate(sample_compare = if_else(prev_sample == DNASample,
+    mutate(Alias_compare = if_else(prev_Alias == Alias,
                                     TRUE,
                                     FALSE))%>%
     mutate(chrom_compare = if_else(prev_chrom == FLANK_B_CHROM,
                                    TRUE,
                                    FALSE))%>%
-    mutate(subject_compare = if_else(prev_subject == Subject,
-                                     TRUE,
-                                     FALSE))%>%
     mutate(orient_compare = if_else(prev_orient == FLANK_B_ISFORWARD,
                                     TRUE,
                                     FALSE))%>%
-    mutate(same_as_prev = if_else(pos_dif < 11 & chrom_compare==TRUE & sample_compare == TRUE & subject_compare == TRUE & orient_compare == TRUE,
+    mutate(same_as_prev = if_else(pos_dif < 11 & chrom_compare==TRUE & Alias_compare == TRUE & orient_compare == TRUE,
                                   TRUE,
                                   FALSE))%>%
     mutate(ID = 0)
   
   #assign IDs, each representing a separate event (meaning that are not too close to be considered the same event)
   ID_prev = 0
-  for (i in 2:length(total_data_positioncompare$DNASample)){
+  for (i in 2:length(total_data_positioncompare$Alias)){
     if (total_data_positioncompare$same_as_prev[i] == TRUE){
       total_data_positioncompare$ID[i] = ID_prev
       ID_prev = total_data_positioncompare$ID[i]
@@ -929,7 +926,7 @@ if (REMOVEPROBLEMS == TRUE) {
   
   #combine junctions with similar positions and get the characteristics of the consensus event from the event the most anchors 
   total_data_near_positioncombined = total_data_positioncompare %>%
-    group_by(DNASample, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, Alias, Subject, ID, FOCUS_CONTIG, Genotype, Ecotype, Plasmid_alt, Family)%>%
+    group_by(Alias, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, DNASample, Subject, ID, FOCUS_CONTIG, Genotype, Ecotype, Plasmid_alt, Family)%>%
     summarize(AnchorCountSum = sum(AnchorCount), 
               ReadCountSum = sum(ReadCount),
               FLANK_B_START_POS_CON = as.integer(FLANK_B_START_POS[which.max(AnchorCount)]),
@@ -990,14 +987,14 @@ if (REMOVEPROBLEMS == TRUE) {
     
     for (i in wb_family$Family) {
       #cleanup per family
-      wb_current_family = total_data_near_positioncombined %>% filter(Family == i) %>% select(DNASample) %>% distinct() #make a list of samples within the current family
+      wb_current_family = total_data_near_positioncombined %>% filter(Family == i) %>% select(Alias) %>% distinct() #make a list of aliases within the current family
       wb_filter_subtotal = total_data_near_positioncombined %>% filter(Family == 99999999) #make an empty file
       
-      for (j in wb_current_family$DNASample) {
-        #per file in that family
+      for (j in wb_current_family$Alias) {
+        #per alias in that family
         
         wb_filter_current = total_data_near_positioncombined %>%
-          filter(Family != i | DNASample == j) %>% #events are either not of the current family, or they belong to the current sample
+          filter(Family != i | Alias == j) %>% #events are either not of the current family, or they belong to the current alias
           group_by(FLANK_B_START_POS) %>%
           mutate(duplicate_position = if_else(n() > 1,
                                               TRUE,

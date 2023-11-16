@@ -444,7 +444,7 @@ join -j 1 -o 1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2.2,2.3,2.4 -t $'\t' ${WORKPATH
 join -j 1 -o 1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,1.10,1.11,1.12,2.2,2.3,2.4,2.5 -t $'\t' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1R2_select2.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1R2.txt > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1R2_select3.txt 
 
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1R2_select3.txt |
-awk -v OFS="\t" -v FS="\t" -v i="$i" -v PRIMERSEQ="$PRIMERSEQ" -v CURRENTTRIMLEN="$CURRENTTRIMLEN" ' {print $0, i, PRIMERSEQ, CURRENTTRIMLEN}'  >> ${WORKPATH}/input/${CURRENTSAMPLE}_${CURRENTRUNID}_A.txt
+awk -v OFS="\t" -v FS="\t" -v i="$i" -v PRIMERSEQ="$PRIMERSEQ" -v CURRENTTRIMLEN="$CURRENTTRIMLEN" ' {print $0, i, PRIMERSEQ, CURRENTTRIMLEN}' | shuf -n 1000000 >> ${WORKPATH}/input/${CURRENTSAMPLE}_${CURRENTRUNID}_A.txt
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 ################################################################################################################

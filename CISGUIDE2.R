@@ -29,7 +29,8 @@ hash_little=substr(hash, 1, 8)
 sample_info = read.csv(paste0(input_dir, "Sample_information.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
 TIME_START=round(as.numeric(Sys.time())*1000, digits=0)
 FLANK_B_LEN_MIN = 30 #minimum length of flank B. Also determines the size of DSB_AREA_SEQ. do not change because the preprocessing program will still be set at 30.
-MINMAPQUAL = 42 #minimum mapping quality (phred). 42 means a perfect, unambiguous match (well, should be)
+MINMAPQUALA = 42 #minimum mapping quality (phred). 42 means a perfect, unambiguous match (well, should be)
+MINMAPQUALB = 42 #same, but for flank B
 PercentageDone = 0 #var for indicating progress
 TotalFileSize = 0
 CurrentFileSize = 0
@@ -181,22 +182,34 @@ for (i in row.names(sample_info)){
   if (FASTA_MODE == FALSE){
   if (FLANK_A_ORIENT == "FW"){
     Primer_match = as.data.frame(matchPattern(pattern = Primer_seq, subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))  
+    Primer_match_3 = as.data.frame(matchPattern(pattern = Primer_seq, subject = DNAString(contig_seq), max.mismatch = 3, fixed=TRUE)) 
     if (nrow(Primer_match) > 0 & nrow(Primer_match) < 2){
       Primer_pos = as.numeric(Primer_match$start)
+      Primer_match_perfect=TRUE
     }else if (nrow(Primer_match) >1){
       message("Primer found several times in the genome")
       next
+    }else if (nrow(Primer_match_3) == 1){
+      message("Note! Primer does not match fully. Continuing anyway.")
+      Primer_pos = as.numeric(Primer_match_3$start)
+      Primer_match_perfect=FALSE
     }else{
       message("Primer not found")
       next
     }
   }else if (FLANK_A_ORIENT == "RV"){
     Primer_match = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(Primer_seq))), subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))
+    Primer_match_3 = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(Primer_seq))), subject = DNAString(contig_seq), max.mismatch = 3, fixed=TRUE))
     if (nrow(Primer_match) > 0 & nrow(Primer_match) < 2){
       Primer_pos = as.numeric(Primer_match$end)
+      Primer_match_perfect=TRUE
     }else if (nrow(Primer_match) >1){
       message("Primer found several times in the genome")
       next
+    }else if (nrow(Primer_match_3) == 1){
+      message("Note! Primer does not match fully. Continuing anyway.")
+      Primer_pos = as.numeric(Primer_match_3$end)
+      Primer_match_perfect=FALSE
     }else{
       message("Primer not found")
       next
@@ -241,6 +254,14 @@ for (i in row.names(sample_info)){
     ""
   }}
   
+  #if there was a problem with the primer (some mismatches) then the refs need to be changed so they match the reads.
+  #also the minimum mapping quality will need to be adjusted because of the mismatches
+  if (Primer_match_perfect==FALSE){
+    FLANK_A_REF_GLOBAL = paste0(Primer_seq, substr(FLANK_A_REF_GLOBAL, start=Primer_seq_len+1, stop=nchar(FLANK_A_REF_GLOBAL)))
+    GLOBAL_TOTAL_REF = paste0(Primer_seq, substr(GLOBAL_TOTAL_REF, start=Primer_seq_len+1, stop=nchar(GLOBAL_TOTAL_REF)))
+    MINMAPQUALA = 8
+  }
+  
   #set the minimum length of a read
   if (FASTA_MODE == FALSE){
   MINLEN = PRIMER_TO_DSB_GLOBAL+FLANK_B_LEN_MIN
@@ -263,8 +284,8 @@ for (i in row.names(sample_info)){
     filter(NrN < 1) %>%
     
     #remove reads that do not have perfectly mapped ends
-    filter(A_MAPQ >= MINMAPQUAL,
-           B_MAPQ >= MINMAPQUAL)%>%
+    filter(A_MAPQ >= MINMAPQUALA,
+           B_MAPQ >= MINMAPQUALB)%>%
     
     #filter away reads that are too short
     filter(!(SEQ_1_LEN < MINLEN)) %>%

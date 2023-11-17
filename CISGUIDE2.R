@@ -115,7 +115,7 @@ for (i in row.names(sample_info)){
   if (file.exists(paste0(input_dir, Sample, "_", RunID, "_A.txt"))==FALSE){
     message("Primary processed file not found, moving to the next sample")
     next
-  }else if (file.exists(paste0(output_dir, Sample, "_", RunID, "_CISGUIDE_V_", hash_little, ".xlsx"))==TRUE){   #check whether file has already been processed
+  }else if (file.exists(paste0(output_dir, Sample, "_", RunID, "_CISTRANSGUIDE_V2.xlsx"))==TRUE){   #check whether file has already been processed
     message(paste0("File ", output_dir, Sample, "_", RunID, "_A.txt has already been processed, moving to the next sample"))
     #show progress
     CurrentFileSize = (file.info((paste0(input_dir, Sample, "_", RunID, "_A.txt"))))$size
@@ -858,7 +858,7 @@ for (i in row.names(sample_info)){
   work_book <- createWorkbook()
   addWorksheet(work_book, "rawData")
   writeData(work_book, sheet = 1, data_improved10)
-  saveWorkbook(work_book, file = paste0(output_dir, Sample, "_", RunID, "_CISGUIDE_V_", hash_little, ".xlsx"), overwrite = TRUE)
+  saveWorkbook(work_book, file = paste0(output_dir, Sample, "_", RunID, "_CISTRANSGUIDE_V2.xlsx"), overwrite = TRUE)
   
   function_time("Step 9 took ")
   
@@ -874,8 +874,7 @@ for (i in row.names(sample_info)){
 #Combine data: step 10
 ###############################################################################
 
-pattern_files=paste0(hash_little, ".xlsx")
-sample_list = list.files(path=output_dir, pattern = pattern_files)
+sample_list = list.files(path=output_dir, pattern = ".xlsx")
 wb = tibble()
 
 for (i in sample_list){
@@ -1052,6 +1051,6 @@ wb_numbers = read_numbers_info %>%
 
 addWorksheet(work_book2, "Information")
 writeData(work_book2, sheet = 2, wb_numbers)
-saveWorkbook(work_book2, file = paste0(output_dir, "Data_combined_CISGUIDE_V_", hash_little, "_", as.integer(Sys.time()), ".xlsx"), overwrite = TRUE)
+saveWorkbook(work_book2, file = paste0(output_dir, "Data_combined_CISTRANSGUIDEE_V2_", as.integer(Sys.time()), ".xlsx"), overwrite = TRUE)
 
 message("CISTRANSGUIDE analysis has completed")

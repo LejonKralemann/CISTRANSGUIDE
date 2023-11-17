@@ -17,7 +17,7 @@ LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick
 GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
 REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
 REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
-ANCHORCUTOFF=10 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
+ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 
 ###############################################################################
 #set parameters - non-adjustable
@@ -779,20 +779,7 @@ for (i in row.names(sample_info)){
       mutate(ANCHOR_DIST = case_when(FLANK_B_ORIENT=="FW" ~ as.integer(MATE_B_END_POS_max - FLANK_B_START_POS),
                                      FLANK_B_ORIENT=="RV" ~ as.integer(FLANK_B_START_POS - MATE_B_END_POS_min),
                                      TRUE ~ ERROR_NUMBER)) %>%
-      
-      
-      
-      #flag as problematic
-      #when anchors are not far away enough
-      #when anchor count is too low
-      mutate(hasProblem = case_when(AnchorCount < ANCHORCUTOFF ~ TRUE,
-                                    ANCHOR_DIST < 150 ~ TRUE,
-                                    Consensus_freq < 0.75 ~ TRUE,
-                                    MATE_FLANK_B_CHROM_AGREE == FALSE ~ TRUE,
-                                    FAKE_DELIN_CHECK == TRUE ~ TRUE,
-                                    DSB_AREA_INTACT==TRUE & (delSize !=0 | insSize != 0 | homologyLength != 0) ~ TRUE,
-                                    TRUE ~ FALSE))%>%
-      
+    
     #Add a subject and type column. Also add two extra columns for SIQplotter that are equal to the other del columns.
     mutate(
       Subject = FOCUS_LOCUS,
@@ -822,7 +809,6 @@ for (i in row.names(sample_info)){
       FLANK_B_START_POS,
       FLANK_B_ISFORWARD,
       FLANK_B_ORIENT,
-      FAKE_DELIN_CHECK,
       FILLER,
       MH,
       insSize,
@@ -836,7 +822,9 @@ for (i in row.names(sample_info)){
       DSB_AREA_1MM,
       DSB_HIT_MULTI,
       TRIM_LEN,
-      hasProblem
+      Consensus_freq,
+      FAKE_DELIN_CHECK,
+      MATE_FLANK_B_CHROM_AGREE
     ) %>%
     
 
@@ -906,9 +894,13 @@ for (i in sample_list){
 if (REMOVEPROBLEMS == TRUE) {
   message("removing problematic events")
   total_data_positioncompare = wb %>%
-    #first remove events that are already determined to be problematic
-    filter(hasProblem == FALSE) %>%
-    filter(AnchorCount >= ANCHORCUTOFF) %>% #remove this later
+    #first remove problematic events based on characteristics of the events themselves
+    filter(AnchorCount >= ANCHORCUTOFF,
+           ANCHOR_DIST >= 150,
+           Consensus_freq >= 0.75,
+           MATE_FLANK_B_CHROM_AGREE == TRUE,
+           FAKE_DELIN_CHECK == FALSE,
+           !(DSB_AREA_INTACT==TRUE & (delSize !=0 | insSize != 0 | homologyLength != 0))) %>% 
     #then sort the data based on genomic location
     arrange(Alias, FLANK_B_CHROM, FLANK_B_START_POS)%>%
     #then check whether for each event, the one on the previous row is close by (within 10bp).

@@ -15,8 +15,8 @@ Install and run
 - Then install dos2unix with "apt install dos2unix"
 - Place CISGUIDE_primary.sh, Sample_information.txt, fastq.gz files, and reference fastas ("PLASMID_NAME.fa") in your work directory.
 - Run the software with something like: 
-	bash shared/CISGUIDE_primary2.sh -p shared -f FALSE |& tee -a shared/primary_log.txt
-	Replace "shared" with the name of the folder in which the files are
+	bash workdir/CISGUIDE_primary2.sh -p workdir -f FALSE -t 150 |& tee -a workdir/primary_log.txt
+	Replace "workdir" with the name of the folder in which the files are
 - The output is a folder per library, containing a .bam and .bam.bai file so that sequences may be visualized in a genome browser, and a text file ending in "_A.txt" containing all preprocessed reads.
 - Next, place the files that end in "_A.txt", the reference fastas (change minus sign to underscore), and Sample_information.txt in the CISGUIDE input folder. Then run the R script (CISGUIDE.R).
 - The output is one excel file per library showing on every row a unique event. Another excel file contains all data together.
@@ -48,6 +48,7 @@ Ecotype: 		The name of the ecotype of the organism that was samples. E.g. "Col-0
 R1Suffix: 		The part of the filename after File_name, but before the extention .fastq.gz, for read 1 (the read sequenced from the p5 adapter).
 R2Suffix: 		The part of the filename after File_name, but before the extention .fastq.gz, for read 2 (the read sequenced from the p7 adapter).
 UMISuffix: 		The part of the filename after File_name, but before the extention .fastq.gz, for the UMI.
+Family:			Indicate here if some samples are related and therefore junctions can occur in multiple samples. Use integers starting from "1". Use "0" in all rows not to include family information. This information is used to keep some junctions which otherwise would be filtered out by the duplicate position filter. 
 
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 General notes

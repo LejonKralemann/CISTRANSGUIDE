@@ -145,7 +145,7 @@ for (i in row.names(sample_info)){
   DNASample = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DNA))
   Ecotype = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Ecotype))
   Library = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Sample))
-  Family = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Family))
+  
   
   if (file.exists(paste0(input_dir, REF))==FALSE){
     message("Reference fasta not found. Moving to next sample.")
@@ -859,7 +859,6 @@ for (i in row.names(sample_info)){
            program_version = hash,
            Plasmid = PLASMID,
            Plasmid_alt = PLASMID_ALT,
-           Family = Family,
            Alias = paste0(Library, "_", RunID))
   
 
@@ -893,7 +892,7 @@ for (i in sample_list){
 #remove previously marked problematic events as well as duplicate positions
 if (REMOVEPROBLEMS == TRUE) {
   message("removing problematic events")
-  total_data_positioncompare = wb %>%
+  total_data_positioncompare_pre = wb %>%
     #first remove problematic events based on characteristics of the events themselves
     filter(AnchorCount >= ANCHORCUTOFF,
            ANCHOR_DIST >= 150,
@@ -922,6 +921,15 @@ if (REMOVEPROBLEMS == TRUE) {
                                   TRUE,
                                   FALSE))%>%
     mutate(ID = 0)
+  
+  sample_info2  = sample_info %>%
+    select(Family, RunID, DNA, Locus_name)%>%
+    rowwise()%>%
+    mutate(Alias = paste(DNA, Locus_name, RunID, sep="_"))
+  
+  total_data_positioncompare = left_join(sample_info2, total_data_positioncompare_pre, by=c("Alias"))%>%
+    filter(!is.na(Family))
+  
   
   #assign IDs, each representing a separate event (meaning that are not too close to be considered the same event)
   ID_prev = 0

@@ -920,29 +920,36 @@ if (REMOVEPROBLEMS == TRUE) {
     mutate(same_as_prev = if_else(pos_dif < 11 & chrom_compare==TRUE & Alias_compare == TRUE & orient_compare == TRUE,
                                   TRUE,
                                   FALSE))%>%
-    mutate(ID = 0)
+    mutate(ID = 0)%>%
+    mutate(Family=NULL)
   
-  sample_info2  = sample_info %>%
-    select(Family, RunID, DNA, Locus_name)%>%
-    rowwise()%>%
-    mutate(Alias = paste(DNA, Locus_name, RunID, sep="_"))
-  
-  total_data_positioncompare = left_join(sample_info2, total_data_positioncompare_pre, by=c("Alias"))%>%
-    filter(!is.na(Family))
+
   
   
   #assign IDs, each representing a separate event (meaning that are not too close to be considered the same event)
   ID_prev = 0
-  for (i in 2:length(total_data_positioncompare$Alias)){
-    if (total_data_positioncompare$same_as_prev[i] == TRUE){
-      total_data_positioncompare$ID[i] = ID_prev
-      ID_prev = total_data_positioncompare$ID[i]
+  for (i in 2:length(total_data_positioncompare_pre$Alias)){
+    if (total_data_positioncompare_pre$same_as_prev[i] == TRUE){
+      total_data_positioncompare_pre$ID[i] = ID_prev
+      ID_prev = total_data_positioncompare_pre$ID[i]
     }else{
-      total_data_positioncompare$ID[i] = ID_prev + 1
-      ID_prev = total_data_positioncompare$ID[i]
+      total_data_positioncompare_pre$ID[i] = ID_prev + 1
+      ID_prev = total_data_positioncompare_pre$ID[i]
     }
   }
   
+  #add family info
+  sample_info2  = sample_info %>%
+    select(Family, RunID, Sample)%>%
+    rowwise()%>%
+    mutate(Alias = paste(Sample, RunID, sep="_"))%>%
+    select(Alias, Family)%>%
+    ungroup()
+  
+  total_data_positioncompare = left_join(sample_info2, total_data_positioncompare_pre, by=c("Alias"))%>%
+    filter(!is.na(Family))
+  
+  view
   #combine junctions with similar positions and get the characteristics of the consensus event from the event the most anchors 
   total_data_near_positioncombined = total_data_positioncompare %>%
     group_by(Alias, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, DNASample, Subject, ID, FOCUS_CONTIG, Genotype, Ecotype, Plasmid_alt, Family)%>%
@@ -984,7 +991,7 @@ if (REMOVEPROBLEMS == TRUE) {
            TRIM_LEN = TRIM_LEN_CON)
   
   #get a list of families
-  wb_family = wb %>% select(Family) %>% distinct() %>% filter(Family!=0)
+  wb_family = sample_info2 %>% select(Family) %>% distinct() %>% filter(Family!=0)
   if (nrow(wb_family) == 0) {
     message("no family info detected")
     #if no families are indicated

@@ -882,7 +882,7 @@ for (i in row.names(sample_info)){
 #Combine data: step 10
 ###############################################################################
 
-sample_list = list.files(path=output_dir, pattern = ".xlsx")
+sample_list = list.files(path=output_dir, pattern = "CISTRANSGUIDE_V2.xlsx")
 wb = tibble()
 
 for (i in sample_list){
@@ -947,9 +947,9 @@ if (REMOVEPROBLEMS == TRUE) {
     ungroup()
   
   total_data_positioncompare = left_join(sample_info2, total_data_positioncompare_pre, by=c("Alias"))%>%
-    filter(!is.na(Family))
+    filter(!is.na(Family) & !is.na(Name))
   
-  view
+  message("combining junctions with similar positions")
   #combine junctions with similar positions and get the characteristics of the consensus event from the event the most anchors 
   total_data_near_positioncombined = total_data_positioncompare %>%
     group_by(Alias, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, DNASample, Subject, ID, FOCUS_CONTIG, Genotype, Ecotype, Plasmid_alt, Family)%>%
@@ -989,7 +989,7 @@ if (REMOVEPROBLEMS == TRUE) {
            SEQ_2_con = SEQ_2_con_CON,
            RunID = RunID_CON,
            TRIM_LEN = TRIM_LEN_CON)
-  
+
   #get a list of families
   wb_family = sample_info2 %>% select(Family) %>% distinct() %>% filter(Family!=0)
   if (nrow(wb_family) == 0) {
@@ -1012,6 +1012,7 @@ if (REMOVEPROBLEMS == TRUE) {
     wb_filter_total = total_data_near_positioncombined %>% filter(Family == 99999999) #make an empty file
     
     for (i in wb_family$Family) {
+      message(paste0("Cleanup family ", i))
       #cleanup per family
       wb_current_family = total_data_near_positioncombined %>% filter(Family == i) %>% select(Alias) %>% distinct() #make a list of aliases within the current family
       wb_filter_subtotal = total_data_near_positioncombined %>% filter(Family == 99999999) #make an empty file
@@ -1036,7 +1037,7 @@ if (REMOVEPROBLEMS == TRUE) {
       wb_filter_total = rbind(wb_filter_total, wb_filter_subtotal) #combining surviving events from all families
       
     }
-    #non-duplicate position events not belonging to a family
+    message("Fetching non-duplicate position events not belonging to a family")
     wb_nonfamily = total_data_near_positioncombined %>%
       filter(Family == 0) %>%
       group_by(FLANK_B_START_POS) %>%
@@ -1046,8 +1047,8 @@ if (REMOVEPROBLEMS == TRUE) {
       
       ungroup() %>%
       filter(duplicate_position == FALSE)
-    
-    wb_flag = rbind(wb_filter_total, wb_nonfamily)  #combine surviving family and nonfamily events
+    message("combining surviving family and nonfamily events")
+    wb_flag = rbind(wb_filter_total, wb_nonfamily)  
     
   }
 } else{
@@ -1065,7 +1066,7 @@ if (REMOVEPROBLEMS == TRUE) {
     ))
 }
 
-
+message("Writing output")
 work_book2 <- createWorkbook()
 addWorksheet(work_book2, "rawData")
 writeData(work_book2, sheet = 1, wb_flag)

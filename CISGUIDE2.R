@@ -612,7 +612,7 @@ for (i in row.names(sample_info)){
   #Process data: step 7
   ###############################################################################
   
-  data_improved6 = data_improved5 %>%
+  data_improved5b = data_improved5 %>%
   
     #then apply a fix when the DSB is not set at 0, but when the total deletion length is 0. Also change the names for SIQPlotter. Also set the deletion length to 0 if the deletion length is negative, but the DSB is not allowed to occur downstream
     mutate(
@@ -630,12 +630,22 @@ for (i in row.names(sample_info)){
     #first find a sequence around the DSB that would indicate no DSB has been made or is repaired perfectly
     rowwise() %>%
     mutate(DSB_AREA_CHECK = list(matchPattern(DNAString(DSB_AREA_SEQ), DNAString(SEQ_1), max.mismatch = 1))) %>%
-    mutate(DSB_AREA_COUNT = length(DSB_AREA_CHECK@ranges)) %>%
-    mutate(DSB_AREA_HIT = if(DSB_AREA_COUNT>0){
-      if (SEQ_1_LEN >= (DSB_AREA_CHECK@ranges@start[1]+DSB_AREA_CHECK@ranges@width[1]-1)){
-        as.character(DSB_AREA_CHECK[[1]])}else{""}
-    }else{""} ) %>%
+    mutate(DSB_AREA_COUNT = length(DSB_AREA_CHECK@ranges))%>%
     ungroup()%>%
+    mutate(DSB_AREA_HIT = "",
+           DSB_AREA_INTACT = FALSE,
+           DSB_AREA_1MM = FALSE)
+  
+  for (j in row.names(data_improved5b)){
+    j_int=as.integer(j)
+    if (data_improved5b$DSB_AREA_COUNT[[j_int]]==1){
+    data_improved5b$DSB_AREA_HIT[[j_int]] = as.character(data_improved5b$DSB_AREA_CHECK[[j_int]])
+    }else{
+      data_improved5b$DSB_AREA_HIT[[j_int]] = ""
+    }
+  }
+
+  data_improved6 =   data_improved5b %>%
     mutate(DSB_AREA_INTACT = if_else(DSB_AREA_HIT == DSB_AREA_SEQ,
                                      "TRUE",
                                      "FALSE"))%>%
@@ -676,7 +686,9 @@ for (i in row.names(sample_info)){
     #calculate the minimum length of the read to capture the entire outcome
     #then trim the reads to that minimum.
     #any that have less than this minimum get removed
-    mutate(read_minimum_length = FLANK_A_LEN + insSize + 30)%>%
+    mutate(read_minimum_length = if_else((DSB_AREA_COUNT==0 & FAKE_DELIN_CHECK == FALSE),
+                                         FLANK_A_LEN + insSize + 30,
+                                         FLANK_A_REF_LEN+30)) %>%
     filter(SEQ_1_LEN >= read_minimum_length)%>%
     mutate(SEQ_1_trimmed = substr(SEQ_1, 1, read_minimum_length))
   
@@ -1079,6 +1091,6 @@ wb_numbers = read_numbers_info %>%
 
 addWorksheet(work_book2, "Information")
 writeData(work_book2, sheet = 2, wb_numbers)
-saveWorkbook(work_book2, file = paste0(output_dir, "Data_combined_CISTRANSGUIDEE_V2_", as.integer(Sys.time()), ".xlsx"), overwrite = TRUE)
+saveWorkbook(work_book2, file = paste0(output_dir, "Data_combined_CISTRANSGUIDE_V2_", as.integer(Sys.time()), ".xlsx"), overwrite = TRUE)
 
 message("CISTRANSGUIDE analysis has completed")

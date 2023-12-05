@@ -1062,10 +1062,7 @@ if (REMOVEPROBLEMS == TRUE) {
                                         FALSE)) %>%
     
     ungroup() %>%
-    mutate(hasProblem = case_when(
-      duplicate_position == TRUE ~ TRUE,
-      TRUE ~ as.logical(hasProblem)),
-      RemoveProblematicEvents = REMOVEPROBLEMS)
+    mutate(RemoveProblematicEvents = REMOVEPROBLEMS)
 }
 
 message("Writing output")

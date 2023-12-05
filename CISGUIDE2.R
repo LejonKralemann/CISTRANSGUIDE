@@ -160,7 +160,7 @@ for (i in row.names(sample_info)){
     message("Focus contig not found in reference fasta. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
     next 
   }
-  Primer_seq = str_replace_all(as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Primer)), "TCAGACGTGTGCTCTTCCGATCT", "")
+  Primer_seq = str_replace_all(toupper(as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Primer))), "TCAGACGTGTGCTCTTCCGATCT", "")
   Primer_seq_len = nchar(Primer_seq)
   Primer_match = as.data.frame(matchPattern(pattern = Primer_seq, subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))
   Primer_RC_match = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(Primer_seq))), subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))

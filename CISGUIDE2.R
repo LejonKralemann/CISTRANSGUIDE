@@ -173,6 +173,9 @@ for (i in row.names(sample_info)){
   }else{
     ""
   })
+  
+  DSB_AREA_SEQ_RC = as.character(reverseComplement(DNAString(DSB_AREA_SEQ)))
+  
   if (Primer_seq != "NA"){
   FASTA_MODE = FALSE
   }else{
@@ -628,11 +631,15 @@ for (i in row.names(sample_info)){
     
     #then do some checks to find wt events that because of mutations did not get called as such
     #first find a sequence around the DSB that would indicate no DSB has been made or is repaired perfectly
+    #check in both seq1 and seq2
     rowwise() %>%
     mutate(DSB_AREA_CHECK = list(matchPattern(DNAString(DSB_AREA_SEQ), DNAString(SEQ_1), max.mismatch = 1))) %>%
     mutate(DSB_AREA_COUNT = length(DSB_AREA_CHECK@ranges))%>%
+    mutate(DSB_AREA2_CHECK = list(matchPattern(DNAString(DSB_AREA_SEQ_RC), DNAString(SEQ_2_first), max.mismatch = 1))) %>%
+    mutate(DSB_AREA2_COUNT = length(DSB_AREA2_CHECK@ranges))%>%
     ungroup()%>%
     mutate(DSB_AREA_HIT = "",
+           DSB_AREA2_HIT = "",
            DSB_AREA_INTACT = FALSE,
            DSB_AREA_1MM = FALSE)
   
@@ -643,21 +650,26 @@ for (i in row.names(sample_info)){
     }else{
       data_improved5b$DSB_AREA_HIT[[j_int]] = ""
     }
+    if (data_improved5b$DSB_AREA2_COUNT[[j_int]]==1){
+      data_improved5b$DSB_AREA2_HIT[[j_int]] = as.character(data_improved5b$DSB_AREA2_CHECK[[j_int]])
+    }else{
+      data_improved5b$DSB_AREA2_HIT[[j_int]] = ""
+    }
   }
 
   data_improved6 =   data_improved5b %>%
-    mutate(DSB_AREA_INTACT = if_else(DSB_AREA_HIT == DSB_AREA_SEQ,
+    mutate(DSB_AREA_INTACT = if_else(DSB_AREA_HIT == DSB_AREA_SEQ | DSB_AREA2_HIT == DSB_AREA_SEQ_RC,
                                      "TRUE",
                                      "FALSE"))%>%
     mutate(DSB_AREA_1MM = if_else(
-      DSB_AREA_INTACT == FALSE & DSB_AREA_COUNT>0,
+      DSB_AREA_INTACT == FALSE & (DSB_AREA_COUNT>0 | DSB_AREA2_COUNT>0),
       "TRUE",
       "FALSE")) %>%
     mutate(CASE_WT = if_else((
       DSB_AREA_INTACT==TRUE | DSB_AREA_1MM==TRUE),
       TRUE,
       FALSE)) %>%
-    mutate(DSB_HIT_MULTI = if_else(DSB_AREA_COUNT>1,
+    mutate(DSB_HIT_MULTI = if_else(DSB_AREA_COUNT>1 | DSB_AREA2_COUNT>1,
                                    "TRUE",
                                    "FALSE")) %>%
     

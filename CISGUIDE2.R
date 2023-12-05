@@ -14,9 +14,9 @@ input_dir= "./input/"
 output_dir= "./output/"
 MAX_DIST_FLANK_B_END = 10000 #distance from end of flank B to DSB, determines max deletion size and also affects maximum insertion size
 LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick to determine locus info
-GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
+GROUPSAMEPOS=FALSE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+REMOVEPROBLEMS=FALSE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
 ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 
 ###############################################################################
@@ -859,7 +859,9 @@ for (i in row.names(sample_info)){
            program_version = hash,
            Plasmid = PLASMID,
            Plasmid_alt = PLASMID_ALT,
-           Alias = paste0(Library, "_", RunID))
+           Alias = paste0(Library, "_", RunID),
+           GroupSamePosition = GROUPSAMEPOS,
+           RemoveNonTranslocation = REMOVENONTRANS)
   
 
   #write an excel sheet as output
@@ -1062,8 +1064,8 @@ if (REMOVEPROBLEMS == TRUE) {
     ungroup() %>%
     mutate(hasProblem = case_when(
       duplicate_position == TRUE ~ TRUE,
-      TRUE ~ as.logical(hasProblem)
-    ))
+      TRUE ~ as.logical(hasProblem)),
+      RemoveProblematicEvents = REMOVEPROBLEMS)
 }
 
 message("Writing output")

@@ -14,9 +14,9 @@ input_dir= "./input/"
 output_dir= "./output/"
 MAX_DIST_FLANK_B_END = 10000 #distance from end of flank B to DSB, determines max deletion size and also affects maximum insertion size
 LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick to determine locus info
-GROUPSAMEPOS=FALSE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-REMOVEPROBLEMS=FALSE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
+GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
 ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 
 ###############################################################################
@@ -98,6 +98,7 @@ for (i in row.names(sample_info)){
     TotalFileSize = TotalFileSize + (file.info((paste0(input_dir, Sample, "_", RunID, "_A.txt"))))$size
   }
 }
+
 message(paste0("Total file size to process: ", TotalFileSize, " bytes"))
 
 
@@ -120,7 +121,7 @@ for (i in row.names(sample_info)){
     message(paste0("File ", output_dir, Sample, "_", RunID, "_A.txt has already been processed, moving to the next sample"))
     #show progress
     CurrentFileSize = (file.info((paste0(input_dir, Sample, "_", RunID, "_A.txt"))))$size
-    PercentageDone = PercentageDone + ((CurrentFileSize/TotalFileSize)*100)
+    PercentageDone = PercentageDone + ((CurrentFileSize/TotalFileSize)*99)
     message(paste0("CISTRANSGUIDE analysis ", round(PercentageDone, digits=3), "% complete"))
     next
     }else{
@@ -340,7 +341,8 @@ for (i in row.names(sample_info)){
     arrange(desc(AvgBaseQual_1), desc(AvgBaseQual_2)) %>%
     summarize(QNAME_first = dplyr::first(QNAME),
               SEQ_2_first = dplyr::first(SEQ_2),
-              MATE_B_END_POS_list = toString(MATE_B_END_POS)
+              MATE_B_END_POS_list = toString(MATE_B_END_POS),
+              .groups="drop"
               )%>%
 
     #then remove reads that don't begin with the primer
@@ -752,7 +754,8 @@ for (i in row.names(sample_info)){
         AnchorCount = n_distinct(MATE_B_END_POS_list),
         SEQ_2_con = names(which.max(table(SEQ_2_first))),
         MATE_B_END_POS_max = max(as.integer(MATE_B_END_POS_list)),
-        MATE_B_END_POS_min = min(as.integer(MATE_B_END_POS_list))
+        MATE_B_END_POS_min = min(as.integer(MATE_B_END_POS_list)),
+        .groups="drop"
       )%>%
           mutate(Consensus_freq = 1)
       }else{
@@ -789,9 +792,9 @@ for (i in row.names(sample_info)){
             FAKE_DELIN_CHECK_con = names(which.max(table(FAKE_DELIN_CHECK))),
             DSB_AREA_INTACT_con = names(which.max(table(DSB_AREA_INTACT))),
             DSB_AREA_1MM_con = names(which.max(table(DSB_AREA_1MM))),
-            DSB_HIT_MULTI_con = names(which.max(table(DSB_HIT_MULTI)))
+            DSB_HIT_MULTI_con = names(which.max(table(DSB_HIT_MULTI))),
+            .groups="drop"
           )%>%
-          ungroup()%>%
           mutate(Consensus_freq = Count_consensus/ReadCount)%>%
           #rename columns to that code below is compatible with TRANS and CISGUIDE
           rename(delRelativeStart = delRelativeStart_con,
@@ -874,7 +877,8 @@ for (i in row.names(sample_info)){
   
   #calculate the fraction of reads with a certain outcome within a library
   data_improved9 = data_improved8 %>% group_by(FILE_NAME) %>% summarize(ReadCountTotal =
-                                                                                  sum(ReadCount))
+                                                                                  sum(ReadCount),
+                                                                        .groups="drop")
   function_time("Step 8 took ")
   
   ###############################################################################
@@ -923,7 +927,8 @@ sample_list = list.files(path=output_dir, pattern = "CISTRANSGUIDE_V2.xlsx")
 wb = tibble()
 
 for (i in sample_list){
-  wb=rbind(wb, read.xlsx(paste0(output_dir, i)))
+  wb=bind_rows(wb, read.xlsx(paste0(output_dir, i)))
+
 }
 
 #remove previously marked problematic events as well as duplicate positions
@@ -1007,9 +1012,9 @@ if (REMOVEPROBLEMS == TRUE) {
               SEQ_1_con_CON = SEQ_1_con[which.max(AnchorCount)],
               SEQ_2_con_CON = SEQ_2_con[which.max(AnchorCount)],
               TRIM_LEN_CON = as.integer(TRIM_LEN[which.max(AnchorCount)]),
-              RunID_CON = RunID[which.max(AnchorCount)]
+              RunID_CON = RunID[which.max(AnchorCount)],
+              .groups="drop"
               )%>%
-    ungroup()%>%
     rename(FLANK_B_START_POS = FLANK_B_START_POS_CON,
            delRelativeStart = delRelativeStart_CON,
            delRelativeStartTD = delRelativeStartTD_CON,

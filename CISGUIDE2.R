@@ -98,6 +98,7 @@ for (i in row.names(sample_info)){
     TotalFileSize = TotalFileSize + (file.info((paste0(input_dir, Sample, "_", RunID, "_A.txt"))))$size
   }
 }
+
 message(paste0("Total file size to process: ", TotalFileSize, " bytes"))
 
 
@@ -120,7 +121,7 @@ for (i in row.names(sample_info)){
     message(paste0("File ", output_dir, Sample, "_", RunID, "_A.txt has already been processed, moving to the next sample"))
     #show progress
     CurrentFileSize = (file.info((paste0(input_dir, Sample, "_", RunID, "_A.txt"))))$size
-    PercentageDone = PercentageDone + ((CurrentFileSize/TotalFileSize)*100)
+    PercentageDone = PercentageDone + ((CurrentFileSize/TotalFileSize)*99)
     message(paste0("CISTRANSGUIDE analysis ", round(PercentageDone, digits=3), "% complete"))
     next
     }else{
@@ -145,7 +146,7 @@ for (i in row.names(sample_info)){
   DNASample = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DNA))
   Ecotype = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Ecotype))
   Library = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Sample))
-  Family = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Family))
+  
   
   if (file.exists(paste0(input_dir, REF))==FALSE){
     message("Reference fasta not found. Moving to next sample.")
@@ -160,7 +161,7 @@ for (i in row.names(sample_info)){
     message("Focus contig not found in reference fasta. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
     next 
   }
-  Primer_seq = str_replace_all(as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Primer)), "TCAGACGTGTGCTCTTCCGATCT", "")
+  Primer_seq = str_replace_all(toupper(as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Primer))), "TCAGACGTGTGCTCTTCCGATCT", "")
   Primer_seq_len = nchar(Primer_seq)
   Primer_match = as.data.frame(matchPattern(pattern = Primer_seq, subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))
   Primer_RC_match = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(Primer_seq))), subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))
@@ -173,6 +174,9 @@ for (i in row.names(sample_info)){
   }else{
     ""
   })
+  
+  DSB_AREA_SEQ_RC = as.character(reverseComplement(DNAString(DSB_AREA_SEQ)))
+  
   if (Primer_seq != "NA"){
   FASTA_MODE = FALSE
   }else{
@@ -337,7 +341,8 @@ for (i in row.names(sample_info)){
     arrange(desc(AvgBaseQual_1), desc(AvgBaseQual_2)) %>%
     summarize(QNAME_first = dplyr::first(QNAME),
               SEQ_2_first = dplyr::first(SEQ_2),
-              MATE_B_END_POS_list = toString(MATE_B_END_POS)
+              MATE_B_END_POS_list = toString(MATE_B_END_POS),
+              .groups="drop"
               )%>%
 
     #then remove reads that don't begin with the primer
@@ -612,7 +617,7 @@ for (i in row.names(sample_info)){
   #Process data: step 7
   ###############################################################################
   
-  data_improved6 = data_improved5 %>%
+  data_improved5b = data_improved5 %>%
   
     #then apply a fix when the DSB is not set at 0, but when the total deletion length is 0. Also change the names for SIQPlotter. Also set the deletion length to 0 if the deletion length is negative, but the DSB is not allowed to occur downstream
     mutate(
@@ -628,26 +633,56 @@ for (i in row.names(sample_info)){
     
     #then do some checks to find wt events that because of mutations did not get called as such
     #first find a sequence around the DSB that would indicate no DSB has been made or is repaired perfectly
+    #check in both seq1 and seq2
     rowwise() %>%
     mutate(DSB_AREA_CHECK = list(matchPattern(DNAString(DSB_AREA_SEQ), DNAString(SEQ_1), max.mismatch = 1))) %>%
-    mutate(DSB_AREA_COUNT = length(DSB_AREA_CHECK@ranges)) %>%
-    mutate(DSB_AREA_HIT = if(DSB_AREA_COUNT>0){
-      if (SEQ_1_LEN >= (DSB_AREA_CHECK@ranges@start[1]+DSB_AREA_CHECK@ranges@width[1]-1)){
-        as.character(DSB_AREA_CHECK[[1]])}else{""}
-    }else{""} ) %>%
+    mutate(DSB_AREA_COUNT = length(DSB_AREA_CHECK@ranges))%>%
+    mutate(DSB_AREA2_CHECK = list(matchPattern(DNAString(DSB_AREA_SEQ_RC), DNAString(SEQ_2_first), max.mismatch = 1))) %>%
+    mutate(DSB_AREA2_COUNT = length(DSB_AREA2_CHECK@ranges))%>%
     ungroup()%>%
-    mutate(DSB_AREA_INTACT = if_else(DSB_AREA_HIT == DSB_AREA_SEQ,
+    mutate(DSB_AREA_HIT = "",
+           DSB_AREA2_HIT = "",
+           DSB_AREA_INTACT = FALSE,
+           DSB_AREA_1MM = FALSE)
+  
+  for (j in row.names(data_improved5b)){
+    j_int=as.integer(j)
+    if (data_improved5b$DSB_AREA_COUNT[[j_int]]==1){
+      if ((data_improved5b$SEQ_1_LEN[[j_int]] >= (data_improved5b$DSB_AREA_CHECK[[j_int]]@ranges@start[1]+data_improved5b$DSB_AREA_CHECK[[j_int]]@ranges@width[1]-1)) & (data_improved5b$DSB_AREA_CHECK[[j_int]]@ranges@start[1]>0)){
+    data_improved5b$DSB_AREA_HIT[[j_int]] = as.character(data_improved5b$DSB_AREA_CHECK[[j_int]])
+      }else{
+        data_improved5b$DSB_AREA_HIT[[j_int]] = ""
+      }
+    }else{
+      data_improved5b$DSB_AREA_HIT[[j_int]] = ""
+    }
+    if (data_improved5b$DSB_AREA2_COUNT[[j_int]]==1){
+      if ((nchar(data_improved5b$SEQ_2_first[[j_int]]) >= (data_improved5b$DSB_AREA2_CHECK[[j_int]]@ranges@start[1]+data_improved5b$DSB_AREA2_CHECK[[j_int]]@ranges@width[1]-1)) & (data_improved5b$DSB_AREA2_CHECK[[j_int]]@ranges@start[1]>0)){
+        data_improved5b$DSB_AREA2_HIT[[j_int]] = as.character(data_improved5b$DSB_AREA2_CHECK[[j_int]])
+      }else{
+        data_improved5b$DSB_AREA2_HIT[[j_int]] = ""
+      }
+    }else{
+      data_improved5b$DSB_AREA2_HIT[[j_int]] = ""
+    }
+  }
+
+  
+  
+  
+  data_improved6 =   data_improved5b %>%
+    mutate(DSB_AREA_INTACT = if_else(DSB_AREA_HIT == DSB_AREA_SEQ | DSB_AREA2_HIT == DSB_AREA_SEQ_RC,
                                      "TRUE",
                                      "FALSE"))%>%
     mutate(DSB_AREA_1MM = if_else(
-      DSB_AREA_INTACT == FALSE & DSB_AREA_COUNT>0,
+      DSB_AREA_INTACT == FALSE & (DSB_AREA_COUNT>0 | DSB_AREA2_COUNT>0),
       "TRUE",
       "FALSE")) %>%
     mutate(CASE_WT = if_else((
       DSB_AREA_INTACT==TRUE | DSB_AREA_1MM==TRUE),
       TRUE,
       FALSE)) %>%
-    mutate(DSB_HIT_MULTI = if_else(DSB_AREA_COUNT>1,
+    mutate(DSB_HIT_MULTI = if_else(DSB_AREA_COUNT>1 | DSB_AREA2_COUNT>1,
                                    "TRUE",
                                    "FALSE")) %>%
     
@@ -676,7 +711,9 @@ for (i in row.names(sample_info)){
     #calculate the minimum length of the read to capture the entire outcome
     #then trim the reads to that minimum.
     #any that have less than this minimum get removed
-    mutate(read_minimum_length = FLANK_A_LEN + insSize + 30)%>%
+    mutate(read_minimum_length = if_else((DSB_AREA_COUNT==0 & FAKE_DELIN_CHECK == FALSE),
+                                         FLANK_A_LEN + insSize + 30,
+                                         FLANK_A_REF_LEN+30)) %>%
     filter(SEQ_1_LEN >= read_minimum_length)%>%
     mutate(SEQ_1_trimmed = substr(SEQ_1, 1, read_minimum_length))
   
@@ -717,7 +754,8 @@ for (i in row.names(sample_info)){
         AnchorCount = n_distinct(MATE_B_END_POS_list),
         SEQ_2_con = names(which.max(table(SEQ_2_first))),
         MATE_B_END_POS_max = max(as.integer(MATE_B_END_POS_list)),
-        MATE_B_END_POS_min = min(as.integer(MATE_B_END_POS_list))
+        MATE_B_END_POS_min = min(as.integer(MATE_B_END_POS_list)),
+        .groups="drop"
       )%>%
           mutate(Consensus_freq = 1)
       }else{
@@ -754,9 +792,9 @@ for (i in row.names(sample_info)){
             FAKE_DELIN_CHECK_con = names(which.max(table(FAKE_DELIN_CHECK))),
             DSB_AREA_INTACT_con = names(which.max(table(DSB_AREA_INTACT))),
             DSB_AREA_1MM_con = names(which.max(table(DSB_AREA_1MM))),
-            DSB_HIT_MULTI_con = names(which.max(table(DSB_HIT_MULTI)))
+            DSB_HIT_MULTI_con = names(which.max(table(DSB_HIT_MULTI))),
+            .groups="drop"
           )%>%
-          ungroup()%>%
           mutate(Consensus_freq = Count_consensus/ReadCount)%>%
           #rename columns to that code below is compatible with TRANS and CISGUIDE
           rename(delRelativeStart = delRelativeStart_con,
@@ -839,7 +877,8 @@ for (i in row.names(sample_info)){
   
   #calculate the fraction of reads with a certain outcome within a library
   data_improved9 = data_improved8 %>% group_by(FILE_NAME) %>% summarize(ReadCountTotal =
-                                                                                  sum(ReadCount))
+                                                                                  sum(ReadCount),
+                                                                        .groups="drop")
   function_time("Step 8 took ")
   
   ###############################################################################
@@ -859,8 +898,9 @@ for (i in row.names(sample_info)){
            program_version = hash,
            Plasmid = PLASMID,
            Plasmid_alt = PLASMID_ALT,
-           Family = Family,
-           Alias = paste0(Library, "_", RunID))
+           Alias = paste0(Library, "_", RunID),
+           GroupSamePosition = GROUPSAMEPOS,
+           RemoveNonTranslocation = REMOVENONTRANS)
   
 
   #write an excel sheet as output
@@ -883,17 +923,18 @@ for (i in row.names(sample_info)){
 #Combine data: step 10
 ###############################################################################
 
-sample_list = list.files(path=output_dir, pattern = ".xlsx")
+sample_list = list.files(path=output_dir, pattern = "CISTRANSGUIDE_V2.xlsx")
 wb = tibble()
 
 for (i in sample_list){
-  wb=rbind(wb, read.xlsx(paste0(output_dir, i)))
+  wb=bind_rows(wb, read.xlsx(paste0(output_dir, i)))
+
 }
 
 #remove previously marked problematic events as well as duplicate positions
 if (REMOVEPROBLEMS == TRUE) {
   message("removing problematic events")
-  total_data_positioncompare = wb %>%
+  total_data_positioncompare_pre = wb %>%
     #first remove problematic events based on characteristics of the events themselves
     filter(AnchorCount >= ANCHORCUTOFF,
            ANCHOR_DIST >= 150,
@@ -921,20 +962,36 @@ if (REMOVEPROBLEMS == TRUE) {
     mutate(same_as_prev = if_else(pos_dif < 11 & chrom_compare==TRUE & Alias_compare == TRUE & orient_compare == TRUE,
                                   TRUE,
                                   FALSE))%>%
-    mutate(ID = 0)
+    mutate(ID = 0)%>%
+    mutate(Family=NULL)
+  
+
+  
   
   #assign IDs, each representing a separate event (meaning that are not too close to be considered the same event)
   ID_prev = 0
-  for (i in 2:length(total_data_positioncompare$Alias)){
-    if (total_data_positioncompare$same_as_prev[i] == TRUE){
-      total_data_positioncompare$ID[i] = ID_prev
-      ID_prev = total_data_positioncompare$ID[i]
+  for (i in 2:length(total_data_positioncompare_pre$Alias)){
+    if (total_data_positioncompare_pre$same_as_prev[i] == TRUE){
+      total_data_positioncompare_pre$ID[i] = ID_prev
+      ID_prev = total_data_positioncompare_pre$ID[i]
     }else{
-      total_data_positioncompare$ID[i] = ID_prev + 1
-      ID_prev = total_data_positioncompare$ID[i]
+      total_data_positioncompare_pre$ID[i] = ID_prev + 1
+      ID_prev = total_data_positioncompare_pre$ID[i]
     }
   }
   
+  #add family info
+  sample_info2  = sample_info %>%
+    select(Family, RunID, Sample)%>%
+    rowwise()%>%
+    mutate(Alias = paste(Sample, RunID, sep="_"))%>%
+    select(Alias, Family)%>%
+    ungroup()
+  
+  total_data_positioncompare = left_join(sample_info2, total_data_positioncompare_pre, by=c("Alias"))%>%
+    filter(!is.na(Family) & !is.na(Name))
+  
+  message("combining junctions with similar positions")
   #combine junctions with similar positions and get the characteristics of the consensus event from the event the most anchors 
   total_data_near_positioncombined = total_data_positioncompare %>%
     group_by(Alias, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, DNASample, Subject, ID, FOCUS_CONTIG, Genotype, Ecotype, Plasmid_alt, Family)%>%
@@ -955,9 +1012,9 @@ if (REMOVEPROBLEMS == TRUE) {
               SEQ_1_con_CON = SEQ_1_con[which.max(AnchorCount)],
               SEQ_2_con_CON = SEQ_2_con[which.max(AnchorCount)],
               TRIM_LEN_CON = as.integer(TRIM_LEN[which.max(AnchorCount)]),
-              RunID_CON = RunID[which.max(AnchorCount)]
+              RunID_CON = RunID[which.max(AnchorCount)],
+              .groups="drop"
               )%>%
-    ungroup()%>%
     rename(FLANK_B_START_POS = FLANK_B_START_POS_CON,
            delRelativeStart = delRelativeStart_CON,
            delRelativeStartTD = delRelativeStartTD_CON,
@@ -974,9 +1031,9 @@ if (REMOVEPROBLEMS == TRUE) {
            SEQ_2_con = SEQ_2_con_CON,
            RunID = RunID_CON,
            TRIM_LEN = TRIM_LEN_CON)
-  
+
   #get a list of families
-  wb_family = wb %>% select(Family) %>% distinct() %>% filter(Family!=0)
+  wb_family = sample_info2 %>% select(Family) %>% distinct() %>% filter(Family!=0)
   if (nrow(wb_family) == 0) {
     message("no family info detected")
     #if no families are indicated
@@ -997,6 +1054,7 @@ if (REMOVEPROBLEMS == TRUE) {
     wb_filter_total = total_data_near_positioncombined %>% filter(Family == 99999999) #make an empty file
     
     for (i in wb_family$Family) {
+      message(paste0("Cleanup family ", i))
       #cleanup per family
       wb_current_family = total_data_near_positioncombined %>% filter(Family == i) %>% select(Alias) %>% distinct() #make a list of aliases within the current family
       wb_filter_subtotal = total_data_near_positioncombined %>% filter(Family == 99999999) #make an empty file
@@ -1021,7 +1079,7 @@ if (REMOVEPROBLEMS == TRUE) {
       wb_filter_total = rbind(wb_filter_total, wb_filter_subtotal) #combining surviving events from all families
       
     }
-    #non-duplicate position events not belonging to a family
+    message("Fetching non-duplicate position events not belonging to a family")
     wb_nonfamily = total_data_near_positioncombined %>%
       filter(Family == 0) %>%
       group_by(FLANK_B_START_POS) %>%
@@ -1031,8 +1089,8 @@ if (REMOVEPROBLEMS == TRUE) {
       
       ungroup() %>%
       filter(duplicate_position == FALSE)
-    
-    wb_flag = rbind(wb_filter_total, wb_nonfamily)  #combine surviving family and nonfamily events
+    message("combining surviving family and nonfamily events")
+    wb_flag = rbind(wb_filter_total, wb_nonfamily)  
     
   }
 } else{
@@ -1044,13 +1102,10 @@ if (REMOVEPROBLEMS == TRUE) {
                                         FALSE)) %>%
     
     ungroup() %>%
-    mutate(hasProblem = case_when(
-      duplicate_position == TRUE ~ TRUE,
-      TRUE ~ as.logical(hasProblem)
-    ))
+    mutate(RemoveProblematicEvents = REMOVEPROBLEMS)
 }
 
-
+message("Writing output")
 work_book2 <- createWorkbook()
 addWorksheet(work_book2, "rawData")
 writeData(work_book2, sheet = 1, wb_flag)
@@ -1064,6 +1119,6 @@ wb_numbers = read_numbers_info %>%
 
 addWorksheet(work_book2, "Information")
 writeData(work_book2, sheet = 2, wb_numbers)
-saveWorkbook(work_book2, file = paste0(output_dir, "Data_combined_CISTRANSGUIDEE_V2_", as.integer(Sys.time()), ".xlsx"), overwrite = TRUE)
+saveWorkbook(work_book2, file = paste0(output_dir, "Data_combined_CISTRANSGUIDE_V2_", as.integer(Sys.time()), ".xlsx"), overwrite = TRUE)
 
 message("CISTRANSGUIDE analysis has completed")

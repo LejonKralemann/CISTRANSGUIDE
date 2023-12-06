@@ -646,7 +646,7 @@ for (i in row.names(sample_info)){
   for (j in row.names(data_improved5b)){
     j_int=as.integer(j)
     if (data_improved5b$DSB_AREA_COUNT[[j_int]]==1){
-      if (data_improved5b$SEQ_1_LEN[[j_int]] >= (data_improved5b$DSB_AREA_CHECK[[j_int]]@ranges@start[1]+data_improved5b$DSB_AREA_CHECK[[j_int]]@ranges@width[1]-1)){
+      if ((data_improved5b$SEQ_1_LEN[[j_int]] >= (data_improved5b$DSB_AREA_CHECK[[j_int]]@ranges@start[1]+data_improved5b$DSB_AREA_CHECK[[j_int]]@ranges@width[1]-1)) & (data_improved5b$DSB_AREA_CHECK[[j_int]]@ranges@start[1]>0)){
     data_improved5b$DSB_AREA_HIT[[j_int]] = as.character(data_improved5b$DSB_AREA_CHECK[[j_int]])
       }else{
         data_improved5b$DSB_AREA_HIT[[j_int]] = ""
@@ -655,7 +655,7 @@ for (i in row.names(sample_info)){
       data_improved5b$DSB_AREA_HIT[[j_int]] = ""
     }
     if (data_improved5b$DSB_AREA2_COUNT[[j_int]]==1){
-      if (nchar(data_improved5b$SEQ_2_first[[j_int]]) >= (data_improved5b$DSB_AREA2_CHECK[[j_int]]@ranges@start[1]+data_improved5b$DSB_AREA2_CHECK[[j_int]]@ranges@width[1]-1)){
+      if ((nchar(data_improved5b$SEQ_2_first[[j_int]]) >= (data_improved5b$DSB_AREA2_CHECK[[j_int]]@ranges@start[1]+data_improved5b$DSB_AREA2_CHECK[[j_int]]@ranges@width[1]-1)) & (data_improved5b$DSB_AREA2_CHECK[[j_int]]@ranges@start[1]>0)){
         data_improved5b$DSB_AREA2_HIT[[j_int]] = as.character(data_improved5b$DSB_AREA2_CHECK[[j_int]])
       }else{
         data_improved5b$DSB_AREA2_HIT[[j_int]] = ""

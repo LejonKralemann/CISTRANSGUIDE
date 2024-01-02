@@ -14,9 +14,9 @@ input_dir= "./input/"
 output_dir= "./output/"
 MAX_DIST_FLANK_B_END = 10000 #distance from end of flank B to DSB, determines max deletion size and also affects maximum insertion size
 LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick to determine locus info
-GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
+GROUPSAMEPOS=FALSE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+REMOVEPROBLEMS=FALSE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
 ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 
 ###############################################################################
@@ -281,6 +281,8 @@ for (i in row.names(sample_info)){
   ###############################################################################
   
   data_improved_a  = data %>%
+    
+    #filter(QNAME == "A01685:159:H2YHFDSX7:2:2648:23249:4210")%>%
     
     #Count number of Ns and remove any reads with Ns
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
@@ -557,14 +559,17 @@ for (i in row.names(sample_info)){
   ###############################################################################
   
   data_improved5 = data_improved4 %>%
-    mutate(FLANK_B_DEL = case_when(FLANK_B_CHROM == FOCUS_CONTIG & 
-                                     FLANK_B_CLOSE_BY==TRUE & 
-                                     FLANK_A_ORIENT == FLANK_B_ORIENT & 
+    mutate(FLANK_B_DEL = case_when(FLANK_B_CHROM == FOCUS_CONTIG & #only report deletion when ends are known
+                                     FLANK_B_CLOSE_BY == TRUE & #long distances likely represent joining two distant break ends, not long deletions
+                                     FLANK_A_ORIENT == FLANK_B_ORIENT & #in case inverted repeat
+                                     FlankAUltEnd < FLANK_B_START_POS_DEL & #this is required in case there is a tandem repeat
                                      FLANK_B_ORIENT == "FW" ~ as.integer(FLANK_B_START_POS_DEL - (FlankAUltEnd+1)),
-                                   FLANK_B_CHROM == FOCUS_CONTIG & 
-                                     FLANK_B_CLOSE_BY==TRUE & 
-                                     FLANK_A_ORIENT == FLANK_B_ORIENT & 
+                                   FLANK_B_CHROM == FOCUS_CONTIG & #only report deletion when ends are known
+                                     FLANK_B_CLOSE_BY == TRUE & #long distances likely represent joining two distant break ends, not long deletions
+                                     FLANK_A_ORIENT == FLANK_B_ORIENT & #in case inverted repeat
+                                     FlankAUltEnd > FLANK_B_START_POS_DEL & #this is required in case there is a tandem repeat
                                      FLANK_B_ORIENT == "RV" ~ as.integer((FlankAUltEnd-1) - FLANK_B_START_POS_DEL),
+                                   FLANK_B_START_POS_DEL == FLANK_A_START_POS ~ as.integer(0),#in wt case
                                    TRUE ~ ERROR_NUMBER
                                    ))%>%
 
@@ -619,17 +624,10 @@ for (i in row.names(sample_info)){
   
   data_improved5b = data_improved5 %>%
   
-    #then apply a fix when the DSB is not set at 0, but when the total deletion length is 0. Also change the names for SIQPlotter. Also set the deletion length to 0 if the deletion length is negative, but the DSB is not allowed to occur downstream
+    #for SIQPlotter delRelativeStart is FLANK_A_DEL (but negative) and delRelativeEnd is FLANK_B_DEL.
     mutate(
-      delRelativeStart = case_when(delSize == 0 & insSize == 0 ~ as.integer(0),
-                                   (delSize !=0 | insSize != 0) & FLANK_A_ORIENT == "FW" & FLANK_A_DEL<0 ~ as.integer(0),
-                                   TRUE ~ as.integer(FLANK_A_DEL * -1)),
-      delRelativeEnd = if_else(
-        delSize == 0 & insSize == 0,
-        as.integer(0),
-        as.integer(FLANK_B_DEL)
-      )
-    ) %>%
+      delRelativeStart = as.integer(FLANK_A_DEL*-1),
+      delRelativeEnd = as.integer(FLANK_B_DEL)) %>%
     
     #then do some checks to find wt events that because of mutations did not get called as such
     #first find a sequence around the DSB that would indicate no DSB has been made or is repaired perfectly
@@ -822,7 +820,7 @@ for (i in row.names(sample_info)){
     mutate(
       Subject = FOCUS_LOCUS,
       Type = case_when(
-        delSize == 0 & insSize == 0 ~ "WT",
+        (delSize == 0 & insSize == 0) | DSB_AREA_INTACT==TRUE | DSB_AREA_1MM==TRUE | FAKE_DELIN_CHECK == TRUE ~ "WT",
         delSize != 0 & delSize != ERROR_NUMBER & insSize == 0 ~ "DELETION",
         insSize != 0 & delSize == 0 ~ "INSERTION",
         delSize != 0 & delSize != ERROR_NUMBER & insSize != 0 ~ "DELINS",

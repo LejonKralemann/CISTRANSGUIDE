@@ -562,12 +562,12 @@ for (i in row.names(sample_info)){
     mutate(FLANK_B_DEL = case_when(FLANK_B_CHROM == FOCUS_CONTIG & #only report deletion when ends are known
                                      FLANK_B_CLOSE_BY == TRUE & #long distances likely represent joining two distant break ends, not long deletions
                                      FLANK_A_ORIENT == FLANK_B_ORIENT & #in case inverted repeat
-                                     FlankAUltEnd < FLANK_B_START_POS_DEL & #this is required in case there is a tandem repeat
+                                     FlankBUltStart <= FLANK_B_START_POS_DEL & #this is required in case there is a tandem repeat
                                      FLANK_B_ORIENT == "FW" ~ as.integer(FLANK_B_START_POS_DEL - (FlankAUltEnd+1)),
                                    FLANK_B_CHROM == FOCUS_CONTIG & #only report deletion when ends are known
                                      FLANK_B_CLOSE_BY == TRUE & #long distances likely represent joining two distant break ends, not long deletions
                                      FLANK_A_ORIENT == FLANK_B_ORIENT & #in case inverted repeat
-                                     FlankAUltEnd > FLANK_B_START_POS_DEL & #this is required in case there is a tandem repeat
+                                     FlankBUltStart >= FLANK_B_START_POS_DEL & #this is required in case there is a tandem repeat
                                      FLANK_B_ORIENT == "RV" ~ as.integer((FlankAUltEnd-1) - FLANK_B_START_POS_DEL),
                                    FLANK_B_START_POS_DEL == FLANK_A_START_POS ~ as.integer(0),#in wt case
                                    TRUE ~ ERROR_NUMBER

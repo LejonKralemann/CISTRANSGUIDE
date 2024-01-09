@@ -339,7 +339,8 @@ for (i in row.names(sample_info)){
       PRIMER_SEQ,
       TRIM_LEN,
       SEQ_1_LEN,
-      MATE_FLANK_B_CHROM_AGREE) %>%
+      MATE_FLANK_B_CHROM_AGREE,
+      MATE_FLANK_B_CHROM) %>%
     arrange(desc(AvgBaseQual_1), desc(AvgBaseQual_2)) %>%
     summarize(QNAME_first = dplyr::first(QNAME),
               SEQ_2_first = dplyr::first(SEQ_2),
@@ -731,6 +732,7 @@ for (i in row.names(sample_info)){
         FLANK_B_CHROM,
         FLANK_B_START_POS,
         MATE_FLANK_B_CHROM_AGREE,
+        MATE_FLANK_B_CHROM,
         FLANK_B_ISFORWARD,
         FLANK_B_ORIENT,
         FILLER,
@@ -769,7 +771,8 @@ for (i in row.names(sample_info)){
             FLANK_B_ISFORWARD,
             FLANK_B_ORIENT,
             TRIM_LEN,
-            MATE_FLANK_B_CHROM_AGREE
+            MATE_FLANK_B_CHROM_AGREE,
+            MATE_FLANK_B_CHROM
           )%>%
           summarize(
             ReadCount = n(),
@@ -860,7 +863,8 @@ for (i in row.names(sample_info)){
       TRIM_LEN,
       Consensus_freq,
       FAKE_DELIN_CHECK,
-      MATE_FLANK_B_CHROM_AGREE
+      MATE_FLANK_B_CHROM_AGREE,
+      MATE_FLANK_B_CHROM
     ) %>%
     
 

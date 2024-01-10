@@ -14,9 +14,9 @@ input_dir= "./input/"
 output_dir= "./output/"
 MAX_DIST_FLANK_B_END = 10000 #distance from end of flank B to DSB, determines max deletion size and also affects maximum insertion size
 LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick to determine locus info
-GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
+GROUPSAMEPOS=FALSE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+REMOVEPROBLEMS=FALSE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
 ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 
 ###############################################################################
@@ -52,24 +52,43 @@ if (file.exists(paste0(input_dir, "read_numbers.txt"))==FALSE){
 #this function matches from the end until it encounters a mismatch. If the continuing sequence is longer than 9, then it jumps over this mismatch, and continues matching until a second mismatch is encountered. Then it outputs the matching sequence.  
 matcher_skipper <-function(ref, seq1){
   if (ref != "ERROR"){
-    compare_len_1 = lcprefix(ref, seq1)
-    compare_flank_ref = if ((compare_len_1 + 2)< nchar(ref)){
-      substr(ref, start= compare_len_1+2, stop=nchar(ref))
+    seq1_len = nchar(seq1)                                                          #get the length of seq1
+    ref_len = nchar(ref)                                                            #get the length of ref
+    match_1_len = lcprefix(ref, seq1)                                               #find a match between ref and read
+    match_1_non_ref = if ((match_1_len + 2)< ref_len){                              #if match length + 2 bp is smaller than ref length
+      substr(ref, start = match_1_len+2, stop = ref_len)                            #get the non-matching sequence from the ref, minus the first mismatch
     }else{
-      ""}
-    compare_seq_1 = if (compare_flank_ref != ""){
-      substr(seq1, start = compare_len_1 +2, stop = nchar(seq1))
+      ""}                                                                           #otherwise output empty string
+    match_1_non_seq1 = if (match_1_non_ref != ""){                                  #if the match sequence is not empty
+      substr(seq1, start = match_1_len +2, stop = seq1_len)                         #get the non-matching sequence from the read, minus the first mismatch
     }else{
-      ""}
-    compare_len_2 = if (compare_flank_ref != ""){
-      as.integer(lcprefix(compare_flank_ref, compare_seq_1))
+      ""}                                                                           #otherwise output empty string
+    match_2_len = if (match_1_non_ref != ""){                                       #if the match sequence is not empty
+      lcprefix(match_1_non_ref, match_1_non_seq1)                                   #find a match between ref_match and read_non_match
+    }else{          
+      0}                                                                            #otherwise output 0 as length
+    subtotal_match = if (match_2_len > 9){                                          #if the match 2 length is larger than 9 bp
+      substr(ref, start = 1, stop = match_1_len + 1 + match_2_len)                  #get the subtotal matching sequence
     }else{
-      as.integer(0)}
-    flank_match = if (compare_len_2 > 9){
-      substr(ref, start = 1, stop = compare_len_1 + compare_len_2 + 1)
+      substr(ref, start = 1, stop = match_1_len)}                                   #else get the primary matching sequence only
+  
+    subtotal_match_non_ref = if(match_2_len >9 & nchar(subtotal_match)+9 < ref_len){#if there is a secondary match, and we didn't go up to the end of the ref yet
+      substr(ref, start = match_1_len + match_2_len + 3, stop = seq1_len)           #get the ref sequence minus the subtotal matching sequence, minus the first mismatch
     }else{
-      substr(ref, start = 1, stop = compare_len_1)}
-    return(flank_match)
+      ""}                                                                           #otherwise get an empty string
+    subtotal_match_non_seq1 = if(subtotal_match_non_ref != ""){                     #if there is a ref sequence to match with
+      substr(seq1, start = match_1_len + match_2_len + 3, stop = seq1_len)          #get the read sequence minus the subtotal matching sequence, minus the first mismatch
+    }else{
+    ""}                                                                             #otherwise get an empty string
+    match_3_len = if (subtotal_match_non_ref != ""){                                #if there is a ref sequence to match with
+      lcprefix(subtotal_match_non_ref, subtotal_match_non_seq1)                     #match the pieces of ref and seq1
+    }else{
+      0}                                                                            #otherwise output 0 as length
+    flank_match = if (match_3_len > 9){                                             #if the match 3 is longer than 9bp
+      substr(ref, start = 1, stop = match_1_len + 1 + match_2_len + 1 + match_3_len)#get the total matching sequence with match 1, 2 and 3
+    }else{
+      subtotal_match}                                                               #else only get the matching sequence with match 1 and 2
+    return(flank_match)                                                             #return the total match
   }
 }
 function_time <-function(text){
@@ -282,7 +301,7 @@ for (i in row.names(sample_info)){
   
   data_improved_a  = data %>%
     
-    #filter(QNAME == "A01685:159:H2YHFDSX7:2:2648:23249:4210")%>%
+    filter(QNAME == "M02948:216:000000000-KB5K4:1:2113:9047:23496")%>%
     
     #Count number of Ns and remove any reads with Ns
     mutate(NrN = str_count(SEQ_1, pattern = "N"),

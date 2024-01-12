@@ -16,7 +16,7 @@ MAX_DIST_FLANK_B_END = 10000 #distance from end of flank B to DSB, determines ma
 LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick to determine locus info
 GROUPSAMEPOS=FALSE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
 REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-REMOVEPROBLEMS=FALSE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
+REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
 ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 
 ###############################################################################
@@ -301,7 +301,7 @@ for (i in row.names(sample_info)){
   
   data_improved_a  = data %>%
     
-    filter(QNAME == "M02948:216:000000000-KB5K4:1:2113:9047:23496")%>%
+    filter(QNAME == "M02948:216:000000000-KB5K4:1:2116:15780:12727")%>%
     
     #Count number of Ns and remove any reads with Ns
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
@@ -474,6 +474,7 @@ for (i in row.names(sample_info)){
                                        TRUE ~ ERROR_NUMBER)) %>%
     
     mutate(SEQ_1_WO_A = substr(SEQ_1, start = FLANK_A_LEN + 1, stop = SEQ_1_LEN)) %>%
+    mutate(SEQ_1_WO_A_LEN = nchar(SEQ_1_WO_A))%>%
     #calculate FLANK A DEL length
     mutate(
       FLANK_A_DEL = case_when(
@@ -535,7 +536,7 @@ for (i in row.names(sample_info)){
                                     FLANK_B_END_POS-(FLANK_B_START_POS_MH-1),
                                     FLANK_B_START_POS_MH-(FLANK_B_END_POS-1))) %>%
     #Extract the MH sequence
-    mutate(MH = if (FLANK_B_CHROM != "NOT_FOUND" & FLANK_B_CHROM != "ERROR") {
+    mutate(MH = 
       if (FLANK_B_CHROM == FOCUS_CONTIG & FLANK_B_CLOSE_BY==TRUE & FLANK_A_ORIENT == FLANK_B_ORIENT & (FLANK_A_LEN > (SEQ_1_LEN - FLANK_B_LEN_MH))) {
         if (FLANK_B_ORIENT == "FW") {
           if (FLANK_A_END_POS >= FLANK_B_START_POS_MH) {
@@ -553,16 +554,21 @@ for (i in row.names(sample_info)){
       } else{
         substr(SEQ_1, start = (1 + SEQ_1_LEN - FLANK_B_LEN_MH), stop = FLANK_A_LEN)
       }
-    } else{
-      #if wt or flank b not identified
-      ""
-    }) %>%   
+    ) %>%   
     #flank B start pos excluding MH (for del calculation)
       mutate(FLANK_B_START_POS_DEL = 
         if (FLANK_B_ORIENT == "FW"){
-          FLANK_B_START_POS_MH + nchar(MH)
+          if (FLANK_B_CHROM == FOCUS_CONTIG & FLANK_A_END_POS > (FLANK_B_START_POS_MH + nchar(MH)) & FLANK_A_END_POS < FLANK_B_END_POS){
+            FLANK_A_END_POS +1 #if filler is b continuation (filler plus homology)
+          }else{
+            FLANK_B_START_POS_MH + nchar(MH)
+          }
+          
         }else{#if RV
-          FLANK_B_START_POS_MH - nchar(MH)
+          if (FLANK_B_CHROM == FOCUS_CONTIG & FLANK_A_END_POS < (FLANK_B_START_POS_MH - nchar(MH)) & FLANK_A_END_POS > FLANK_B_END_POS){
+            FLANK_A_END_POS -1
+          }else{
+          FLANK_B_START_POS_MH - nchar(MH)}
         })%>%
       #calculate length of flank B minus the MH
     mutate(FLANK_B_LEN_DEL = if_else(FLANK_B_ORIENT == "FW",
@@ -579,17 +585,29 @@ for (i in row.names(sample_info)){
   ###############################################################################
   
   data_improved5 = data_improved4 %>%
-    mutate(FLANK_B_DEL = case_when(FLANK_B_CHROM == FOCUS_CONTIG & #only report deletion when ends are known
-                                     FLANK_B_CLOSE_BY == TRUE & #long distances likely represent joining two distant break ends, not long deletions
-                                     FLANK_A_ORIENT == FLANK_B_ORIENT & #in case inverted repeat
-                                     FlankBUltStart <= FLANK_B_START_POS_DEL & #this is required in case there is a tandem repeat
+    
+    #determine the filler sequence 
+    mutate(
+      FILLER = if_else(
+        FLANK_B_LEN_DEL < SEQ_1_WO_A_LEN,
+        substr(SEQ_1_WO_A, start = 1, stop = SEQ_1_WO_A_LEN - FLANK_B_LEN_DEL),	 
+        "" #no filler
+      )) %>%
+    mutate(insSize = nchar(FILLER)) %>%
+    
+
+    #determine how much from flank B has been deleted
+    mutate(FLANK_B_DEL = case_when(FLANK_B_CHROM == FOCUS_CONTIG &                                                  #only report deletion when ends are known
+                                     FLANK_B_CLOSE_BY == TRUE &                                                     #long distances likely represent joining two distant break ends, not long deletions
+                                     FLANK_A_ORIENT == FLANK_B_ORIENT &                                             #in case inverted repeat
+                                     FlankBUltStart <= FLANK_B_START_POS_DEL &                                      #this is required in case there is a tandem repeat
                                      FLANK_B_ORIENT == "FW" ~ as.integer(FLANK_B_START_POS_DEL - (FlankAUltEnd+1)),
-                                   FLANK_B_CHROM == FOCUS_CONTIG & #only report deletion when ends are known
-                                     FLANK_B_CLOSE_BY == TRUE & #long distances likely represent joining two distant break ends, not long deletions
-                                     FLANK_A_ORIENT == FLANK_B_ORIENT & #in case inverted repeat
-                                     FlankBUltStart >= FLANK_B_START_POS_DEL & #this is required in case there is a tandem repeat
+                                   FLANK_B_CHROM == FOCUS_CONTIG &                                                  #only report deletion when ends are known
+                                     FLANK_B_CLOSE_BY == TRUE &                                                     #long distances likely represent joining two distant break ends, not long deletions
+                                     FLANK_A_ORIENT == FLANK_B_ORIENT &                                             #in case inverted repeat
+                                     FlankBUltStart >= FLANK_B_START_POS_DEL &                                      #this is required in case there is a tandem repeat
                                      FLANK_B_ORIENT == "RV" ~ as.integer((FlankAUltEnd-1) - FLANK_B_START_POS_DEL),
-                                   FLANK_B_START_POS_DEL == FLANK_A_START_POS ~ as.integer(0),#in wt case
+                                   FLANK_B_START_POS_DEL == FLANK_A_START_POS ~ as.integer(0),                      #in wt case
                                    TRUE ~ ERROR_NUMBER
                                    ))%>%
 
@@ -604,14 +622,7 @@ for (i in row.names(sample_info)){
                         "",
                         MH)) %>%
 
-    #determine the filler sequence 
-    mutate(
-      FILLER = if_else(
-        FLANK_B_CHROM != "NOT_FOUND" & FLANK_B_CHROM != "ERROR",					 
-        substr(SEQ_1_WO_A, start = 1, stop = nchar(SEQ_1_WO_A) - FLANK_B_LEN_DEL),
-        ""
-      )) %>%
-    mutate(insSize = nchar(FILLER)) %>%
+
     
     mutate(homologyLength = if_else(insSize == 0,
                                     nchar(MH),

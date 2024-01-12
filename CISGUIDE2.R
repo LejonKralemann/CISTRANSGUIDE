@@ -301,7 +301,7 @@ for (i in row.names(sample_info)){
   
   data_improved_a  = data %>%
     
-    filter(QNAME == "M02948:216:000000000-KB5K4:1:2116:15780:12727")%>%
+    filter(QNAME == "M02948:216:000000000-KB5K4:1:1101:20440:23648")%>%
     
     #Count number of Ns and remove any reads with Ns
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
@@ -566,7 +566,7 @@ for (i in row.names(sample_info)){
           
         }else{#if RV
           if (FLANK_B_CHROM == FOCUS_CONTIG & FLANK_A_END_POS < (FLANK_B_START_POS_MH - nchar(MH)) & FLANK_A_END_POS > FLANK_B_END_POS){
-            FLANK_A_END_POS -1
+            FLANK_A_END_POS -1 #if filler is b continuation (filler plus homology)
           }else{
           FLANK_B_START_POS_MH - nchar(MH)}
         })%>%
@@ -642,7 +642,10 @@ for (i in row.names(sample_info)){
         FlankAUltEnd - 1
       }
     }else{
-      FLANK_B_START_POS_MH
+      if (insSize > 0 ){      #for cases on the focus contig where the filler is a flank B continuation
+        FLANK_B_START_POS_DEL
+      }else{
+      FLANK_B_START_POS_MH}
     }) %>%
     #remove reads with FLANK_B 's shorter than the minimum.
     filter(FLANK_B_LEN_MH >= FLANK_B_LEN_MIN)
@@ -708,7 +711,7 @@ for (i in row.names(sample_info)){
       "TRUE",
       "FALSE")) %>%
     mutate(CASE_WT = if_else((
-      DSB_AREA_INTACT==TRUE | DSB_AREA_1MM==TRUE),
+      DSB_AREA_INTACT==TRUE ),
       TRUE,
       FALSE)) %>%
     mutate(DSB_HIT_MULTI = if_else(DSB_AREA_COUNT>1 | DSB_AREA2_COUNT>1,
@@ -759,6 +762,7 @@ for (i in row.names(sample_info)){
         delRelativeStart,
         delRelativeEnd,
         FLANK_A_LEN,
+        FLANK_A_END_POS,
         FLANK_B_CHROM,
         FLANK_B_START_POS,
         MATE_FLANK_B_CHROM_AGREE,
@@ -815,6 +819,7 @@ for (i in row.names(sample_info)){
             MATE_B_END_POS_min = min(as.integer(MATE_B_END_POS_list)),
             delRelativeStart_con = names(which.max(table(delRelativeStart))),
             delRelativeEnd_con = names(which.max(table(delRelativeEnd))),
+            FLANK_A_END_POS_con = names(which.max(table(FLANK_A_END_POS))),
             FILLER_con = names(which.max(table(FILLER))),
             MH_con =names(which.max(table(MH))),
             insSize_con = names(which.max(table(insSize))),
@@ -838,7 +843,8 @@ for (i in row.names(sample_info)){
                  FAKE_DELIN_CHECK = FAKE_DELIN_CHECK_con,
                  DSB_AREA_INTACT = DSB_AREA_INTACT_con,
                  DSB_AREA_1MM = DSB_AREA_1MM_con,
-                 DSB_HIT_MULTI = DSB_HIT_MULTI_con
+                 DSB_HIT_MULTI = DSB_HIT_MULTI_con,
+                 FLANK_A_END_POS = FLANK_A_END_POS_con
                  )
       }
         
@@ -894,7 +900,8 @@ for (i in row.names(sample_info)){
       Consensus_freq,
       FAKE_DELIN_CHECK,
       MATE_FLANK_B_CHROM_AGREE,
-      MATE_FLANK_B_CHROM
+      MATE_FLANK_B_CHROM,
+      FLANK_A_END_POS
     ) %>%
     
 

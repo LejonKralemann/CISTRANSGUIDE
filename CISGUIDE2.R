@@ -301,7 +301,7 @@ for (i in row.names(sample_info)){
   
   data_improved_a  = data %>%
     
-    filter(QNAME == "M02948:216:000000000-KB5K4:1:1103:15225:22021")%>%
+    #filter(QNAME == "M02948:216:000000000-KB5K4:1:1105:20057:3567")%>%
     
     #Count number of Ns and remove any reads with Ns
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
@@ -618,14 +618,14 @@ for (i in row.names(sample_info)){
     #flank B start pos excluding MH (for del calculation)
       mutate(FLANK_B_START_POS_DEL = 
         if (FLANK_B_ORIENT == "FW"){
-          if (FLANK_B_CHROM == FOCUS_CONTIG & FLANK_A_END_POS > (FLANK_B_START_POS_MH + nchar(MH)) & FLANK_A_END_POS < FLANK_B_END_POS){
+          if (FLANK_B_CHROM == FOCUS_CONTIG & FLANK_A_END_POS >= (FLANK_B_START_POS_MH + nchar(MH)) & FLANK_A_END_POS < FLANK_B_END_POS){
             FLANK_A_END_POS +1 #if filler is b continuation (filler plus homology)
           }else{
             FLANK_B_START_POS_MH + nchar(MH)
           }
           
         }else{#if RV
-          if (FLANK_B_CHROM == FOCUS_CONTIG & FLANK_A_END_POS < (FLANK_B_START_POS_MH - nchar(MH)) & FLANK_A_END_POS > FLANK_B_END_POS){
+          if (FLANK_B_CHROM == FOCUS_CONTIG & FLANK_A_END_POS <= (FLANK_B_START_POS_MH - nchar(MH)) & FLANK_A_END_POS > FLANK_B_END_POS){
             FLANK_A_END_POS -1 #if filler is b continuation (filler plus homology)
           }else{
           FLANK_B_START_POS_MH - nchar(MH)}

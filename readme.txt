@@ -62,7 +62,6 @@ General notes
 -t 	Trimming length. Value indicate maximum number of nt to keep. default: 999999 (meaning no trimming is performed).
 
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-CISGUIDE2
+About the output
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-New version of CISGUIDE. Use CISGUIDE_primary2.sh in combination with CISGUIDE2.R
-It does the mapping in a different way which simplifies it and allows for more flexibility
+In the case of microhomology, the output gives you the end of flank A and flank B including the microhomology.

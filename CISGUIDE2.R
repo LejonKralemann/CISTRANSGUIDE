@@ -301,7 +301,7 @@ for (i in row.names(sample_info)){
   
   data_improved_a  = data %>%
     
-    filter(QNAME == "M02948:216:000000000-KB5K4:1:1101:20440:23648")%>%
+    filter(QNAME == "M02948:216:000000000-KB5K4:1:1103:15225:22021")%>%
     
     #Count number of Ns and remove any reads with Ns
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
@@ -520,12 +520,72 @@ for (i in row.names(sample_info)){
                  as.character(reverseComplement(DNAString(substr(as.character(eval(parse(text = paste0("genomeseq$", FLANK_B_CHROM)))), FLANK_B_END_POS, FLANK_B_END_POS+(SEQ_1_LEN-1)))))
                }
              }) %>%
-    mutate(FLANK_B_MATCH = stri_reverse(matcher_skipper(stri_reverse(FLANK_B_REF), stri_reverse(SEQ_1)))) %>%
+    mutate(FLANK_B_MATCH = stri_reverse(matcher_skipper(stri_reverse(FLANK_B_REF), stri_reverse(SEQ_1)))) %>%     #find the full flank b match, while skipping over seq errors. But causes a problem on focus contig when del=1 en ins=1
     ungroup() %>%
-    mutate(FLANK_B_MATCH_LEN = nchar(FLANK_B_MATCH)) 
+    mutate(FLANK_B_MATCH_LEN = nchar(FLANK_B_MATCH)) %>%
   
-    data_improved4 = data_improved3b %>%
-      
+  #then do some checks to find wt events that because of mutations did not get called as such
+  #first find a sequence around the DSB that would indicate no DSB has been made or is repaired perfectly
+  #check in both seq1 and seq2
+  rowwise() %>%
+    mutate(DSB_AREA_CHECK = list(matchPattern(DNAString(DSB_AREA_SEQ), DNAString(SEQ_1), max.mismatch = 1))) %>%
+    mutate(DSB_AREA_COUNT = length(DSB_AREA_CHECK@ranges))%>%
+    mutate(DSB_AREA2_CHECK = list(matchPattern(DNAString(DSB_AREA_SEQ_RC), DNAString(SEQ_2_first), max.mismatch = 1))) %>%
+    mutate(DSB_AREA2_COUNT = length(DSB_AREA2_CHECK@ranges))%>%
+    ungroup()%>%
+    mutate(DSB_AREA_HIT = "",
+           DSB_AREA2_HIT = "",
+           DSB_AREA_INTACT = FALSE,
+           DSB_AREA_1MM = FALSE)
+  
+  for (j in row.names(data_improved3b)){
+    j_int=as.integer(j)
+    if (data_improved3b$DSB_AREA_COUNT[[j_int]]==1){
+      if ((data_improved3b$SEQ_1_LEN[[j_int]] >= (data_improved3b$DSB_AREA_CHECK[[j_int]]@ranges@start[1]+data_improved3b$DSB_AREA_CHECK[[j_int]]@ranges@width[1]-1)) & (data_improved3b$DSB_AREA_CHECK[[j_int]]@ranges@start[1]>0)){
+        data_improved3b$DSB_AREA_HIT[[j_int]] = as.character(data_improved3b$DSB_AREA_CHECK[[j_int]])
+      }else{
+        data_improved3b$DSB_AREA_HIT[[j_int]] = ""
+      }
+    }else{
+      data_improved3b$DSB_AREA_HIT[[j_int]] = ""
+    }
+    if (data_improved3b$DSB_AREA2_COUNT[[j_int]]==1){
+      if ((nchar(data_improved3b$SEQ_2_first[[j_int]]) >= (data_improved3b$DSB_AREA2_CHECK[[j_int]]@ranges@start[1]+data_improved3b$DSB_AREA2_CHECK[[j_int]]@ranges@width[1]-1)) & (data_improved3b$DSB_AREA2_CHECK[[j_int]]@ranges@start[1]>0)){
+        data_improved3b$DSB_AREA2_HIT[[j_int]] = as.character(data_improved3b$DSB_AREA2_CHECK[[j_int]])
+      }else{
+        data_improved3b$DSB_AREA2_HIT[[j_int]] = ""
+      }
+    }else{
+      data_improved3b$DSB_AREA2_HIT[[j_int]] = ""
+    }
+  }
+  
+  
+  
+  
+  data_improved4 =   data_improved3b %>%
+    mutate(DSB_AREA_INTACT = if_else(DSB_AREA_HIT == DSB_AREA_SEQ | DSB_AREA2_HIT == DSB_AREA_SEQ_RC,
+                                     "TRUE",
+                                     "FALSE"))%>%
+    mutate(DSB_AREA_1MM = if_else(
+      DSB_AREA_INTACT == FALSE & (DSB_AREA_COUNT>0 | DSB_AREA2_COUNT>0),
+      "TRUE",
+      "FALSE")) %>%
+    mutate(CASE_WT = if_else((
+      DSB_AREA_INTACT==TRUE ),
+      TRUE,
+      FALSE)) %>%
+    mutate(DSB_HIT_MULTI = if_else(DSB_AREA_COUNT>1 | DSB_AREA2_COUNT>1,
+                                   "TRUE",
+                                   "FALSE")) %>%
+    rowwise()%>%
+    #fix the FLANK_B_match in case focus contig has 1bp del and 1bp ins
+    mutate(FLANK_B_MATCH_LEN = if_else(
+      FLANK_B_MATCH_LEN == SEQ_1_LEN & DSB_AREA_INTACT == FALSE,
+      lcprefix(stri_reverse(FLANK_B_REF), stri_reverse(SEQ_1)),
+               FLANK_B_MATCH_LEN))%>%
+    ungroup() %>%
+   
     #flank b start position including MH
     mutate(FLANK_B_START_POS_MH = case_when(FLANK_B_ORIENT == "FW" ~ as.integer(FLANK_B_END_POS-(FLANK_B_MATCH_LEN-1)),
                                             FLANK_B_ORIENT == "RV" ~ as.integer(FLANK_B_END_POS+(FLANK_B_MATCH_LEN-1)),

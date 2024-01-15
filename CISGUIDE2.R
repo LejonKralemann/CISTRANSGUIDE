@@ -301,7 +301,7 @@ for (i in row.names(sample_info)){
   
   data_improved_a  = data %>%
     
-    #filter(QNAME == "M02948:216:000000000-KB5K4:1:1105:20057:3567")%>%
+    #filter(QNAME == "M02948:216:000000000-KB5K4:1:1109:19615:5333")%>%
     
     #Count number of Ns and remove any reads with Ns
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
@@ -630,6 +630,11 @@ for (i in row.names(sample_info)){
           }else{
           FLANK_B_START_POS_MH - nchar(MH)}
         })%>%
+    #correct the flank b start pos in case there is a deletion in A, and an insertion, and flank b continues beyond the FLANK_B_ULTSTART
+    mutate(FLANK_B_START_POS_DEL = case_when(FLANK_B_ORIENT == "FW" & FLANK_B_START_POS_DEL < FlankBUltStart & FLANK_B_END_POS > FlankBUltStart ~ FlankBUltStart,
+                                             FLANK_B_ORIENT == "RV" & FLANK_B_START_POS_DEL > FlankBUltStart & FLANK_B_END_POS < FlankBUltStart ~ FlankBUltStart,
+                                             TRUE ~ FLANK_B_START_POS_DEL)) %>%
+    
       #calculate length of flank B minus the MH
     mutate(FLANK_B_LEN_DEL = if_else(FLANK_B_ORIENT == "FW",
                                      FLANK_B_END_POS-(FLANK_B_START_POS_DEL-1),
@@ -637,7 +642,7 @@ for (i in row.names(sample_info)){
 
     ungroup()
   
-  
+
   function_time("Step 5 took ")
   
   ###############################################################################

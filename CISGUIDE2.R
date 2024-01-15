@@ -16,7 +16,7 @@ MAX_DIST_FLANK_B_END = 10000 #distance from end of flank B to DSB, determines ma
 LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick to determine locus info
 GROUPSAMEPOS=FALSE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
 REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
+REMOVEPROBLEMS=FALSE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
 ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 
 ###############################################################################
@@ -301,7 +301,7 @@ for (i in row.names(sample_info)){
   
   data_improved_a  = data %>%
     
-    #filter(QNAME == "M02948:216:000000000-KB5K4:1:1109:19615:5333")%>%
+    #filter(QNAME == "M02948:216:000000000-KB5K4:1:2118:16827:9899")%>%
     
     #Count number of Ns and remove any reads with Ns
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
@@ -631,8 +631,8 @@ for (i in row.names(sample_info)){
           FLANK_B_START_POS_MH - nchar(MH)}
         })%>%
     #correct the flank b start pos in case there is a deletion in A, and an insertion, and flank b continues beyond the FLANK_B_ULTSTART
-    mutate(FLANK_B_START_POS_DEL = case_when(FLANK_B_ORIENT == "FW" & FLANK_B_START_POS_DEL < FlankBUltStart & FLANK_B_END_POS > FlankBUltStart ~ FlankBUltStart,
-                                             FLANK_B_ORIENT == "RV" & FLANK_B_START_POS_DEL > FlankBUltStart & FLANK_B_END_POS < FlankBUltStart ~ FlankBUltStart,
+    mutate(FLANK_B_START_POS_DEL = case_when(FLANK_B_CHROM == FOCUS_CONTIG & FLANK_B_ORIENT == "FW" & FLANK_B_START_POS_DEL < FlankBUltStart & FLANK_B_END_POS > FlankBUltStart ~ FlankBUltStart,
+                                             FLANK_B_CHROM == FOCUS_CONTIG & FLANK_B_ORIENT == "RV" & FLANK_B_START_POS_DEL > FlankBUltStart & FLANK_B_END_POS < FlankBUltStart ~ FlankBUltStart,
                                              TRUE ~ FLANK_B_START_POS_DEL)) %>%
     
       #calculate length of flank B minus the MH

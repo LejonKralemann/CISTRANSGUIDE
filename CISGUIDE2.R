@@ -14,9 +14,9 @@ input_dir= "./input/"
 output_dir= "./output/"
 MAX_DIST_FLANK_B_END = 10000 #distance from end of flank B to DSB, determines max deletion size and also affects maximum insertion size
 LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick to determine locus info
-GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
+GROUPSAMEPOS=FALSE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+REMOVEPROBLEMS=FALSE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
 ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 
 ###############################################################################
@@ -52,24 +52,43 @@ if (file.exists(paste0(input_dir, "read_numbers.txt"))==FALSE){
 #this function matches from the end until it encounters a mismatch. If the continuing sequence is longer than 9, then it jumps over this mismatch, and continues matching until a second mismatch is encountered. Then it outputs the matching sequence.  
 matcher_skipper <-function(ref, seq1){
   if (ref != "ERROR"){
-    compare_len_1 = lcprefix(ref, seq1)
-    compare_flank_ref = if ((compare_len_1 + 2)< nchar(ref)){
-      substr(ref, start= compare_len_1+2, stop=nchar(ref))
+    seq1_len = nchar(seq1)                                                          #get the length of seq1
+    ref_len = nchar(ref)                                                            #get the length of ref
+    match_1_len = lcprefix(ref, seq1)                                               #find a match between ref and read
+    match_1_non_ref = if ((match_1_len + 2)< ref_len){                              #if match length + 2 bp is smaller than ref length
+      substr(ref, start = match_1_len+2, stop = ref_len)                            #get the non-matching sequence from the ref, minus the first mismatch
     }else{
-      ""}
-    compare_seq_1 = if (compare_flank_ref != ""){
-      substr(seq1, start = compare_len_1 +2, stop = nchar(seq1))
+      ""}                                                                           #otherwise output empty string
+    match_1_non_seq1 = if (match_1_non_ref != ""){                                  #if the match sequence is not empty
+      substr(seq1, start = match_1_len +2, stop = seq1_len)                         #get the non-matching sequence from the read, minus the first mismatch
     }else{
-      ""}
-    compare_len_2 = if (compare_flank_ref != ""){
-      as.integer(lcprefix(compare_flank_ref, compare_seq_1))
+      ""}                                                                           #otherwise output empty string
+    match_2_len = if (match_1_non_ref != ""){                                       #if the match sequence is not empty
+      lcprefix(match_1_non_ref, match_1_non_seq1)                                   #find a match between ref_match and read_non_match
+    }else{          
+      0}                                                                            #otherwise output 0 as length
+    subtotal_match = if (match_2_len > 9){                                          #if the match 2 length is larger than 9 bp
+      substr(ref, start = 1, stop = match_1_len + 1 + match_2_len)                  #get the subtotal matching sequence
     }else{
-      as.integer(0)}
-    flank_match = if (compare_len_2 > 9){
-      substr(ref, start = 1, stop = compare_len_1 + compare_len_2 + 1)
+      substr(ref, start = 1, stop = match_1_len)}                                   #else get the primary matching sequence only
+  
+    subtotal_match_non_ref = if(match_2_len >9 & nchar(subtotal_match)+9 < ref_len){#if there is a secondary match, and we didn't go up to the end of the ref yet
+      substr(ref, start = match_1_len + match_2_len + 3, stop = seq1_len)           #get the ref sequence minus the subtotal matching sequence, minus the first mismatch
     }else{
-      substr(ref, start = 1, stop = compare_len_1)}
-    return(flank_match)
+      ""}                                                                           #otherwise get an empty string
+    subtotal_match_non_seq1 = if(subtotal_match_non_ref != ""){                     #if there is a ref sequence to match with
+      substr(seq1, start = match_1_len + match_2_len + 3, stop = seq1_len)          #get the read sequence minus the subtotal matching sequence, minus the first mismatch
+    }else{
+    ""}                                                                             #otherwise get an empty string
+    match_3_len = if (subtotal_match_non_ref != ""){                                #if there is a ref sequence to match with
+      lcprefix(subtotal_match_non_ref, subtotal_match_non_seq1)                     #match the pieces of ref and seq1
+    }else{
+      0}                                                                            #otherwise output 0 as length
+    flank_match = if (match_3_len > 9){                                             #if the match 3 is longer than 9bp
+      substr(ref, start = 1, stop = match_1_len + 1 + match_2_len + 1 + match_3_len)#get the total matching sequence with match 1, 2 and 3
+    }else{
+      subtotal_match}                                                               #else only get the matching sequence with match 1 and 2
+    return(flank_match)                                                             #return the total match
   }
 }
 function_time <-function(text){
@@ -282,6 +301,8 @@ for (i in row.names(sample_info)){
   
   data_improved_a  = data %>%
     
+    #filter(QNAME == "M02948:216:000000000-KB5K4:1:2118:16827:9899")%>%
+    
     #Count number of Ns and remove any reads with Ns
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
            SEQ_1_LEN = nchar(SEQ_1)) %>%
@@ -337,7 +358,8 @@ for (i in row.names(sample_info)){
       PRIMER_SEQ,
       TRIM_LEN,
       SEQ_1_LEN,
-      MATE_FLANK_B_CHROM_AGREE) %>%
+      MATE_FLANK_B_CHROM_AGREE,
+      MATE_FLANK_B_CHROM) %>%
     arrange(desc(AvgBaseQual_1), desc(AvgBaseQual_2)) %>%
     summarize(QNAME_first = dplyr::first(QNAME),
               SEQ_2_first = dplyr::first(SEQ_2),
@@ -452,6 +474,7 @@ for (i in row.names(sample_info)){
                                        TRUE ~ ERROR_NUMBER)) %>%
     
     mutate(SEQ_1_WO_A = substr(SEQ_1, start = FLANK_A_LEN + 1, stop = SEQ_1_LEN)) %>%
+    mutate(SEQ_1_WO_A_LEN = nchar(SEQ_1_WO_A))%>%
     #calculate FLANK A DEL length
     mutate(
       FLANK_A_DEL = case_when(
@@ -497,12 +520,72 @@ for (i in row.names(sample_info)){
                  as.character(reverseComplement(DNAString(substr(as.character(eval(parse(text = paste0("genomeseq$", FLANK_B_CHROM)))), FLANK_B_END_POS, FLANK_B_END_POS+(SEQ_1_LEN-1)))))
                }
              }) %>%
-    mutate(FLANK_B_MATCH = stri_reverse(matcher_skipper(stri_reverse(FLANK_B_REF), stri_reverse(SEQ_1)))) %>%
+    mutate(FLANK_B_MATCH = stri_reverse(matcher_skipper(stri_reverse(FLANK_B_REF), stri_reverse(SEQ_1)))) %>%     #find the full flank b match, while skipping over seq errors. But causes a problem on focus contig when del=1 en ins=1
     ungroup() %>%
-    mutate(FLANK_B_MATCH_LEN = nchar(FLANK_B_MATCH)) 
+    mutate(FLANK_B_MATCH_LEN = nchar(FLANK_B_MATCH)) %>%
   
-    data_improved4 = data_improved3b %>%
-      
+  #then do some checks to find wt events that because of mutations did not get called as such
+  #first find a sequence around the DSB that would indicate no DSB has been made or is repaired perfectly
+  #check in both seq1 and seq2
+  rowwise() %>%
+    mutate(DSB_AREA_CHECK = list(matchPattern(DNAString(DSB_AREA_SEQ), DNAString(SEQ_1), max.mismatch = 1))) %>%
+    mutate(DSB_AREA_COUNT = length(DSB_AREA_CHECK@ranges))%>%
+    mutate(DSB_AREA2_CHECK = list(matchPattern(DNAString(DSB_AREA_SEQ_RC), DNAString(SEQ_2_first), max.mismatch = 1))) %>%
+    mutate(DSB_AREA2_COUNT = length(DSB_AREA2_CHECK@ranges))%>%
+    ungroup()%>%
+    mutate(DSB_AREA_HIT = "",
+           DSB_AREA2_HIT = "",
+           DSB_AREA_INTACT = FALSE,
+           DSB_AREA_1MM = FALSE)
+  
+  for (j in row.names(data_improved3b)){
+    j_int=as.integer(j)
+    if (data_improved3b$DSB_AREA_COUNT[[j_int]]==1){
+      if ((data_improved3b$SEQ_1_LEN[[j_int]] >= (data_improved3b$DSB_AREA_CHECK[[j_int]]@ranges@start[1]+data_improved3b$DSB_AREA_CHECK[[j_int]]@ranges@width[1]-1)) & (data_improved3b$DSB_AREA_CHECK[[j_int]]@ranges@start[1]>0)){
+        data_improved3b$DSB_AREA_HIT[[j_int]] = as.character(data_improved3b$DSB_AREA_CHECK[[j_int]])
+      }else{
+        data_improved3b$DSB_AREA_HIT[[j_int]] = ""
+      }
+    }else{
+      data_improved3b$DSB_AREA_HIT[[j_int]] = ""
+    }
+    if (data_improved3b$DSB_AREA2_COUNT[[j_int]]==1){
+      if ((nchar(data_improved3b$SEQ_2_first[[j_int]]) >= (data_improved3b$DSB_AREA2_CHECK[[j_int]]@ranges@start[1]+data_improved3b$DSB_AREA2_CHECK[[j_int]]@ranges@width[1]-1)) & (data_improved3b$DSB_AREA2_CHECK[[j_int]]@ranges@start[1]>0)){
+        data_improved3b$DSB_AREA2_HIT[[j_int]] = as.character(data_improved3b$DSB_AREA2_CHECK[[j_int]])
+      }else{
+        data_improved3b$DSB_AREA2_HIT[[j_int]] = ""
+      }
+    }else{
+      data_improved3b$DSB_AREA2_HIT[[j_int]] = ""
+    }
+  }
+  
+  
+  
+  
+  data_improved4 =   data_improved3b %>%
+    mutate(DSB_AREA_INTACT = if_else(DSB_AREA_HIT == DSB_AREA_SEQ | DSB_AREA2_HIT == DSB_AREA_SEQ_RC,
+                                     "TRUE",
+                                     "FALSE"))%>%
+    mutate(DSB_AREA_1MM = if_else(
+      DSB_AREA_INTACT == FALSE & (DSB_AREA_COUNT>0 | DSB_AREA2_COUNT>0),
+      "TRUE",
+      "FALSE")) %>%
+    mutate(CASE_WT = if_else((
+      DSB_AREA_INTACT==TRUE ),
+      TRUE,
+      FALSE)) %>%
+    mutate(DSB_HIT_MULTI = if_else(DSB_AREA_COUNT>1 | DSB_AREA2_COUNT>1,
+                                   "TRUE",
+                                   "FALSE")) %>%
+    rowwise()%>%
+    #fix the FLANK_B_match in case focus contig has 1bp del and 1bp ins
+    mutate(FLANK_B_MATCH_LEN = if_else(
+      FLANK_B_MATCH_LEN == SEQ_1_LEN & DSB_AREA_INTACT == FALSE,
+      lcprefix(stri_reverse(FLANK_B_REF), stri_reverse(SEQ_1)),
+               FLANK_B_MATCH_LEN))%>%
+    ungroup() %>%
+   
     #flank b start position including MH
     mutate(FLANK_B_START_POS_MH = case_when(FLANK_B_ORIENT == "FW" ~ as.integer(FLANK_B_END_POS-(FLANK_B_MATCH_LEN-1)),
                                             FLANK_B_ORIENT == "RV" ~ as.integer(FLANK_B_END_POS+(FLANK_B_MATCH_LEN-1)),
@@ -513,7 +596,7 @@ for (i in row.names(sample_info)){
                                     FLANK_B_END_POS-(FLANK_B_START_POS_MH-1),
                                     FLANK_B_START_POS_MH-(FLANK_B_END_POS-1))) %>%
     #Extract the MH sequence
-    mutate(MH = if (FLANK_B_CHROM != "NOT_FOUND" & FLANK_B_CHROM != "ERROR") {
+    mutate(MH = 
       if (FLANK_B_CHROM == FOCUS_CONTIG & FLANK_B_CLOSE_BY==TRUE & FLANK_A_ORIENT == FLANK_B_ORIENT & (FLANK_A_LEN > (SEQ_1_LEN - FLANK_B_LEN_MH))) {
         if (FLANK_B_ORIENT == "FW") {
           if (FLANK_A_END_POS >= FLANK_B_START_POS_MH) {
@@ -531,17 +614,27 @@ for (i in row.names(sample_info)){
       } else{
         substr(SEQ_1, start = (1 + SEQ_1_LEN - FLANK_B_LEN_MH), stop = FLANK_A_LEN)
       }
-    } else{
-      #if wt or flank b not identified
-      ""
-    }) %>%   
+    ) %>%   
     #flank B start pos excluding MH (for del calculation)
       mutate(FLANK_B_START_POS_DEL = 
         if (FLANK_B_ORIENT == "FW"){
-          FLANK_B_START_POS_MH + nchar(MH)
+          if (FLANK_B_CHROM == FOCUS_CONTIG & FLANK_A_END_POS >= (FLANK_B_START_POS_MH + nchar(MH)) & FLANK_A_END_POS < FLANK_B_END_POS){
+            FLANK_A_END_POS +1 #if filler is b continuation (filler plus homology)
+          }else{
+            FLANK_B_START_POS_MH + nchar(MH)
+          }
+          
         }else{#if RV
-          FLANK_B_START_POS_MH - nchar(MH)
+          if (FLANK_B_CHROM == FOCUS_CONTIG & FLANK_A_END_POS <= (FLANK_B_START_POS_MH - nchar(MH)) & FLANK_A_END_POS > FLANK_B_END_POS){
+            FLANK_A_END_POS -1 #if filler is b continuation (filler plus homology)
+          }else{
+          FLANK_B_START_POS_MH - nchar(MH)}
         })%>%
+    #correct the flank b start pos in case there is a deletion in A, and an insertion, and flank b continues beyond the FLANK_B_ULTSTART
+    mutate(FLANK_B_START_POS_DEL = case_when(FLANK_B_CHROM == FOCUS_CONTIG & FLANK_B_ORIENT == "FW" & FLANK_B_START_POS_DEL < FlankBUltStart & FLANK_B_END_POS > FlankBUltStart ~ FlankBUltStart,
+                                             FLANK_B_CHROM == FOCUS_CONTIG & FLANK_B_ORIENT == "RV" & FLANK_B_START_POS_DEL > FlankBUltStart & FLANK_B_END_POS < FlankBUltStart ~ FlankBUltStart,
+                                             TRUE ~ FLANK_B_START_POS_DEL)) %>%
+    
       #calculate length of flank B minus the MH
     mutate(FLANK_B_LEN_DEL = if_else(FLANK_B_ORIENT == "FW",
                                      FLANK_B_END_POS-(FLANK_B_START_POS_DEL-1),
@@ -549,7 +642,7 @@ for (i in row.names(sample_info)){
 
     ungroup()
   
-  
+
   function_time("Step 5 took ")
   
   ###############################################################################
@@ -557,14 +650,29 @@ for (i in row.names(sample_info)){
   ###############################################################################
   
   data_improved5 = data_improved4 %>%
-    mutate(FLANK_B_DEL = case_when(FLANK_B_CHROM == FOCUS_CONTIG & 
-                                     FLANK_B_CLOSE_BY==TRUE & 
-                                     FLANK_A_ORIENT == FLANK_B_ORIENT & 
+    
+    #determine the filler sequence 
+    mutate(
+      FILLER = if_else(
+        FLANK_B_LEN_DEL < SEQ_1_WO_A_LEN,
+        substr(SEQ_1_WO_A, start = 1, stop = SEQ_1_WO_A_LEN - FLANK_B_LEN_DEL),	 
+        "" #no filler
+      )) %>%
+    mutate(insSize = nchar(FILLER)) %>%
+    
+
+    #determine how much from flank B has been deleted
+    mutate(FLANK_B_DEL = case_when(FLANK_B_CHROM == FOCUS_CONTIG &                                                  #only report deletion when ends are known
+                                     FLANK_B_CLOSE_BY == TRUE &                                                     #long distances likely represent joining two distant break ends, not long deletions
+                                     FLANK_A_ORIENT == FLANK_B_ORIENT &                                             #in case inverted repeat
+                                     FlankBUltStart <= FLANK_B_START_POS_DEL &                                      #this is required in case there is a tandem repeat
                                      FLANK_B_ORIENT == "FW" ~ as.integer(FLANK_B_START_POS_DEL - (FlankAUltEnd+1)),
-                                   FLANK_B_CHROM == FOCUS_CONTIG & 
-                                     FLANK_B_CLOSE_BY==TRUE & 
-                                     FLANK_A_ORIENT == FLANK_B_ORIENT & 
+                                   FLANK_B_CHROM == FOCUS_CONTIG &                                                  #only report deletion when ends are known
+                                     FLANK_B_CLOSE_BY == TRUE &                                                     #long distances likely represent joining two distant break ends, not long deletions
+                                     FLANK_A_ORIENT == FLANK_B_ORIENT &                                             #in case inverted repeat
+                                     FlankBUltStart >= FLANK_B_START_POS_DEL &                                      #this is required in case there is a tandem repeat
                                      FLANK_B_ORIENT == "RV" ~ as.integer((FlankAUltEnd-1) - FLANK_B_START_POS_DEL),
+                                   FLANK_B_START_POS_DEL == FLANK_A_START_POS ~ as.integer(0),                      #in wt case
                                    TRUE ~ ERROR_NUMBER
                                    ))%>%
 
@@ -579,14 +687,7 @@ for (i in row.names(sample_info)){
                         "",
                         MH)) %>%
 
-    #determine the filler sequence 
-    mutate(
-      FILLER = if_else(
-        FLANK_B_CHROM != "NOT_FOUND" & FLANK_B_CHROM != "ERROR",					 
-        substr(SEQ_1_WO_A, start = 1, stop = nchar(SEQ_1_WO_A) - FLANK_B_LEN_DEL),
-        ""
-      )) %>%
-    mutate(insSize = nchar(FILLER)) %>%
+
     
     mutate(homologyLength = if_else(insSize == 0,
                                     nchar(MH),
@@ -606,7 +707,10 @@ for (i in row.names(sample_info)){
         FlankAUltEnd - 1
       }
     }else{
-      FLANK_B_START_POS_MH
+      if (insSize > 0 ){      #for cases on the focus contig where the filler is a flank B continuation
+        FLANK_B_START_POS_DEL
+      }else{
+      FLANK_B_START_POS_MH}
     }) %>%
     #remove reads with FLANK_B 's shorter than the minimum.
     filter(FLANK_B_LEN_MH >= FLANK_B_LEN_MIN)
@@ -619,17 +723,10 @@ for (i in row.names(sample_info)){
   
   data_improved5b = data_improved5 %>%
   
-    #then apply a fix when the DSB is not set at 0, but when the total deletion length is 0. Also change the names for SIQPlotter. Also set the deletion length to 0 if the deletion length is negative, but the DSB is not allowed to occur downstream
+    #for SIQPlotter delRelativeStart is FLANK_A_DEL (but negative) and delRelativeEnd is FLANK_B_DEL.
     mutate(
-      delRelativeStart = case_when(delSize == 0 & insSize == 0 ~ as.integer(0),
-                                   (delSize !=0 | insSize != 0) & FLANK_A_ORIENT == "FW" & FLANK_A_DEL<0 ~ as.integer(0),
-                                   TRUE ~ as.integer(FLANK_A_DEL * -1)),
-      delRelativeEnd = if_else(
-        delSize == 0 & insSize == 0,
-        as.integer(0),
-        as.integer(FLANK_B_DEL)
-      )
-    ) %>%
+      delRelativeStart = as.integer(FLANK_A_DEL*-1),
+      delRelativeEnd = as.integer(FLANK_B_DEL)) %>%
     
     #then do some checks to find wt events that because of mutations did not get called as such
     #first find a sequence around the DSB that would indicate no DSB has been made or is repaired perfectly
@@ -679,7 +776,7 @@ for (i in row.names(sample_info)){
       "TRUE",
       "FALSE")) %>%
     mutate(CASE_WT = if_else((
-      DSB_AREA_INTACT==TRUE | DSB_AREA_1MM==TRUE),
+      DSB_AREA_INTACT==TRUE ),
       TRUE,
       FALSE)) %>%
     mutate(DSB_HIT_MULTI = if_else(DSB_AREA_COUNT>1 | DSB_AREA2_COUNT>1,
@@ -730,9 +827,11 @@ for (i in row.names(sample_info)){
         delRelativeStart,
         delRelativeEnd,
         FLANK_A_LEN,
+        FLANK_A_END_POS,
         FLANK_B_CHROM,
         FLANK_B_START_POS,
         MATE_FLANK_B_CHROM_AGREE,
+        MATE_FLANK_B_CHROM,
         FLANK_B_ISFORWARD,
         FLANK_B_ORIENT,
         FILLER,
@@ -771,7 +870,8 @@ for (i in row.names(sample_info)){
             FLANK_B_ISFORWARD,
             FLANK_B_ORIENT,
             TRIM_LEN,
-            MATE_FLANK_B_CHROM_AGREE
+            MATE_FLANK_B_CHROM_AGREE,
+            MATE_FLANK_B_CHROM
           )%>%
           summarize(
             ReadCount = n(),
@@ -784,6 +884,7 @@ for (i in row.names(sample_info)){
             MATE_B_END_POS_min = min(as.integer(MATE_B_END_POS_list)),
             delRelativeStart_con = names(which.max(table(delRelativeStart))),
             delRelativeEnd_con = names(which.max(table(delRelativeEnd))),
+            FLANK_A_END_POS_con = names(which.max(table(FLANK_A_END_POS))),
             FILLER_con = names(which.max(table(FILLER))),
             MH_con =names(which.max(table(MH))),
             insSize_con = names(which.max(table(insSize))),
@@ -807,7 +908,8 @@ for (i in row.names(sample_info)){
                  FAKE_DELIN_CHECK = FAKE_DELIN_CHECK_con,
                  DSB_AREA_INTACT = DSB_AREA_INTACT_con,
                  DSB_AREA_1MM = DSB_AREA_1MM_con,
-                 DSB_HIT_MULTI = DSB_HIT_MULTI_con
+                 DSB_HIT_MULTI = DSB_HIT_MULTI_con,
+                 FLANK_A_END_POS = FLANK_A_END_POS_con
                  )
       }
         
@@ -822,7 +924,7 @@ for (i in row.names(sample_info)){
     mutate(
       Subject = FOCUS_LOCUS,
       Type = case_when(
-        delSize == 0 & insSize == 0 ~ "WT",
+        (delSize == 0 & insSize == 0) | DSB_AREA_INTACT==TRUE | DSB_AREA_1MM==TRUE | FAKE_DELIN_CHECK == TRUE ~ "WT",
         delSize != 0 & delSize != ERROR_NUMBER & insSize == 0 ~ "DELETION",
         insSize != 0 & delSize == 0 ~ "INSERTION",
         delSize != 0 & delSize != ERROR_NUMBER & insSize != 0 ~ "DELINS",
@@ -862,7 +964,9 @@ for (i in row.names(sample_info)){
       TRIM_LEN,
       Consensus_freq,
       FAKE_DELIN_CHECK,
-      MATE_FLANK_B_CHROM_AGREE
+      MATE_FLANK_B_CHROM_AGREE,
+      MATE_FLANK_B_CHROM,
+      FLANK_A_END_POS
     ) %>%
     
 
@@ -898,9 +1002,7 @@ for (i in row.names(sample_info)){
            program_version = hash,
            Plasmid = PLASMID,
            Plasmid_alt = PLASMID_ALT,
-           Alias = paste0(Library, "_", RunID),
-           GroupSamePosition = GROUPSAMEPOS,
-           RemoveNonTranslocation = REMOVENONTRANS)
+           Alias = paste0(Library, "_", RunID))
   
 
   #write an excel sheet as output
@@ -1101,14 +1203,18 @@ if (REMOVEPROBLEMS == TRUE) {
                                         TRUE,
                                         FALSE)) %>%
     
-    ungroup() %>%
-    mutate(RemoveProblematicEvents = REMOVEPROBLEMS)
+    ungroup() 
 }
+
+wb_flag2 = wb_flag %>%
+  mutate(GroupSamePosition = GROUPSAMEPOS,
+         RemoveNonTranslocation = REMOVENONTRANS,
+         RemoveProblematicEvents = REMOVEPROBLEMS)
 
 message("Writing output")
 work_book2 <- createWorkbook()
 addWorksheet(work_book2, "rawData")
-writeData(work_book2, sheet = 1, wb_flag)
+writeData(work_book2, sheet = 1, wb_flag2)
 
 #Write an additional sheet with read number info
 read_numbers_info = read.csv(paste0(input_dir, "read_numbers.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)

@@ -200,6 +200,7 @@ for (i in row.names(sample_info)){
   FASTA_MODE = FALSE
   }else{
   FASTA_MODE = TRUE
+  message("Primer seq not found, running in fasta mode.")
   }
   
   if (FASTA_MODE == FALSE){
@@ -915,9 +916,9 @@ for (i in row.names(sample_info)){
         
     data_improved8 =data_improved8pre2 %>%
       
-      #then calculate the difference between the end of the primary read and the end of the mate.
-      mutate(ANCHOR_DIST = case_when(FLANK_B_ORIENT=="FW" ~ as.integer(MATE_B_END_POS_max - FLANK_B_START_POS),
-                                     FLANK_B_ORIENT=="RV" ~ as.integer(FLANK_B_START_POS - MATE_B_END_POS_min),
+      #then calculate the difference between start of flank B (in the read) and the position of of flank B at the end of the mate.
+      mutate(ANCHOR_DIST = case_when(FLANK_B_ORIENT=="FW" & FLANK_B_CHROM == MATE_FLANK_B_CHROM ~ as.integer(MATE_B_END_POS_max - FLANK_B_START_POS),
+                                     FLANK_B_ORIENT=="RV" & FLANK_B_CHROM == MATE_FLANK_B_CHROM ~ as.integer(FLANK_B_START_POS - MATE_B_END_POS_min),
                                      TRUE ~ ERROR_NUMBER)) %>%
     
     #Add a subject and type column. Also add two extra columns for SIQplotter that are equal to the other del columns.

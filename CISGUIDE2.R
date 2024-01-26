@@ -1006,6 +1006,8 @@ for (i in row.names(sample_info)){
            Plasmid = PLASMID,
            Plasmid_alt = PLASMID_ALT,
            AgroGeno = AgroGeno,
+           RemoveNonTranslocation = REMOVENONTRANS,
+           GroupSamePosition = GROUPSAMEPOS,
            Alias = paste0(Library, "_", RunID))
   
 
@@ -1100,7 +1102,7 @@ if (REMOVEPROBLEMS == TRUE) {
   message("combining junctions with similar positions")
   #combine junctions with similar positions and get the characteristics of the consensus event from the event the most anchors 
   total_data_near_positioncombined = total_data_positioncompare %>%
-    group_by(Alias, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, DNASample, Subject, ID, FOCUS_CONTIG, Genotype, Ecotype, Plasmid_alt, Family, FlankAUltEnd, FlankBUltStart, AgroGeno)%>%
+    group_by(Alias, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, DNASample, Subject, ID, FOCUS_CONTIG, Genotype, Ecotype, Plasmid_alt, Family, FlankAUltEnd, FlankBUltStart, AgroGeno, RemoveNonTranslocation, GroupSamePosition)%>%
     summarize(AnchorCountSum = sum(AnchorCount), 
               ReadCountSum = sum(ReadCount),
               FLANK_B_START_POS_CON = as.integer(FLANK_B_START_POS[which.max(AnchorCount)]),
@@ -1211,9 +1213,7 @@ if (REMOVEPROBLEMS == TRUE) {
 }
 
 wb_flag2 = wb_flag %>%
-  mutate(GroupSamePosition = GROUPSAMEPOS,
-         RemoveNonTranslocation = REMOVENONTRANS,
-         RemoveProblematicEvents = REMOVEPROBLEMS)
+  mutate(RemoveProblematicEvents = REMOVEPROBLEMS)
 
 message("Writing output")
 work_book2 <- createWorkbook()

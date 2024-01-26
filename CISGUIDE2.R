@@ -994,6 +994,7 @@ for (i in row.names(sample_info)){
     mutate(fraction = ReadCount / ReadCountTotal) %>%
     mutate(countReadsTotal = NULL,
            FlankAUltEnd = FlankAUltEnd,
+           FlankBUltStart = FlankBUltStart,
            FLANK_A_ORIENT = FLANK_A_ORIENT,
            FOCUS_CONTIG = FOCUS_CONTIG,
            Genotype = Genotype,

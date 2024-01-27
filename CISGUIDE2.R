@@ -1008,6 +1008,7 @@ for (i in row.names(sample_info)){
            AgroGeno = AgroGeno,
            RemoveNonTranslocation = REMOVENONTRANS,
            GroupSamePosition = GROUPSAMEPOS,
+           Primer_match_perfect = Primer_match_perfect,
            Alias = paste0(Library, "_", RunID))
   
 

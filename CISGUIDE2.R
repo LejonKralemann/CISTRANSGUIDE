@@ -18,6 +18,7 @@ GROUPSAMEPOS=FALSE #if true, it combines reads with the same genomic pos, which 
 REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
 REMOVEPROBLEMS=FALSE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
 ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
+MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B.
 
 ###############################################################################
 #set parameters - non-adjustable
@@ -1046,7 +1047,7 @@ if (REMOVEPROBLEMS == TRUE) {
   total_data_positioncompare_pre = wb %>%
     #first remove problematic events based on characteristics of the events themselves
     filter(AnchorCount >= ANCHORCUTOFF,
-           ANCHOR_DIST >= 150,
+           ANCHOR_DIST >= MINANCHORDIST,
            Consensus_freq >= 0.75,
            MATE_FLANK_B_CHROM_AGREE == TRUE,
            FAKE_DELIN_CHECK == FALSE,

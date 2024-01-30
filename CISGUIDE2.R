@@ -970,11 +970,10 @@ for (i in row.names(sample_info)){
       MATE_FLANK_B_CHROM_AGREE,
       MATE_FLANK_B_CHROM,
       FLANK_A_END_POS
-    ) %>%
+    ) 
     
 
-    #add required columns for SIQplotter
-    mutate(getHomologyColor= "grey")
+    
   
   function_time("Step 7 took ")
   
@@ -1215,7 +1214,14 @@ if (REMOVEPROBLEMS == TRUE) {
 }
 
 wb_flag2 = wb_flag %>%
-  mutate(RemoveProblematicEvents = REMOVEPROBLEMS)
+  mutate(RemoveProblematicEvents = REMOVEPROBLEMS)%>%
+  #add homology color info for SIQplotteR
+  mutate(getHomologyColor = case_when(homologyLength == -1 ~ "grey",
+                                      homologyLength == 0 ~ "#C9DDF2",
+                                      homologyLength == 1 ~ "#6899D0",
+                                      homologyLength == 2 ~ "#0D99B2",
+                                      homologyLength > 2 ~ "#054E61",
+                                      TRUE ~ "orange"))
 
 message("Writing output")
 work_book2 <- createWorkbook()

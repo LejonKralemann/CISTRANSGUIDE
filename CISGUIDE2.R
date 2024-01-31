@@ -18,6 +18,7 @@ GROUPSAMEPOS=FALSE #if true, it combines reads with the same genomic pos, which 
 REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
 REMOVEPROBLEMS=FALSE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
 ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
+MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B.
 
 ###############################################################################
 #set parameters - non-adjustable
@@ -165,6 +166,7 @@ for (i in row.names(sample_info)){
   DNASample = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DNA))
   Ecotype = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Ecotype))
   Library = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Sample))
+  AgroGeno = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(AgroGeno))
   
   
   if (file.exists(paste0(input_dir, REF))==FALSE){
@@ -200,6 +202,7 @@ for (i in row.names(sample_info)){
   FASTA_MODE = FALSE
   }else{
   FASTA_MODE = TRUE
+  message("Primer seq not found, running in fasta mode.")
   }
   
   if (FASTA_MODE == FALSE){
@@ -915,9 +918,9 @@ for (i in row.names(sample_info)){
         
     data_improved8 =data_improved8pre2 %>%
       
-      #then calculate the difference between the end of the primary read and the end of the mate.
-      mutate(ANCHOR_DIST = case_when(FLANK_B_ORIENT=="FW" ~ as.integer(MATE_B_END_POS_max - FLANK_B_START_POS),
-                                     FLANK_B_ORIENT=="RV" ~ as.integer(FLANK_B_START_POS - MATE_B_END_POS_min),
+      #then calculate the difference between start of flank B (in the read) and the position of of flank B at the end of the mate.
+      mutate(ANCHOR_DIST = case_when(FLANK_B_ORIENT=="FW" & FLANK_B_CHROM == MATE_FLANK_B_CHROM ~ as.integer(MATE_B_END_POS_max - FLANK_B_START_POS),
+                                     FLANK_B_ORIENT=="RV" & FLANK_B_CHROM == MATE_FLANK_B_CHROM ~ as.integer(FLANK_B_START_POS - MATE_B_END_POS_min),
                                      TRUE ~ ERROR_NUMBER)) %>%
     
     #Add a subject and type column. Also add two extra columns for SIQplotter that are equal to the other del columns.
@@ -967,11 +970,10 @@ for (i in row.names(sample_info)){
       MATE_FLANK_B_CHROM_AGREE,
       MATE_FLANK_B_CHROM,
       FLANK_A_END_POS
-    ) %>%
+    ) 
     
 
-    #add required columns for SIQplotter
-    mutate(getHomologyColor= "grey")
+    
   
   function_time("Step 7 took ")
   
@@ -993,6 +995,7 @@ for (i in row.names(sample_info)){
     mutate(fraction = ReadCount / ReadCountTotal) %>%
     mutate(countReadsTotal = NULL,
            FlankAUltEnd = FlankAUltEnd,
+           FlankBUltStart = FlankBUltStart,
            FLANK_A_ORIENT = FLANK_A_ORIENT,
            FOCUS_CONTIG = FOCUS_CONTIG,
            Genotype = Genotype,
@@ -1002,6 +1005,10 @@ for (i in row.names(sample_info)){
            program_version = hash,
            Plasmid = PLASMID,
            Plasmid_alt = PLASMID_ALT,
+           AgroGeno = AgroGeno,
+           RemoveNonTranslocation = REMOVENONTRANS,
+           GroupSamePosition = GROUPSAMEPOS,
+           Primer_match_perfect = Primer_match_perfect,
            Alias = paste0(Library, "_", RunID))
   
 
@@ -1039,7 +1046,7 @@ if (REMOVEPROBLEMS == TRUE) {
   total_data_positioncompare_pre = wb %>%
     #first remove problematic events based on characteristics of the events themselves
     filter(AnchorCount >= ANCHORCUTOFF,
-           ANCHOR_DIST >= 150,
+           ANCHOR_DIST >= MINANCHORDIST,
            Consensus_freq >= 0.75,
            MATE_FLANK_B_CHROM_AGREE == TRUE,
            FAKE_DELIN_CHECK == FALSE,
@@ -1096,7 +1103,7 @@ if (REMOVEPROBLEMS == TRUE) {
   message("combining junctions with similar positions")
   #combine junctions with similar positions and get the characteristics of the consensus event from the event the most anchors 
   total_data_near_positioncombined = total_data_positioncompare %>%
-    group_by(Alias, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, DNASample, Subject, ID, FOCUS_CONTIG, Genotype, Ecotype, Plasmid_alt, Family)%>%
+    group_by(Alias, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, DNASample, Subject, ID, FOCUS_CONTIG, Genotype, Ecotype, Plasmid_alt, Family, FlankAUltEnd, FlankBUltStart, AgroGeno, RemoveNonTranslocation, GroupSamePosition)%>%
     summarize(AnchorCountSum = sum(AnchorCount), 
               ReadCountSum = sum(ReadCount),
               FLANK_B_START_POS_CON = as.integer(FLANK_B_START_POS[which.max(AnchorCount)]),
@@ -1207,9 +1214,14 @@ if (REMOVEPROBLEMS == TRUE) {
 }
 
 wb_flag2 = wb_flag %>%
-  mutate(GroupSamePosition = GROUPSAMEPOS,
-         RemoveNonTranslocation = REMOVENONTRANS,
-         RemoveProblematicEvents = REMOVEPROBLEMS)
+  mutate(RemoveProblematicEvents = REMOVEPROBLEMS)%>%
+  #add homology color info for SIQplotteR
+  mutate(getHomologyColor = case_when(homologyLength == -1 ~ "grey",
+                                      homologyLength == 0 ~ "#C9DDF2",
+                                      homologyLength == 1 ~ "#6899D0",
+                                      homologyLength == 2 ~ "#0D99B2",
+                                      homologyLength > 2 ~ "#054E61",
+                                      TRUE ~ "orange"))
 
 message("Writing output")
 work_book2 <- createWorkbook()

@@ -926,9 +926,9 @@ for (i in row.names(sample_info)){
     data_improved8 =data_improved8pre2 %>%
       
       #then calculate the difference between start of flank B (in the read) and the position of of flank B at the end of the mate.
-      mutate(ANCHOR_DIST = case_when(FLANK_B_ORIENT=="FW" & FLANK_B_CHROM == MATE_FLANK_B_CHROM ~ as.integer(MATE_B_END_POS_max - FLANK_B_START_POS),
-                                     FLANK_B_ORIENT=="RV" & FLANK_B_CHROM == MATE_FLANK_B_CHROM ~ as.integer(FLANK_B_START_POS - MATE_B_END_POS_min),
-                                     TRUE ~ ERROR_NUMBER)) %>%
+      mutate(ANCHOR_DIST = case_when(FLANK_B_ORIENT=="FW" & FLANK_B_CHROM == MATE_FLANK_B_CHROM & MATE_B_END_POS_max > FLANK_B_START_POS ~ as.integer(MATE_B_END_POS_max - FLANK_B_START_POS),
+                                     FLANK_B_ORIENT=="RV" & FLANK_B_CHROM == MATE_FLANK_B_CHROM & FLANK_B_START_POS > MATE_B_END_POS_min ~ as.integer(FLANK_B_START_POS - MATE_B_END_POS_min),
+                                     TRUE ~ NF_NUMBER)) %>%
     
     
       #determine whether there is a translocation, and if so, change some other variables to support translocation plotting in SIQplotteR.
@@ -957,6 +957,7 @@ for (i in row.names(sample_info)){
                                                     TRUE ~ Translocation_del_resolved),
                delRelativeEnd = case_when(delRelativeEnd > MAXTARGETLENGTH ~ 0,
                                           TRUE ~ delRelativeEnd),
+               
              delSize = case_when(delSize == ERROR_NUMBER ~ (delRelativeStart*-1)+delRelativeEnd,
                                  TRUE ~ delSize)) %>%
       

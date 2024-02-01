@@ -15,10 +15,11 @@ output_dir= "./output/"
 MAX_DIST_FLANK_B_END = 10000 #distance from end of flank B to DSB, determines max deletion size and also affects maximum insertion size
 LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick to determine locus info
 GROUPSAMEPOS=FALSE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
 REMOVEPROBLEMS=FALSE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
 ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B.
+MAXTARGETLENGTH=10000 #this limits deletion calculation for when flank B is on the target chrom, but far away
 
 ###############################################################################
 #set parameters - non-adjustable
@@ -155,7 +156,9 @@ for (i in row.names(sample_info)){
     next
   }
   
-  FOCUS_CONTIG = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DSB_chrom))
+  FOCUS_CONTIG = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Focus_contig))
+  TARGET_CONTIG = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Target_contig))
+  TARGET_ALT_CONTIG = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Target_alt_contig))
   FOCUS_LOCUS = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Locus_name))
   Genotype = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Genotype))
   PLASMID = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Plasmid))
@@ -167,6 +170,10 @@ for (i in row.names(sample_info)){
   Ecotype = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Ecotype))
   Library = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Sample))
   AgroGeno = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(AgroGeno))
+  TARGET_FW_BORDER_POS = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Target_fw_border_pos))
+  TARGET_RV_BORDER_POS = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Target_rv_border_pos))
+  TARGET_ALT_FW_BORDER_POS = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Target_alt_fw_border_pos))
+  TARGET_ALT_RV_BORDER_POS = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Target_alt_rv_border_pos))
   
   
   if (file.exists(paste0(input_dir, REF))==FALSE){
@@ -923,7 +930,39 @@ for (i in row.names(sample_info)){
                                      FLANK_B_ORIENT=="RV" & FLANK_B_CHROM == MATE_FLANK_B_CHROM ~ as.integer(FLANK_B_START_POS - MATE_B_END_POS_min),
                                      TRUE ~ ERROR_NUMBER)) %>%
     
-    #Add a subject and type column. Also add two extra columns for SIQplotter that are equal to the other del columns.
+    
+      #determine whether there is a translocation, and if so, change some other variables to support translocation plotting in SIQplotteR.
+      #in the case of T-DNA or other transfected DNA, the real end of the molecule is known, and in that case the deletion length can be determined
+      #in other translocation cases the delRelativeEnd becomes 0 for practical plotting reasons, not because it is really 0 (it is unknowable).
+      #if the T-DNA backbone, it will also be 0. Firstly because it is unclear whether the backbone got transferred via border skipping or as a separate "T-DNA", secondly because the map is linear and breaks in the backbone. The calculation therefore is more difficult.
+      mutate(Translocation = case_when(delSize == ERROR_NUMBER ~ TRUE,
+                                       TRUE ~ FALSE),
+             Translocation_del_resolved = case_when(FLANK_B_CHROM == TARGET_CONTIG & FLANK_B_ISFORWARD == TRUE & FLANK_B_START_POS >= TARGET_FW_BORDER_POS ~ TRUE,
+                                         FLANK_B_CHROM == TARGET_CONTIG & FLANK_B_ISFORWARD == FALSE & TARGET_RV_BORDER_POS >= FLANK_B_START_POS ~ TRUE,
+                                         FLANK_B_CHROM == TARGET_ALT_CONTIG & FLANK_B_ISFORWARD == TRUE & FLANK_B_START_POS >= TARGET_ALT_FW_BORDER_POS ~ TRUE,
+                                         FLANK_B_CHROM == TARGET_ALT_CONTIG & FLANK_B_ISFORWARD == FALSE & TARGET_ALT_RV_BORDER_POS >= FLANK_B_START_POS ~ TRUE,
+                                         TRUE ~ FALSE),
+             delRelativeEnd = case_when(delSize == ERROR_NUMBER & FLANK_B_CHROM != TARGET_CONTIG & FLANK_B_CHROM != TARGET_ALT_CONTIG ~ 0, #if another genomic location
+                                        FLANK_B_CHROM == TARGET_CONTIG & FLANK_B_ISFORWARD == TRUE & FLANK_B_START_POS >= TARGET_FW_BORDER_POS ~ (FLANK_B_START_POS - TARGET_FW_BORDER_POS), #if T-DNA
+                                        FLANK_B_CHROM == TARGET_CONTIG & FLANK_B_ISFORWARD == TRUE & FLANK_B_START_POS < TARGET_FW_BORDER_POS ~ 0, #if backbone
+                                        FLANK_B_CHROM == TARGET_CONTIG & FLANK_B_ISFORWARD == FALSE & TARGET_RV_BORDER_POS >= FLANK_B_START_POS  ~ (TARGET_RV_BORDER_POS - FLANK_B_START_POS), #if T-DNA
+                                        FLANK_B_CHROM == TARGET_CONTIG & FLANK_B_ISFORWARD == FALSE & TARGET_RV_BORDER_POS < FLANK_B_START_POS  ~ 0, #if backbone
+                                        FLANK_B_CHROM == TARGET_ALT_CONTIG & FLANK_B_ISFORWARD == TRUE & FLANK_B_START_POS >= TARGET_ALT_FW_BORDER_POS ~ (FLANK_B_START_POS - TARGET_ALT_FW_BORDER_POS), #if T-DNA
+                                        FLANK_B_CHROM == TARGET_ALT_CONTIG & FLANK_B_ISFORWARD == TRUE & FLANK_B_START_POS < TARGET_ALT_FW_BORDER_POS ~ 0, #if backbone. 
+                                        FLANK_B_CHROM == TARGET_ALT_CONTIG & FLANK_B_ISFORWARD == FALSE & TARGET_ALT_RV_BORDER_POS >= FLANK_B_START_POS  ~ (TARGET_ALT_RV_BORDER_POS - FLANK_B_START_POS), #if T-DNA
+                                        FLANK_B_CHROM == TARGET_ALT_CONTIG & FLANK_B_ISFORWARD == FALSE & TARGET_ALT_RV_BORDER_POS < FLANK_B_START_POS  ~ 0, #if backbone
+                                        TRUE ~ delRelativeEnd))%>%
+             #correct in the case that the delsize is larger than the maximum allowed delsize.
+        mutate(Translocation_del_resolved = case_when(delRelativeEnd > MAXTARGETLENGTH ~ FALSE,
+                                                    TRUE ~ Translocation_del_resolved),
+               delRelativeEnd = case_when(delRelativeEnd > MAXTARGETLENGTH ~ 0,
+                                          TRUE ~ delRelativeEnd),
+             delSize = case_when(delSize == ERROR_NUMBER ~ (delRelativeStart*-1)+delRelativeEnd,
+                                 TRUE ~ delSize)) %>%
+      
+      
+      
+      #Add a Subject and Type column. Also add two extra columns for SIQplotteR that are equal to the other del columns.
     mutate(
       Subject = FOCUS_LOCUS,
       Type = case_when(
@@ -935,6 +974,8 @@ for (i in row.names(sample_info)){
       delRelativeStartTD = delRelativeStart,
       delRelativeEndTD = delRelativeEnd
     ) %>%
+      
+    
     
     #select the most important columns
     select(
@@ -969,7 +1010,9 @@ for (i in row.names(sample_info)){
       FAKE_DELIN_CHECK,
       MATE_FLANK_B_CHROM_AGREE,
       MATE_FLANK_B_CHROM,
-      FLANK_A_END_POS
+      FLANK_A_END_POS,
+      Translocation,
+      Translocation_del_resolved
     ) 
     
 
@@ -993,11 +1036,12 @@ for (i in row.names(sample_info)){
   
   data_improved10 = left_join(data_improved8, data_improved9, by = "FILE_NAME") %>%
     mutate(fraction = ReadCount / ReadCountTotal) %>%
+    #add columns for all the input options and software version
     mutate(countReadsTotal = NULL,
            FlankAUltEnd = FlankAUltEnd,
            FlankBUltStart = FlankBUltStart,
-           FLANK_A_ORIENT = FLANK_A_ORIENT,
-           FOCUS_CONTIG = FOCUS_CONTIG,
+           Flank_A_orient = FLANK_A_ORIENT,
+           Focus_contig = FOCUS_CONTIG,
            Genotype = Genotype,
            DNASample = DNASample,
            Ecotype = Ecotype,
@@ -1009,7 +1053,14 @@ for (i in row.names(sample_info)){
            RemoveNonTranslocation = REMOVENONTRANS,
            GroupSamePosition = GROUPSAMEPOS,
            Primer_match_perfect = Primer_match_perfect,
-           Alias = paste0(Library, "_", RunID))
+           Alias = paste0(Library, "_", RunID),
+           Target_contig = TARGET_CONTIG,
+           Target_alt_contig = TARGET_ALT_CONTIG,
+           Target_fw_border_pos = TARGET_FW_BORDER_POS,
+           Target_rv_border_pos = TARGET_RV_BORDER_POS,
+           Target_alt_fw_border_pos = TARGET_ALT_FW_BORDER_POS,
+           Target_alt_rv_border_pos = TARGET_ALT_RV_BORDER_POS,
+           MAXTARGETLENGTH = MAXTARGETLENGTH)
   
 
   #write an excel sheet as output
@@ -1103,7 +1154,7 @@ if (REMOVEPROBLEMS == TRUE) {
   message("combining junctions with similar positions")
   #combine junctions with similar positions and get the characteristics of the consensus event from the event the most anchors 
   total_data_near_positioncombined = total_data_positioncompare %>%
-    group_by(Alias, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, DNASample, Subject, ID, FOCUS_CONTIG, Genotype, Ecotype, Plasmid_alt, Family, FlankAUltEnd, FlankBUltStart, AgroGeno, RemoveNonTranslocation, GroupSamePosition)%>%
+    group_by(Alias, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, DNASample, Subject, ID, FOCUS_CONTIG, Genotype, Ecotype, Plasmid_alt, Family, FlankAUltEnd, FlankBUltStart, AgroGeno, RemoveNonTranslocation, GroupSamePosition, Translocation, Translocation_del_resolved)%>%
     summarize(AnchorCountSum = sum(AnchorCount), 
               ReadCountSum = sum(ReadCount),
               FLANK_B_START_POS_CON = as.integer(FLANK_B_START_POS[which.max(AnchorCount)]),
@@ -1215,13 +1266,13 @@ if (REMOVEPROBLEMS == TRUE) {
 
 wb_flag2 = wb_flag %>%
   mutate(RemoveProblematicEvents = REMOVEPROBLEMS)%>%
-  #add homology color info for SIQplotteR
-  mutate(getHomologyColor = case_when(homologyLength == -1 ~ "grey",
-                                      homologyLength == 0 ~ "#C9DDF2",
-                                      homologyLength == 1 ~ "#6899D0",
-                                      homologyLength == 2 ~ "#0D99B2",
-                                      homologyLength > 2 ~ "#054E61",
-                                      TRUE ~ "orange"))
+  #add/ change several things for compatibility with SIQplotteR
+  mutate(getHomologyColor = "dummy",
+         Barcode = "dummy")%>%
+  rename(countEvents = ReadCount,
+         insertion = FILLER,
+         homology = MH)
+
 
 message("Writing output")
 work_book2 <- createWorkbook()

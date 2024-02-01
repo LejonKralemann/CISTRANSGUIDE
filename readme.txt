@@ -26,29 +26,37 @@ Sample_information
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 You need to create a file named "Sample_information.txt". This file needs to have one row per sample, each with the fields indicated below. Include a header row.
 
-Sample:			The name of the library sample. Example: "7C1_LB". This name should in principle be unique. If the samples have been sequenced multiple times, they can have the same name, as long as the RunID is different.
-Primer:			The secondary GUIDEseq primer sequence (GSP2). Use 'NA' in fasta mode.
-File_name:		The part before "_R1.fastq.gz" or "_R2.fastq.gz". This name needs to be unique in this list.
-Ref:			The genome reference file name, containing all the chromosomes, as well as the plasmid sequence(s). Example: "pCAS-PPO.fa".
-P5_adapter:		Enter the full P5 adapter primer, without special characters, in upper case. Degenerate bases allowed but will be automatically changed to N. Use 'NA' in fasta mode.
-P7_adapter:		Enter the full p7 adapter primer, without special characters, in upper case. Degenerate bases allowed but will be automatically changed to N. Use 'NA' in fasta mode.
-Plasmid:		The name of the plasmid as written in the reference file. Example: "pCAS-PPO".
-DSB_chrom:		The chromosome or plasmid on which the primer sequence is located, should agree with the name in the reference fasta. Example:"Chr4".
-FlankAUltEnd:	The position on the DSB_chrom where flank A ends (if there are multiple possibilities, take the furthest downstream). Flank A is the flank starting with the primer. Flank A and Flank B may overlap.
-Locus_name: 	A name denoting the locus in which a DSB is created, or T-DNA border that is focused on.
-FLANK_A_ORIENT: The orientation of the primer and thus of flank A, relative to the reference genome sequence. FW or RV.
-FlankBUltStart:	The position on the DSB chrom on where flank B starts (if there are multiple possibilities, take the furthest upstream). Flank B is the flank after the nick or DSB. Flank B and flank A may overlap.
-Genotype: 		The name of the genotype of the organism that was sampled.
-Plasmid_alt: 	The name of the second plasmid, if a transformation with multiple plasmids has been performed. Enter "NA" if you only used 1 plasmid.
-DNA: 			Name of the DNA sample from which libraries were made. Often one DNA sample is used to do an LB, RB, FW, and RV reaction. Example: "7C1".
-RunID: 			Name of the sequencing run. This allows one to differentiate between samples that were sequenced multiple times, or to limit comparisons within runs to avoid effects of different sequencing depths between runs.
-LBSeq: 			Currently not in use
-RBSeq: 			Currently not in use
-Ecotype: 		The name of the ecotype of the organism that was samples. E.g. "Col-0".
-R1Suffix: 		The part of the filename after File_name, but before the extention .fastq.gz, for read 1 (the read sequenced from the p5 adapter).
-R2Suffix: 		The part of the filename after File_name, but before the extention .fastq.gz, for read 2 (the read sequenced from the p7 adapter).
-UMISuffix: 		The part of the filename after File_name, but before the extention .fastq.gz, for the UMI.
-Family:			Indicate here if some samples are related and therefore junctions can occur in multiple samples. Use integers starting from "1". Use "0" in all rows not to include family information. This information is used to keep some junctions which otherwise would be filtered out by the duplicate position filter. 
+Sample:						The name of the library sample. Example: "7C1_LB". This name should in principle be unique. If the samples have been sequenced multiple times, they can have the same name, as long as the RunID is different.
+Primer:						The secondary GUIDEseq primer sequence (GSP2). Use 'NA' in fasta mode.
+File_name:					The part before "_R1.fastq.gz" or "_R2.fastq.gz". This name needs to be unique in this list.
+Ref:						The genome reference file name, containing all the chromosomes, as well as the plasmid sequence(s). Example: "pCAS-PPO.fa".
+P5_adapter:					Enter the full P5 adapter primer, without special characters, in upper case. Degenerate bases allowed but will be automatically changed to N. Use 'NA' in fasta mode.
+P7_adapter:					Enter the full p7 adapter primer, without special characters, in upper case. Degenerate bases allowed but will be automatically changed to N. Use 'NA' in fasta mode.
+Plasmid:					The name of the plasmid as written in the reference file. Example: "pCAS-PPO".
+Focus_chrom:				The chromosome or plasmid on which the primer sequence is located, should agree with the name in the reference fasta. Example:"Chr4".
+Target_chrom				The transformed plasmid (in case the focus is on an induced DSB) or the chromosome that has the induced DSB (in case the focus is on the plasmid). Use 'NA' if not applicable.
+Target_alt_chrom:			Same as previous, but an alternative plasmid (in case double transformation) or alternative break (in case of dual break induction).
+FlankAUltEnd:				The position on the DSB_chrom where flank A ends (if there are multiple possibilities, take the furthest downstream). Flank A is the flank starting with the primer. Flank A and Flank B may overlap.
+Locus_name: 				A name denoting the locus in which a DSB is created, or T-DNA border that is focused on.
+FLANK_A_ORIENT: 			The orientation of the primer and thus of flank A, relative to the reference genome sequence. FW or RV.
+FlankBUltStart:				The position on the DSB chrom on where flank B starts (if there are multiple possibilities, take the furthest upstream). Flank B is the flank after the nick or DSB. Flank B and flank A may overlap.
+Genotype: 					The name of the genotype of the organism that was sampled.
+Plasmid_alt: 				The name of the second plasmid, if a transformation with multiple plasmids has been performed. Enter "NA" if you only used 1 plasmid.
+DNA: 						Name of the DNA sample from which libraries were made. Often one DNA sample is used to do an LB, RB, FW, and RV reaction. Example: "7C1".
+RunID: 						Name of the sequencing run. This allows one to differentiate between samples that were sequenced multiple times, or to limit comparisons within runs to avoid effects of different sequencing depths between runs.
+LBSeq: 						Currently not in use
+RBSeq: 						Currently not in use
+Ecotype: 					The name of the ecotype of the organism that was sampled. E.g. "Col-0".
+R1Suffix: 					The part of the filename after File_name, but before the extention .fastq.gz, for read 1 (the read sequenced from the p5 adapter).
+R2Suffix: 					The part of the filename after File_name, but before the extention .fastq.gz, for read 2 (the read sequenced from the p7 adapter).
+UMISuffix: 					The part of the filename after File_name, but before the extention .fastq.gz, for the UMI.
+Family:						Indicate here if some samples are related and therefore junctions can occur in multiple samples. Use integers starting from "1". Use "0" in all rows not to include family information. This information is used to keep some junctions which otherwise would be filtered out by the duplicate position filter. 
+AgroGeno:					Genotype/strain of Agrobacterium that was used in the transformation.
+Target_fw_border_pos:		The position of the 5'/ FW border of the target contig (e.g. the 5' end of the T-DNA, or the position on the right side of the induced DSB.
+Target_rv_border_pos:		Same as previous, but then the other side.
+Target_alt_fw_border_pos:	Same as Target_fw_border_pos, but then for the Target_alt.
+Target_alt_rv_border_pos:	Same as previous, but then the other side.
+
 
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 General notes
@@ -65,3 +73,5 @@ General notes
 About the output
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 In the case of microhomology, the output gives you the end of flank A and flank B including the microhomology.
+
+countEvents:	the number of read pairs associated with this event

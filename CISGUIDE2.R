@@ -311,7 +311,7 @@ for (i in row.names(sample_info)){
   
   data_improved_a  = data %>%
     
-    #filter(QNAME == "M02948:216:000000000-KB5K4:1:2118:16827:9899")%>%
+    #filter(QNAME == "A01685:159:H2YHFDSX7:2:2267:31439:18051")%>%
     
     #Count number of Ns and remove any reads with Ns
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
@@ -862,6 +862,7 @@ for (i in row.names(sample_info)){
         Count_consensus = max(table(SEQ_1)),
         AnchorCount = n_distinct(MATE_B_END_POS_list),
         SEQ_2_con = names(which.max(table(SEQ_2_first))),
+        #select the extreme mate positions
         MATE_B_END_POS_max = max(as.integer(MATE_B_END_POS_list)),
         MATE_B_END_POS_min = min(as.integer(MATE_B_END_POS_list)),
         .groups="drop"
@@ -890,6 +891,7 @@ for (i in row.names(sample_info)){
             AnchorCount = n_distinct(MATE_B_END_POS_list),
             SEQ_1_con = names(which.max(table(SEQ_1_trimmed))),
             SEQ_2_con = names(which.max(table(SEQ_2_first))),
+            #select the extreme mate positions
             MATE_B_END_POS_max = max(as.integer(MATE_B_END_POS_list)),
             MATE_B_END_POS_min = min(as.integer(MATE_B_END_POS_list)),
             delRelativeStart_con = names(which.max(table(delRelativeStart))),
@@ -926,8 +928,8 @@ for (i in row.names(sample_info)){
     data_improved8 =data_improved8pre2 %>%
       
       #then calculate the difference between start of flank B (in the read) and the position of of flank B at the end of the mate.
-      mutate(ANCHOR_DIST = case_when(FLANK_B_ORIENT=="FW" & FLANK_B_CHROM == MATE_FLANK_B_CHROM & MATE_B_END_POS_max > FLANK_B_START_POS ~ as.integer(MATE_B_END_POS_max - FLANK_B_START_POS),
-                                     FLANK_B_ORIENT=="RV" & FLANK_B_CHROM == MATE_FLANK_B_CHROM & FLANK_B_START_POS > MATE_B_END_POS_min ~ as.integer(FLANK_B_START_POS - MATE_B_END_POS_min),
+      mutate(ANCHOR_DIST = case_when(FLANK_B_ORIENT=="FW" & FLANK_B_CHROM == MATE_FLANK_B_CHROM & MATE_B_END_POS_max > FLANK_B_START_POS ~ as.integer(1+MATE_B_END_POS_max - FLANK_B_START_POS),
+                                     FLANK_B_ORIENT=="RV" & FLANK_B_CHROM == MATE_FLANK_B_CHROM & FLANK_B_START_POS > MATE_B_END_POS_min ~ as.integer(1+FLANK_B_START_POS - MATE_B_END_POS_min),
                                      TRUE ~ NF_NUMBER)) %>%
     
     

@@ -375,7 +375,7 @@ for (i in row.names(sample_info)){
   
   data_improved_a  = data %>%
     
-    #filter(QNAME == "A01685:159:H2YHFDSX7:2:2267:31439:18051")%>%
+    #filter(QNAME == "A01685:194:HHCVJDSX7:3:2532:20690:21449")%>%
     
     #Count number of Ns and remove any reads with Ns
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
@@ -1004,7 +1004,7 @@ for (i in row.names(sample_info)){
                                        TRUE ~ FALSE))%>%
       mutate(Translocation_del_resolved = case_when(
                 (FOCUS_LOCUS == "LB" | FOCUS_LOCUS == "RB") & FLANK_B_CHROM == DSB_CONTIG ~ TRUE, #if transguide, del can be calculated on the induced genomic break locus
-                
+                Translocation == TRUE & FOCUS_LOCUS != "LB" & FOCUS_LOCUS != "RB" & FLANK_B_CHROM == DSB_CONTIG ~ TRUE, #translocation with the same chromosome
                 Translocation == TRUE & FLANK_B_CHROM == PLASMID & TDNA_IS_LBRB == TRUE & FLANK_B_START_POS >= TDNA_LB_END & FLANK_B_START_POS <= TDNA_RB_END ~ TRUE, #if cisguide or transguide with translocation, and within the T-DNA
                 Translocation == TRUE & FLANK_B_CHROM == PLASMID & TDNA_IS_LBRB == FALSE & FLANK_B_START_POS >= TDNA_RB_END & FLANK_B_START_POS <= TDNA_LB_END ~ TRUE, #if cisguide or transguide with translocation, and within the T-DNA
                 Translocation == TRUE & FLANK_B_CHROM == PLASMID_ALT & TDNA_ALT_IS_LBRB == TRUE & FLANK_B_START_POS >= TDNA_ALT_LB_END & FLANK_B_START_POS <= TDNA_ALT_RB_END ~ TRUE, #if cisguide or transguide with translocation, and within the T-DNA_ALT
@@ -1013,6 +1013,10 @@ for (i in row.names(sample_info)){
              delRelativeEnd = case_when(
                (FOCUS_LOCUS == "LB" | FOCUS_LOCUS == "RB") & FLANK_B_CHROM == DSB_CONTIG & FLANK_B_ISFORWARD == TRUE & FLANK_B_START_POS >= (1+DSB_FW_END-DSB_OVERHANG) ~ FLANK_B_START_POS - (1+DSB_FW_END-DSB_OVERHANG),
                (FOCUS_LOCUS == "LB" | FOCUS_LOCUS == "RB") & FLANK_B_CHROM == DSB_CONTIG & FLANK_B_ISFORWARD == FALSE & DSB_FW_END >= FLANK_B_START_POS  ~ DSB_FW_END - FLANK_B_START_POS,
+               
+               Translocation == TRUE & FOCUS_LOCUS != "LB" & FOCUS_LOCUS != "RB" & FLANK_B_CHROM == DSB_CONTIG & FLANK_B_ORIENT == "FW" & FLANK_B_START_POS > (1+DSB_FW_END-DSB_OVERHANG) ~ (FLANK_B_START_POS - (1+DSB_FW_END-DSB_OVERHANG)), #if flank B is on right side of break
+               Translocation == TRUE & FOCUS_LOCUS != "LB" & FOCUS_LOCUS != "RB" & FLANK_B_CHROM == DSB_CONTIG & FLANK_B_ORIENT == "RV" & FLANK_B_START_POS < (DSB_FW_END+DSB_OVERHANG) ~ (DSB_FW_END+DSB_OVERHANG) - FLANK_B_START_POS, #if flank b is on left side of break
+               
                Translocation == TRUE & FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == TRUE & TDNA_IS_LBRB == TRUE & FLANK_B_START_POS >= TDNA_LB_END & FLANK_B_START_POS < TDNA_RB_END ~ FLANK_B_START_POS - TDNA_LB_END, #deletion from the LB
                Translocation == TRUE & FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == TRUE & TDNA_IS_LBRB == FALSE & FLANK_B_START_POS >= TDNA_RB_END & FLANK_B_START_POS < TDNA_LB_END ~ FLANK_B_START_POS - TDNA_RB_END, #deletion from the RB
                Translocation == TRUE & FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == FALSE & TDNA_IS_LBRB == TRUE & TDNA_RB_END >= FLANK_B_START_POS & TDNA_LB_END < FLANK_B_START_POS ~ TDNA_RB_END - FLANK_B_START_POS, #deletion from the RB

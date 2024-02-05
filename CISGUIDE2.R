@@ -7,6 +7,7 @@ if (require(stringdist)==FALSE){install.packages("stringdist", repos = "http://c
 if (require(tidyverse)==FALSE){install.packages("tidyverse", repos = "http://cran.us.r-project.org")}
 if (require(openxlsx)==FALSE){install.packages("openxlsx", repos = "http://cran.us.r-project.org")}
 
+
 ###############################################################################
 #set parameters - adjustable
 ###############################################################################
@@ -1164,7 +1165,7 @@ sample_list = list.files(path=output_dir, pattern = "CISTRANSGUIDE_V2.xlsx")
 wb = tibble()
 
 for (i in sample_list){
-  wb=bind_rows(wb, read.xlsx(paste0(output_dir, i)))
+  wb=bind_rows(wb, read.xlsx(paste0(output_dir, i))%>%select_if(function(x) !(all(is.na(x)) | all(x==""))))
 
 }
 

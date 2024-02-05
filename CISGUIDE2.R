@@ -20,6 +20,7 @@ REMOVEPROBLEMS=FALSE #if true it removes all problematic reads from the combined
 ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B.
 MAXTARGETLENGTH=10000 #this limits deletion calculation for when flank B is on the target chrom, but far away
+MAXANCHORDIST=5000
 
 ###############################################################################
 #set parameters - non-adjustable
@@ -179,10 +180,10 @@ for (i in row.names(sample_info)){
   DSB_OVERHANG = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DSB_OVERHANG)) #e.g. 1 if cas9, 5 if cas12a
   TDNA_LB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_LB_END))
   TDNA_RB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_RB_END))
-  TDNA_IS_LBRB = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_IS_LBRB))
+  TDNA_IS_LBRB = as.logical(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_IS_LBRB))
   TDNA_ALT_LB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_ALT_LB_END))
   TDNA_ALT_RB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_ALT_RB_END))
-  TDNA_ALT_IS_LBRB = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_ALT_IS_LBRB))
+  TDNA_ALT_IS_LBRB = as.logical(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_ALT_IS_LBRB))
   
   
   
@@ -994,28 +995,28 @@ for (i in row.names(sample_info)){
       mutate(ANCHOR_DIST = case_when(FLANK_B_ORIENT=="FW" & FLANK_B_CHROM == MATE_FLANK_B_CHROM & MATE_B_END_POS_max > FLANK_B_START_POS ~ as.integer(1+MATE_B_END_POS_max - FLANK_B_START_POS),
                                      FLANK_B_ORIENT=="RV" & FLANK_B_CHROM == MATE_FLANK_B_CHROM & FLANK_B_START_POS > MATE_B_END_POS_min ~ as.integer(1+FLANK_B_START_POS - MATE_B_END_POS_min),
                                      TRUE ~ NF_NUMBER)) %>%
-    
-    
+
       #determine whether there is a translocation, and if so, change some other variables to support translocation plotting in SIQplotteR.
       #in the case of T-DNA or other transfected DNA, the real end of the molecule is known, and in that case the deletion length can be determined
       #in other translocation cases the delRelativeEnd becomes 0 for practical plotting reasons, not because it is really 0 (it is unknowable).
       #if the T-DNA backbone, it will also be 0. Firstly because it is unclear whether the backbone got transferred via border skipping or as a separate "T-DNA", secondly because the map is linear and breaks in the backbone. The calculation therefore is more difficult.
       mutate(Translocation = case_when(delSize == ERROR_NUMBER ~ TRUE,
-                                       TRUE ~ FALSE),
-             Translocation_del_resolved = case_when(
-                (FOCUS_LOCUS == "LB" | FOCUS_LOCUS == "RB") & FLANK_B_CHROM == DSB_CONTIG ~ TRUE, #if transguide, del can be calculated when you make a break
-                FOCUS_LOCUS != "LB" & FOCUS_LOCUS != "RB" & FLANK_B_CHROM == PLASMID & TDNA_IS_LBRB == TRUE & FLANK_B_START_POS >= TDNA_LB_END & FLANK_B_START_POS <= TDNA_RB_END ~ TRUE, #if cisguide, and within the T-DNA
-                FOCUS_LOCUS != "LB" & FOCUS_LOCUS != "RB" & FLANK_B_CHROM == PLASMID & TDNA_IS_LBRB == FALSE & FLANK_B_START_POS >= TDNA_RB_END & FLANK_B_START_POS <= TDNA_LB_END ~ TRUE, #if cisguide, and within the T-DNA
-                FOCUS_LOCUS != "LB" & FOCUS_LOCUS != "RB" & FLANK_B_CHROM == PLASMID_ALT & TDNA_ALT_IS_LBRB == TRUE & FLANK_B_START_POS >= TDNA_ALT_LB_END & FLANK_B_START_POS <= TDNA_ALT_RB_END ~ TRUE, #if cisguide, and within the T-DNA_ALT
-                FOCUS_LOCUS != "LB" & FOCUS_LOCUS != "RB" & FLANK_B_CHROM == PLASMID_ALT & TDNA_ALT_IS_LBRB == FALSE & FLANK_B_START_POS >= TDNA_ALT_RB_END & FLANK_B_START_POS <= TDNA_ALT_LB_END ~ TRUE, #if cisguide, and within the T-DNA_ALT 
+                                       TRUE ~ FALSE))%>%
+      mutate(Translocation_del_resolved = case_when(
+                (FOCUS_LOCUS == "LB" | FOCUS_LOCUS == "RB") & FLANK_B_CHROM == DSB_CONTIG ~ TRUE, #if transguide, del can be calculated on the induced genomic break locus
+                
+                Translocation == TRUE & FLANK_B_CHROM == PLASMID & TDNA_IS_LBRB == TRUE & FLANK_B_START_POS >= TDNA_LB_END & FLANK_B_START_POS <= TDNA_RB_END ~ TRUE, #if cisguide or transguide with translocation, and within the T-DNA
+                Translocation == TRUE & FLANK_B_CHROM == PLASMID & TDNA_IS_LBRB == FALSE & FLANK_B_START_POS >= TDNA_RB_END & FLANK_B_START_POS <= TDNA_LB_END ~ TRUE, #if cisguide or transguide with translocation, and within the T-DNA
+                Translocation == TRUE & FLANK_B_CHROM == PLASMID_ALT & TDNA_ALT_IS_LBRB == TRUE & FLANK_B_START_POS >= TDNA_ALT_LB_END & FLANK_B_START_POS <= TDNA_ALT_RB_END ~ TRUE, #if cisguide or transguide with translocation, and within the T-DNA_ALT
+                Translocation == TRUE & FLANK_B_CHROM == PLASMID_ALT & TDNA_ALT_IS_LBRB == FALSE & FLANK_B_START_POS >= TDNA_ALT_RB_END & FLANK_B_START_POS <= TDNA_ALT_LB_END ~ TRUE, #if cisguide or transguide with translocation, and within the T-DNA_ALT 
                                          TRUE ~ FALSE), #else is some other genomic location or plasmid backbone
              delRelativeEnd = case_when(
                (FOCUS_LOCUS == "LB" | FOCUS_LOCUS == "RB") & FLANK_B_CHROM == DSB_CONTIG & FLANK_B_ISFORWARD == TRUE & FLANK_B_START_POS >= (1+DSB_FW_END-DSB_OVERHANG) ~ FLANK_B_START_POS - (1+DSB_FW_END-DSB_OVERHANG),
                (FOCUS_LOCUS == "LB" | FOCUS_LOCUS == "RB") & FLANK_B_CHROM == DSB_CONTIG & FLANK_B_ISFORWARD == FALSE & DSB_FW_END >= FLANK_B_START_POS  ~ DSB_FW_END - FLANK_B_START_POS,
-               FOCUS_LOCUS != "LB" & FOCUS_LOCUS != "RB" & FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == TRUE & TDNA_IS_LBRB == TRUE & FLANK_B_START_POS >= TDNA_LB_END & FLANK_B_START_POS < TDNA_RB_END ~ FLANK_B_START_POS - TDNA_LB_END, #deletion from the LB
-               FOCUS_LOCUS != "LB" & FOCUS_LOCUS != "RB" & FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == TRUE & TDNA_IS_LBRB == FALSE & FLANK_B_START_POS >= TDNA_RB_END & FLANK_B_START_POS < TDNA_LB_END ~ FLANK_B_START_POS - TDNA_RB_END, #deletion from the RB
-               FOCUS_LOCUS != "LB" & FOCUS_LOCUS != "RB" & FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == FALSE & TDNA_IS_LBRB == TRUE & TDNA_RB_END >= FLANK_B_START_POS & TDNA_LB_END < FLANK_B_START_POS ~ TDNA_RB_END - FLANK_B_START_POS, #deletion from the RB
-               FOCUS_LOCUS != "LB" & FOCUS_LOCUS != "RB" & FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == FALSE & TDNA_IS_LBRB == FALSE & TDNA_LB_END >= FLANK_B_START_POS & TDNA_RB_END < FLANK_B_START_POS ~ TDNA_LB_END - FLANK_B_START_POS, #deletion from the LB
+               Translocation == TRUE & FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == TRUE & TDNA_IS_LBRB == TRUE & FLANK_B_START_POS >= TDNA_LB_END & FLANK_B_START_POS < TDNA_RB_END ~ FLANK_B_START_POS - TDNA_LB_END, #deletion from the LB
+               Translocation == TRUE & FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == TRUE & TDNA_IS_LBRB == FALSE & FLANK_B_START_POS >= TDNA_RB_END & FLANK_B_START_POS < TDNA_LB_END ~ FLANK_B_START_POS - TDNA_RB_END, #deletion from the RB
+               Translocation == TRUE & FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == FALSE & TDNA_IS_LBRB == TRUE & TDNA_RB_END >= FLANK_B_START_POS & TDNA_LB_END < FLANK_B_START_POS ~ TDNA_RB_END - FLANK_B_START_POS, #deletion from the RB
+               Translocation == TRUE & FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == FALSE & TDNA_IS_LBRB == FALSE & TDNA_LB_END >= FLANK_B_START_POS & TDNA_RB_END < FLANK_B_START_POS ~ TDNA_LB_END - FLANK_B_START_POS, #deletion from the LB
                                         TRUE ~ delRelativeEnd))%>%
              #correct in the case that the delsize is larger than the maximum allowed delsize.
         mutate(Translocation_del_resolved = case_when(delRelativeEnd > MAXTARGETLENGTH ~ FALSE,
@@ -1126,9 +1127,9 @@ for (i in row.names(sample_info)){
            TDNA_LB_END = TDNA_LB_END,
            TDNA_RB_END = TDNA_RB_END,
            TDNA_IS_LBRB = TDNA_IS_LBRB,
-           TDNA_ALT_LB_END = TDNA_LB_END,
-           TDNA_ALT_RB_END = TDNA_RB_END,
-           TDNA_ALT_IS_LBRB = TDNA_IS_LBRB,
+           TDNA_ALT_LB_END = TDNA_ALT_LB_END,
+           TDNA_ALT_RB_END = TDNA_ALT_RB_END,
+           TDNA_ALT_IS_LBRB = TDNA_ALT_IS_LBRB,
            MAXTARGETLENGTH = MAXTARGETLENGTH)
   
 
@@ -1170,6 +1171,7 @@ if (REMOVEPROBLEMS == TRUE) {
     #first remove problematic events based on characteristics of the events themselves
     filter(AnchorCount >= ANCHORCUTOFF,
            ANCHOR_DIST >= MINANCHORDIST,
+           ANCHOR_DIST <= MAXANCHORDIST,
            Consensus_freq >= 0.75,
            MATE_FLANK_B_CHROM_AGREE == TRUE,
            FAKE_DELIN_CHECK == FALSE,

@@ -15,9 +15,9 @@ input_dir= "./input/"
 output_dir= "./output/"
 MAX_DIST_FLANK_B_END = 10000 #distance from end of flank B to DSB, determines max deletion size and also affects maximum insertion size
 LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick to determine locus info
-GROUPSAMEPOS=FALSE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
-REMOVEPROBLEMS=FALSE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
+GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
+REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
 ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B.
 MAXTARGETLENGTH=10000 #this limits deletion calculation for when flank B is on the target chrom, but far away
@@ -959,35 +959,34 @@ for (i in row.names(sample_info)){
             #select the extreme mate positions
             MATE_B_END_POS_max = max(as.integer(MATE_B_END_POS_list)),
             MATE_B_END_POS_min = min(as.integer(MATE_B_END_POS_list)),
-            delRelativeStart_con = names(which.max(table(delRelativeStart))),
-            delRelativeEnd_con = names(which.max(table(delRelativeEnd))),
-            FLANK_A_END_POS_con = names(which.max(table(FLANK_A_END_POS))),
+            delRelativeStart_con = as.integer(names(which.max(table(delRelativeStart)))),
+            delRelativeEnd_con = as.integer(names(which.max(table(delRelativeEnd)))),
+            FLANK_A_END_POS_con = as.integer(names(which.max(table(FLANK_A_END_POS)))),
             FILLER_con = names(which.max(table(FILLER))),
             MH_con =names(which.max(table(MH))),
-            insSize_con = names(which.max(table(insSize))),
-            delSize_con = names(which.max(table(delSize))),
-            homologyLength_con = names(which.max(table(homologyLength))),
-            FAKE_DELIN_CHECK_con = names(which.max(table(FAKE_DELIN_CHECK))),
-            DSB_AREA_INTACT_con = names(which.max(table(DSB_AREA_INTACT))),
-            DSB_AREA_1MM_con = names(which.max(table(DSB_AREA_1MM))),
-            DSB_HIT_MULTI_con = names(which.max(table(DSB_HIT_MULTI))),
+            insSize_con = as.integer(names(which.max(table(insSize)))),
+            delSize_con = as.integer(names(which.max(table(delSize)))),
+            homologyLength_con = as.integer(names(which.max(table(homologyLength)))),
+            FAKE_DELIN_CHECK_con = as.logical(names(which.max(table(FAKE_DELIN_CHECK)))),
+            DSB_AREA_INTACT_con = as.logical(names(which.max(table(DSB_AREA_INTACT)))),
+            DSB_AREA_1MM_con = as.logical(names(which.max(table(DSB_AREA_1MM)))),
+            DSB_HIT_MULTI_con = as.logical(names(which.max(table(DSB_HIT_MULTI)))),
             .groups="drop"
           )%>%
           mutate(Consensus_freq = Count_consensus/ReadCount)%>%
           #rename columns to that code below is compatible with TRANS and CISGUIDE
-          rename(delRelativeStart = delRelativeStart_con,
-                 delRelativeEnd = delRelativeEnd_con,
-                 FILLER = FILLER_con,
+          rename(FILLER = FILLER_con,
                  MH = MH_con,
-                 insSize = insSize_con,
-                 delSize = delSize_con,
-                 homologyLength = homologyLength_con,
                  FAKE_DELIN_CHECK = FAKE_DELIN_CHECK_con,
                  DSB_AREA_INTACT = DSB_AREA_INTACT_con,
                  DSB_AREA_1MM = DSB_AREA_1MM_con,
                  DSB_HIT_MULTI = DSB_HIT_MULTI_con,
-                 FLANK_A_END_POS = FLANK_A_END_POS_con
-                 )
+                 delRelativeStart = delRelativeStart_con,
+                 delRelativeEnd = delRelativeEnd_con,
+                 insSize = insSize_con,
+                 delSize = delSize_con,
+                 homologyLength = homologyLength_con,
+                 FLANK_A_END_POS = FLANK_A_END_POS_con)
       }
         
     data_improved8 =data_improved8pre2 %>%
@@ -1010,8 +1009,8 @@ for (i in row.names(sample_info)){
                 Translocation == TRUE & FLANK_B_CHROM == PLASMID & TDNA_IS_LBRB == FALSE & FLANK_B_START_POS >= TDNA_RB_END & FLANK_B_START_POS <= TDNA_LB_END ~ TRUE, #if cisguide or transguide with translocation, and within the T-DNA
                 Translocation == TRUE & FLANK_B_CHROM == PLASMID_ALT & TDNA_ALT_IS_LBRB == TRUE & FLANK_B_START_POS >= TDNA_ALT_LB_END & FLANK_B_START_POS <= TDNA_ALT_RB_END ~ TRUE, #if cisguide or transguide with translocation, and within the T-DNA_ALT
                 Translocation == TRUE & FLANK_B_CHROM == PLASMID_ALT & TDNA_ALT_IS_LBRB == FALSE & FLANK_B_START_POS >= TDNA_ALT_RB_END & FLANK_B_START_POS <= TDNA_ALT_LB_END ~ TRUE, #if cisguide or transguide with translocation, and within the T-DNA_ALT 
-                                         TRUE ~ FALSE), #else is some other genomic location or plasmid backbone
-             delRelativeEnd = case_when(
+                                         TRUE ~ FALSE))%>% #else is some other genomic location or plasmid backbone
+    mutate(delRelativeEnd = case_when(
                (FOCUS_LOCUS == "LB" | FOCUS_LOCUS == "RB") & FLANK_B_CHROM == DSB_CONTIG & FLANK_B_ISFORWARD == TRUE & FLANK_B_START_POS >= (1+DSB_FW_END-DSB_OVERHANG) ~ FLANK_B_START_POS - (1+DSB_FW_END-DSB_OVERHANG),
                (FOCUS_LOCUS == "LB" | FOCUS_LOCUS == "RB") & FLANK_B_CHROM == DSB_CONTIG & FLANK_B_ISFORWARD == FALSE & DSB_FW_END >= FLANK_B_START_POS  ~ DSB_FW_END - FLANK_B_START_POS,
                

@@ -1161,12 +1161,24 @@ for (i in row.names(sample_info)){
 ###############################################################################
 
 sample_list = list.files(path=output_dir, pattern = "CISTRANSGUIDE_V2.xlsx")
-wb = tibble()
+wb_pre = tibble()
 
 for (i in sample_list){
-  wb=bind_rows(wb, read.xlsx(paste0(output_dir, i))%>%select_if(function(x) !(all(is.na(x)) | all(x==""))))
+  wb_pre=bind_rows(wb_pre, read.xlsx(paste0(output_dir, i)) %>% select_if(function(x) !(all(is.na(x)) | all(x==""))))
 
 }
+#in case the following columns are NA, they will not have been imported from the excel. I therefore need to add them. But also allowing the possibility that they are already there.
+missing_columns = wb_pre %>%
+  select(Name) %>%
+  mutate(Plasmid_alt = NA,
+         DSB_FW_END = NA,
+         DSB_OVERHANG = NA,
+         DSB_CONTIG = NA,
+         TDNA_ALT_LB_END = NA,
+         TDNA_ALT_RB_END = NA,
+         TDNA_ALT_IS_LBRB = NA)
+
+wb = left_join(wb_pre, missing_columns)
 
 #remove previously marked problematic events as well as duplicate positions
 if (REMOVEPROBLEMS == TRUE) {
@@ -1232,7 +1244,7 @@ if (REMOVEPROBLEMS == TRUE) {
   message("combining junctions with similar positions")
   #combine junctions with similar positions and get the characteristics of the consensus event from the event the most anchors 
   total_data_near_positioncombined = total_data_positioncompare %>%
-    group_by(Alias, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, DNASample, Subject, ID, FOCUS_CONTIG, Genotype, Ecotype, Plasmid_alt, Family, FlankAUltEnd, FlankBUltStart, AgroGeno, RemoveNonTranslocation, GroupSamePosition, Translocation, Translocation_del_resolved, Primer_match_perfect, DSB_FW_END, DSB_OVERHANG, DSB_CONTIG, TDNA_LB_END, TDNA_RB_END, TDNA_IS_LBRB, TDNA_ALT_LB_END, TDNA_ALT_RB_END, TDNA_ALT_IS_LBRB, MAXTARGETLENGTH)%>%
+    group_by(Alias, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, DNASample, Subject, ID, Focus_contig, Genotype, Ecotype, Plasmid_alt, Family, FlankAUltEnd, FlankBUltStart, AgroGeno, RemoveNonTranslocation, GroupSamePosition, Translocation, Translocation_del_resolved, Primer_match_perfect, DSB_FW_END, DSB_OVERHANG, DSB_CONTIG, TDNA_LB_END, TDNA_RB_END, TDNA_IS_LBRB, TDNA_ALT_LB_END, TDNA_ALT_RB_END, TDNA_ALT_IS_LBRB, MAXTARGETLENGTH)%>%
     summarize(AnchorCountSum = sum(AnchorCount), 
               ReadCountSum = sum(ReadCount),
               FLANK_B_START_POS_CON = as.integer(FLANK_B_START_POS[which.max(AnchorCount)]),
@@ -1268,7 +1280,8 @@ if (REMOVEPROBLEMS == TRUE) {
            SEQ_1_con = SEQ_1_con_CON,
            SEQ_2_con = SEQ_2_con_CON,
            RunID = RunID_CON,
-           TRIM_LEN = TRIM_LEN_CON)
+           TRIM_LEN = TRIM_LEN_CON,
+           ReadCount = ReadCountSum)
 
   #get a list of families
   wb_family = sample_info2 %>% select(Family) %>% distinct() %>% filter(Family!=0)

@@ -29,7 +29,7 @@ You need to create a file named "Sample_information.txt". This file needs to hav
 Sample:						The name of the library sample. Example: "7C1_LB". This name should in principle be unique. If the samples have been sequenced multiple times, they can have the same name, as long as the RunID is different.
 Primer:						The secondary GUIDEseq primer sequence (GSP2). Use 'NA' in fasta mode.
 File_name:					The part before "_R1.fastq.gz" or "_R2.fastq.gz". This name needs to be unique in this list.
-Ref:						The genome reference file name, containing all the chromosomes, as well as the plasmid sequence(s). Example: "pCAS-PPO.fa".
+Ref:						The genome reference file name, containing all the chromosomes, as well as the plasmid sequence(s). Example: "pCAS-PPO.fa". Note that the Plasmid sequence in the ref should "break" in the backbone part, not in the T-DNA part.
 P5_adapter:					Enter the full P5 adapter primer, without special characters, in upper case. Degenerate bases allowed but will be automatically changed to N. Use 'NA' in fasta mode.
 P7_adapter:					Enter the full p7 adapter primer, without special characters, in upper case. Degenerate bases allowed but will be automatically changed to N. Use 'NA' in fasta mode.
 Plasmid:					The name of the plasmid as written in the reference file. Example: "pCAS-PPO".
@@ -53,7 +53,7 @@ AgroGeno:					Genotype/strain of Agrobacterium that was used in the transformati
 TDNA_IS_LBRB:				Indicate whether the reference contains the T-DNA in LB:RB orientation (TRUE or FALSE)
 TDNA_ALT_LB_END:			LB position on the alternative T-DNA plasmid. "NA" if no alternative plasmid.
 TDNA_ALT_RB_END:			Same as previous but for RB.
-TDNA_ALT_IS_LBRB:			Indicates whether alternative plasmid is in LB:RB orientation in the reference.
+TDNA_ALT_IS_LBRB:			Indicates whether alternative plasmid is in LB:RB orientation in the reference. "NA" if no alternative plasmid.
 
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 General notes

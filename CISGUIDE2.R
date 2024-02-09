@@ -7,6 +7,7 @@ if (require(stringdist)==FALSE){install.packages("stringdist", repos = "http://c
 if (require(tidyverse)==FALSE){install.packages("tidyverse", repos = "http://cran.us.r-project.org")}
 if (require(openxlsx)==FALSE){install.packages("openxlsx", repos = "http://cran.us.r-project.org")}
 
+
 ###############################################################################
 #set parameters - adjustable
 ###############################################################################
@@ -15,10 +16,13 @@ output_dir= "./output/"
 MAX_DIST_FLANK_B_END = 10000 #distance from end of flank B to DSB, determines max deletion size and also affects maximum insertion size
 LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick to determine locus info
 GROUPSAMEPOS=FALSE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
 REMOVEPROBLEMS=FALSE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
+CONVERTWT=TRUE #if true, it sets delRelativeStart, delRelativeEnd, insSize, delSize, homologyLength all to 0, and Translocation to FALSE when Type is WT. For troubleshooting this option should be set to FALSE. For SIQplotteR it should be TRUE.
 ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B.
+MAXTARGETLENGTH=10000 #this limits deletion calculation for when flank B is on the target chrom, but far away
+MAXANCHORDIST=5000
 
 ###############################################################################
 #set parameters - non-adjustable
@@ -131,8 +135,13 @@ message("Checking file and reading metadata")
 
 #check whether input file exists
 for (i in row.names(sample_info)){
+  
+  ####################  general variables acquired from the information sheet  #####################
+  
   Sample = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Sample))
   RunID = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(RunID))
+  
+  ####################  check for existence of files  #####################
   
   if (file.exists(paste0(input_dir, Sample, "_", RunID, "_A.txt"))==FALSE){
     message("Primary processed file not found, moving to the next sample")
@@ -155,19 +164,80 @@ for (i in row.names(sample_info)){
     next
   }
   
-  FOCUS_CONTIG = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DSB_chrom))
-  FOCUS_LOCUS = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Locus_name))
+  ####################  continue general variables acquired from the information sheet  #####################
+  
+  DSB_CONTIG = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DSB_CONTIG))#chromosome name or NA
+  FOCUS_LOCUS = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Locus_name))#LB or RB if TRANSGUIDE, or a name of a locus if CISGUIDE
   Genotype = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Genotype))
   PLASMID = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Plasmid))
   PLASMID_ALT = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Plasmid_alt))
   REF = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Ref))
-  FlankAUltEnd = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(FlankAUltEnd))
-  FlankBUltStart = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(FlankBUltStart))
   DNASample = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DNA))
   Ecotype = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Ecotype))
   Library = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Sample))
   AgroGeno = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(AgroGeno))
+  FLANK_A_ORIENT = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(FLANK_A_ORIENT))
+  Primer_seq = str_replace_all(toupper(as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Primer))), "TCAGACGTGTGCTCTTCCGATCT", "")
+  DSB_FW_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DSB_FW_END)) #end of left flank before DSB
+  DSB_OVERHANG = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DSB_OVERHANG)) #e.g. 1 if cas9, 5 if cas12a
+  TDNA_LB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_LB_END))
+  TDNA_RB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_RB_END))
+  TDNA_IS_LBRB = as.logical(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_IS_LBRB))
+  TDNA_ALT_LB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_ALT_LB_END))
+  TDNA_ALT_RB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_ALT_RB_END))
+  TDNA_ALT_IS_LBRB = as.logical(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_ALT_IS_LBRB))
   
+  
+  
+
+  ####################  calculated general variables  #####################
+  
+  if (FOCUS_LOCUS == "LB"){
+    FlankAUltEnd = TDNA_LB_END
+    FOCUS_CONTIG = PLASMID
+    if (FLANK_A_ORIENT == "FW"){
+      if (TDNA_IS_LBRB == TRUE){
+        message("T-DNA orientation conflict. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
+        next 
+      }
+      FlankBUltStart = TDNA_LB_END + 1
+    }else{
+      if (TDNA_IS_LBRB == FALSE){
+        message("T-DNA orientation conflict. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
+        next 
+      }
+      FlankBUltStart = TDNA_LB_END - 1
+    }
+  }else if (FOCUS_LOCUS == "RB"){
+    FlankAUltEnd = TDNA_RB_END  
+    FOCUS_CONTIG = PLASMID
+    if (FLANK_A_ORIENT == "FW"){
+      if (TDNA_IS_LBRB == FALSE){
+        message("T-DNA orientation conflict. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
+        next 
+      }
+      FlankBUltStart = TDNA_RB_END + 1
+    }else{
+      if (TDNA_IS_LBRB == TRUE){
+        message("T-DNA orientation conflict. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
+        next 
+      }
+      FlankBUltStart = TDNA_RB_END - 1
+    }
+  }else {
+    FOCUS_CONTIG = DSB_CONTIG
+    if (FLANK_A_ORIENT == "FW"){
+      FlankAUltEnd = DSB_FW_END
+      FlankBUltStart = (DSB_FW_END+1)-DSB_OVERHANG
+    }else{
+      FlankAUltEnd = (DSB_FW_END+1)-DSB_OVERHANG
+      FlankBUltStart = DSB_FW_END
+    }
+    }
+ 
+  Primer_seq_len = nchar(Primer_seq)
+  
+  ####################  REF checks  #####################
   
   if (file.exists(paste0(input_dir, REF))==FALSE){
     message("Reference fasta not found. Moving to next sample.")
@@ -182,12 +252,12 @@ for (i in row.names(sample_info)){
     message("Focus contig not found in reference fasta. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
     next 
   }
-  Primer_seq = str_replace_all(toupper(as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Primer))), "TCAGACGTGTGCTCTTCCGATCT", "")
-  Primer_seq_len = nchar(Primer_seq)
+  
+  ####################  continue calculated general variables  #####################
+  
   Primer_match = as.data.frame(matchPattern(pattern = Primer_seq, subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))
   Primer_RC_match = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(Primer_seq))), subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))
-  FLANK_A_ORIENT = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(FLANK_A_ORIENT))
-
+  
   DSB_AREA_SEQ = (if (FLANK_A_ORIENT == "FW"){
     substr(contig_seq, start= FlankAUltEnd - ((FLANK_B_LEN_MIN/2)-1), stop= FlankAUltEnd + (FLANK_B_LEN_MIN/2))
   }else if (FLANK_A_ORIENT == "RV"){
@@ -198,12 +268,13 @@ for (i in row.names(sample_info)){
   
   DSB_AREA_SEQ_RC = as.character(reverseComplement(DNAString(DSB_AREA_SEQ)))
   
+  ####################  Primer checks  #####################
+  
   if (Primer_seq != "NA"){
   FASTA_MODE = FALSE
   }else{
   FASTA_MODE = TRUE
-  message("Primer seq not found, running in fasta mode.")
-  }
+  message("Primer seq not found, running in fasta mode.")}
   
   if (FASTA_MODE == FALSE){
   if (FLANK_A_ORIENT == "FW"){
@@ -243,8 +314,10 @@ for (i in row.names(sample_info)){
   }else{
     next
   }
+    
+  ####################  continue calculated general variables  #####################  
+    
   #calculate the length from primer to DSB
-
   PRIMER_TO_DSB_GLOBAL = if (FLANK_A_ORIENT == "FW"){
     FlankAUltEnd - (Primer_pos -1)
   }else if (FLANK_A_ORIENT=="RV"){
@@ -304,7 +377,7 @@ for (i in row.names(sample_info)){
   
   data_improved_a  = data %>%
     
-    #filter(QNAME == "M02948:216:000000000-KB5K4:1:2118:16827:9899")%>%
+    #filter(QNAME == "A01685:194:HHCVJDSX7:3:2532:20690:21449")%>%
     
     #Count number of Ns and remove any reads with Ns
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
@@ -855,6 +928,7 @@ for (i in row.names(sample_info)){
         Count_consensus = max(table(SEQ_1)),
         AnchorCount = n_distinct(MATE_B_END_POS_list),
         SEQ_2_con = names(which.max(table(SEQ_2_first))),
+        #select the extreme mate positions
         MATE_B_END_POS_max = max(as.integer(MATE_B_END_POS_list)),
         MATE_B_END_POS_min = min(as.integer(MATE_B_END_POS_list)),
         .groups="drop"
@@ -883,47 +957,84 @@ for (i in row.names(sample_info)){
             AnchorCount = n_distinct(MATE_B_END_POS_list),
             SEQ_1_con = names(which.max(table(SEQ_1_trimmed))),
             SEQ_2_con = names(which.max(table(SEQ_2_first))),
+            #select the extreme mate positions
             MATE_B_END_POS_max = max(as.integer(MATE_B_END_POS_list)),
             MATE_B_END_POS_min = min(as.integer(MATE_B_END_POS_list)),
-            delRelativeStart_con = names(which.max(table(delRelativeStart))),
-            delRelativeEnd_con = names(which.max(table(delRelativeEnd))),
-            FLANK_A_END_POS_con = names(which.max(table(FLANK_A_END_POS))),
+            delRelativeStart_con = as.integer(names(which.max(table(delRelativeStart)))),
+            delRelativeEnd_con = as.integer(names(which.max(table(delRelativeEnd)))),
+            FLANK_A_END_POS_con = as.integer(names(which.max(table(FLANK_A_END_POS)))),
             FILLER_con = names(which.max(table(FILLER))),
             MH_con =names(which.max(table(MH))),
-            insSize_con = names(which.max(table(insSize))),
-            delSize_con = names(which.max(table(delSize))),
-            homologyLength_con = names(which.max(table(homologyLength))),
-            FAKE_DELIN_CHECK_con = names(which.max(table(FAKE_DELIN_CHECK))),
-            DSB_AREA_INTACT_con = names(which.max(table(DSB_AREA_INTACT))),
-            DSB_AREA_1MM_con = names(which.max(table(DSB_AREA_1MM))),
-            DSB_HIT_MULTI_con = names(which.max(table(DSB_HIT_MULTI))),
+            insSize_con = as.integer(names(which.max(table(insSize)))),
+            delSize_con = as.integer(names(which.max(table(delSize)))),
+            homologyLength_con = as.integer(names(which.max(table(homologyLength)))),
+            FAKE_DELIN_CHECK_con = as.logical(names(which.max(table(FAKE_DELIN_CHECK)))),
+            DSB_AREA_INTACT_con = as.logical(names(which.max(table(DSB_AREA_INTACT)))),
+            DSB_AREA_1MM_con = as.logical(names(which.max(table(DSB_AREA_1MM)))),
+            DSB_HIT_MULTI_con = as.logical(names(which.max(table(DSB_HIT_MULTI)))),
             .groups="drop"
           )%>%
           mutate(Consensus_freq = Count_consensus/ReadCount)%>%
           #rename columns to that code below is compatible with TRANS and CISGUIDE
-          rename(delRelativeStart = delRelativeStart_con,
-                 delRelativeEnd = delRelativeEnd_con,
-                 FILLER = FILLER_con,
+          rename(FILLER = FILLER_con,
                  MH = MH_con,
-                 insSize = insSize_con,
-                 delSize = delSize_con,
-                 homologyLength = homologyLength_con,
                  FAKE_DELIN_CHECK = FAKE_DELIN_CHECK_con,
                  DSB_AREA_INTACT = DSB_AREA_INTACT_con,
                  DSB_AREA_1MM = DSB_AREA_1MM_con,
                  DSB_HIT_MULTI = DSB_HIT_MULTI_con,
-                 FLANK_A_END_POS = FLANK_A_END_POS_con
-                 )
+                 delRelativeStart = delRelativeStart_con,
+                 delRelativeEnd = delRelativeEnd_con,
+                 insSize = insSize_con,
+                 delSize = delSize_con,
+                 homologyLength = homologyLength_con,
+                 FLANK_A_END_POS = FLANK_A_END_POS_con)
       }
         
     data_improved8 =data_improved8pre2 %>%
       
       #then calculate the difference between start of flank B (in the read) and the position of of flank B at the end of the mate.
-      mutate(ANCHOR_DIST = case_when(FLANK_B_ORIENT=="FW" & FLANK_B_CHROM == MATE_FLANK_B_CHROM ~ as.integer(MATE_B_END_POS_max - FLANK_B_START_POS),
-                                     FLANK_B_ORIENT=="RV" & FLANK_B_CHROM == MATE_FLANK_B_CHROM ~ as.integer(FLANK_B_START_POS - MATE_B_END_POS_min),
-                                     TRUE ~ ERROR_NUMBER)) %>%
-    
-    #Add a subject and type column. Also add two extra columns for SIQplotter that are equal to the other del columns.
+      mutate(ANCHOR_DIST = case_when(FLANK_B_ORIENT=="FW" & FLANK_B_CHROM == MATE_FLANK_B_CHROM & MATE_B_END_POS_max > FLANK_B_START_POS ~ as.integer(1+MATE_B_END_POS_max - FLANK_B_START_POS),
+                                     FLANK_B_ORIENT=="RV" & FLANK_B_CHROM == MATE_FLANK_B_CHROM & FLANK_B_START_POS > MATE_B_END_POS_min ~ as.integer(1+FLANK_B_START_POS - MATE_B_END_POS_min),
+                                     TRUE ~ NF_NUMBER)) %>%
+
+      #determine whether there is a translocation, and if so, change some other variables to support translocation plotting in SIQplotteR.
+      #in the case of T-DNA or other transfected DNA, the real end of the molecule is known, and in that case the deletion length can be determined
+      #in other translocation cases the delRelativeEnd becomes 0 for practical plotting reasons, not because it is really 0 (it is unknowable).
+      #if the T-DNA backbone, it will also be 0. Firstly because it is unclear whether the backbone got transferred via border skipping or as a separate "T-DNA", secondly because the map is linear and breaks in the backbone. The calculation therefore is more difficult.
+      mutate(Translocation = case_when(delSize == ERROR_NUMBER ~ TRUE,
+                                       TRUE ~ FALSE))%>%
+      mutate(Translocation_del_resolved = case_when(
+                (FOCUS_LOCUS == "LB" | FOCUS_LOCUS == "RB") & FLANK_B_CHROM == DSB_CONTIG ~ TRUE, #if transguide, del can be calculated on the induced genomic break locus
+                Translocation == TRUE & FOCUS_LOCUS != "LB" & FOCUS_LOCUS != "RB" & FLANK_B_CHROM == DSB_CONTIG ~ TRUE, #translocation with the same chromosome
+                Translocation == TRUE & FLANK_B_CHROM == PLASMID & TDNA_IS_LBRB == TRUE & FLANK_B_START_POS >= TDNA_LB_END & FLANK_B_START_POS <= TDNA_RB_END ~ TRUE, #if cisguide or transguide with translocation, and within the T-DNA
+                Translocation == TRUE & FLANK_B_CHROM == PLASMID & TDNA_IS_LBRB == FALSE & FLANK_B_START_POS >= TDNA_RB_END & FLANK_B_START_POS <= TDNA_LB_END ~ TRUE, #if cisguide or transguide with translocation, and within the T-DNA
+                Translocation == TRUE & FLANK_B_CHROM == PLASMID_ALT & TDNA_ALT_IS_LBRB == TRUE & FLANK_B_START_POS >= TDNA_ALT_LB_END & FLANK_B_START_POS <= TDNA_ALT_RB_END ~ TRUE, #if cisguide or transguide with translocation, and within the T-DNA_ALT
+                Translocation == TRUE & FLANK_B_CHROM == PLASMID_ALT & TDNA_ALT_IS_LBRB == FALSE & FLANK_B_START_POS >= TDNA_ALT_RB_END & FLANK_B_START_POS <= TDNA_ALT_LB_END ~ TRUE, #if cisguide or transguide with translocation, and within the T-DNA_ALT 
+                                         TRUE ~ FALSE))%>% #else is some other genomic location or plasmid backbone
+    mutate(delRelativeEnd = case_when(
+               (FOCUS_LOCUS == "LB" | FOCUS_LOCUS == "RB") & FLANK_B_CHROM == DSB_CONTIG & FLANK_B_ISFORWARD == TRUE & FLANK_B_START_POS >= (1+DSB_FW_END-DSB_OVERHANG) ~ FLANK_B_START_POS - (1+DSB_FW_END-DSB_OVERHANG),
+               (FOCUS_LOCUS == "LB" | FOCUS_LOCUS == "RB") & FLANK_B_CHROM == DSB_CONTIG & FLANK_B_ISFORWARD == FALSE & DSB_FW_END >= FLANK_B_START_POS  ~ DSB_FW_END - FLANK_B_START_POS,
+               
+               Translocation == TRUE & FOCUS_LOCUS != "LB" & FOCUS_LOCUS != "RB" & FLANK_B_CHROM == DSB_CONTIG & FLANK_B_ORIENT == "FW" & FLANK_B_START_POS > (1+DSB_FW_END-DSB_OVERHANG) ~ (FLANK_B_START_POS - (1+DSB_FW_END-DSB_OVERHANG)), #if flank B is on right side of break
+               Translocation == TRUE & FOCUS_LOCUS != "LB" & FOCUS_LOCUS != "RB" & FLANK_B_CHROM == DSB_CONTIG & FLANK_B_ORIENT == "RV" & FLANK_B_START_POS < (DSB_FW_END+DSB_OVERHANG) ~ (DSB_FW_END+DSB_OVERHANG) - FLANK_B_START_POS, #if flank b is on left side of break
+               
+               Translocation == TRUE & FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == TRUE & TDNA_IS_LBRB == TRUE & FLANK_B_START_POS >= TDNA_LB_END & FLANK_B_START_POS < TDNA_RB_END ~ FLANK_B_START_POS - TDNA_LB_END, #deletion from the LB
+               Translocation == TRUE & FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == TRUE & TDNA_IS_LBRB == FALSE & FLANK_B_START_POS >= TDNA_RB_END & FLANK_B_START_POS < TDNA_LB_END ~ FLANK_B_START_POS - TDNA_RB_END, #deletion from the RB
+               Translocation == TRUE & FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == FALSE & TDNA_IS_LBRB == TRUE & TDNA_RB_END >= FLANK_B_START_POS & TDNA_LB_END < FLANK_B_START_POS ~ TDNA_RB_END - FLANK_B_START_POS, #deletion from the RB
+               Translocation == TRUE & FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == FALSE & TDNA_IS_LBRB == FALSE & TDNA_LB_END >= FLANK_B_START_POS & TDNA_RB_END < FLANK_B_START_POS ~ TDNA_LB_END - FLANK_B_START_POS, #deletion from the LB
+                                        TRUE ~ delRelativeEnd))%>%
+             #correct in the case that the delsize is larger than the maximum allowed delsize.
+        mutate(Translocation_del_resolved = case_when(delRelativeEnd > MAXTARGETLENGTH ~ FALSE,
+                                                    TRUE ~ Translocation_del_resolved),
+               delRelativeEnd = case_when(delRelativeEnd > MAXTARGETLENGTH ~ 0,
+                                          TRUE ~ delRelativeEnd),
+               
+             delSize = case_when(delSize == ERROR_NUMBER ~ (delRelativeStart*-1)+delRelativeEnd,
+                                 TRUE ~ delSize)) %>%
+      
+      
+      
+      #Add a Subject and Type column. Also add two extra columns for SIQplotteR that are equal to the other del columns.
     mutate(
       Subject = FOCUS_LOCUS,
       Type = case_when(
@@ -935,6 +1046,8 @@ for (i in row.names(sample_info)){
       delRelativeStartTD = delRelativeStart,
       delRelativeEndTD = delRelativeEnd
     ) %>%
+      
+    
     
     #select the most important columns
     select(
@@ -969,7 +1082,9 @@ for (i in row.names(sample_info)){
       FAKE_DELIN_CHECK,
       MATE_FLANK_B_CHROM_AGREE,
       MATE_FLANK_B_CHROM,
-      FLANK_A_END_POS
+      FLANK_A_END_POS,
+      Translocation,
+      Translocation_del_resolved
     ) 
     
 
@@ -993,11 +1108,12 @@ for (i in row.names(sample_info)){
   
   data_improved10 = left_join(data_improved8, data_improved9, by = "FILE_NAME") %>%
     mutate(fraction = ReadCount / ReadCountTotal) %>%
+    #add columns for all the input options and software version
     mutate(countReadsTotal = NULL,
            FlankAUltEnd = FlankAUltEnd,
            FlankBUltStart = FlankBUltStart,
-           FLANK_A_ORIENT = FLANK_A_ORIENT,
-           FOCUS_CONTIG = FOCUS_CONTIG,
+           Flank_A_orient = FLANK_A_ORIENT,
+           Focus_contig = FOCUS_CONTIG,
            Genotype = Genotype,
            DNASample = DNASample,
            Ecotype = Ecotype,
@@ -1009,9 +1125,22 @@ for (i in row.names(sample_info)){
            RemoveNonTranslocation = REMOVENONTRANS,
            GroupSamePosition = GROUPSAMEPOS,
            Primer_match_perfect = Primer_match_perfect,
-           Alias = paste0(Library, "_", RunID))
+           Alias = paste0(Library, "_", RunID),
+           DSB_FW_END = DSB_FW_END,
+           DSB_OVERHANG = DSB_OVERHANG,
+           DSB_CONTIG = DSB_CONTIG,
+           TDNA_LB_END = TDNA_LB_END,
+           TDNA_RB_END = TDNA_RB_END,
+           TDNA_IS_LBRB = TDNA_IS_LBRB,
+           TDNA_ALT_LB_END = TDNA_ALT_LB_END,
+           TDNA_ALT_RB_END = TDNA_ALT_RB_END,
+           TDNA_ALT_IS_LBRB = TDNA_ALT_IS_LBRB,
+           MAXTARGETLENGTH = MAXTARGETLENGTH)
   
 
+  
+  
+  
   #write an excel sheet as output
   work_book <- createWorkbook()
   addWorksheet(work_book, "rawData")
@@ -1033,12 +1162,24 @@ for (i in row.names(sample_info)){
 ###############################################################################
 
 sample_list = list.files(path=output_dir, pattern = "CISTRANSGUIDE_V2.xlsx")
-wb = tibble()
+wb_pre = tibble()
 
 for (i in sample_list){
-  wb=bind_rows(wb, read.xlsx(paste0(output_dir, i)))
+  wb_pre=bind_rows(wb_pre, read.xlsx(paste0(output_dir, i)) %>% select_if(function(x) !(all(is.na(x)) | all(x==""))))
 
 }
+#in case the following columns are NA, they will not have been imported from the excel. I therefore need to add them. But also allowing the possibility that they are already there.
+missing_columns = wb_pre %>%
+  select(Name) %>%
+  mutate(Plasmid_alt = NA,
+         DSB_FW_END = NA,
+         DSB_OVERHANG = NA,
+         DSB_CONTIG = NA,
+         TDNA_ALT_LB_END = NA,
+         TDNA_ALT_RB_END = NA,
+         TDNA_ALT_IS_LBRB = NA)
+
+wb = left_join(wb_pre, missing_columns)
 
 #remove previously marked problematic events as well as duplicate positions
 if (REMOVEPROBLEMS == TRUE) {
@@ -1047,6 +1188,7 @@ if (REMOVEPROBLEMS == TRUE) {
     #first remove problematic events based on characteristics of the events themselves
     filter(AnchorCount >= ANCHORCUTOFF,
            ANCHOR_DIST >= MINANCHORDIST,
+           ANCHOR_DIST <= MAXANCHORDIST,
            Consensus_freq >= 0.75,
            MATE_FLANK_B_CHROM_AGREE == TRUE,
            FAKE_DELIN_CHECK == FALSE,
@@ -1103,7 +1245,7 @@ if (REMOVEPROBLEMS == TRUE) {
   message("combining junctions with similar positions")
   #combine junctions with similar positions and get the characteristics of the consensus event from the event the most anchors 
   total_data_near_positioncombined = total_data_positioncompare %>%
-    group_by(Alias, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, DNASample, Subject, ID, FOCUS_CONTIG, Genotype, Ecotype, Plasmid_alt, Family, FlankAUltEnd, FlankBUltStart, AgroGeno, RemoveNonTranslocation, GroupSamePosition)%>%
+    group_by(Alias, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, DNASample, Subject, ID, Focus_contig, Genotype, Ecotype, Plasmid_alt, Family, FlankAUltEnd, FlankBUltStart, AgroGeno, RemoveNonTranslocation, GroupSamePosition, Translocation, Translocation_del_resolved, Primer_match_perfect, DSB_FW_END, DSB_OVERHANG, DSB_CONTIG, TDNA_LB_END, TDNA_RB_END, TDNA_IS_LBRB, TDNA_ALT_LB_END, TDNA_ALT_RB_END, TDNA_ALT_IS_LBRB, MAXTARGETLENGTH)%>%
     summarize(AnchorCountSum = sum(AnchorCount), 
               ReadCountSum = sum(ReadCount),
               FLANK_B_START_POS_CON = as.integer(FLANK_B_START_POS[which.max(AnchorCount)]),
@@ -1139,7 +1281,8 @@ if (REMOVEPROBLEMS == TRUE) {
            SEQ_1_con = SEQ_1_con_CON,
            SEQ_2_con = SEQ_2_con_CON,
            RunID = RunID_CON,
-           TRIM_LEN = TRIM_LEN_CON)
+           TRIM_LEN = TRIM_LEN_CON,
+           ReadCount = ReadCountSum)
 
   #get a list of families
   wb_family = sample_info2 %>% select(Family) %>% distinct() %>% filter(Family!=0)
@@ -1213,15 +1356,47 @@ if (REMOVEPROBLEMS == TRUE) {
     ungroup() 
 }
 
-wb_flag2 = wb_flag %>%
+wb_flag1 = wb_flag %>%
   mutate(RemoveProblematicEvents = REMOVEPROBLEMS)%>%
-  #add homology color info for SIQplotteR
-  mutate(getHomologyColor = case_when(homologyLength == -1 ~ "grey",
-                                      homologyLength == 0 ~ "#C9DDF2",
-                                      homologyLength == 1 ~ "#6899D0",
-                                      homologyLength == 2 ~ "#0D99B2",
-                                      homologyLength > 2 ~ "#054E61",
-                                      TRUE ~ "orange"))
+  #add/ change several things for compatibility with SIQplotteR
+  mutate(getHomologyColor = "dummy",
+         Barcode = "dummy")%>%
+  rename(countEvents = ReadCount,
+         insertion = FILLER,
+         homology = MH)
+
+#correct all WT events 
+if (CONVERTWT == TRUE){
+  wb_flag2 = wb_flag1 %>%
+    mutate(delRelativeStart = if_else(Type=="WT",
+                                    0,
+                                    as.integer(delRelativeStart)),
+           delRelativeStartTD = if_else(Type=="WT",
+                                      0,
+                                      as.integer(delRelativeStartTD)),
+           delRelativeEnd = if_else(Type=="WT",
+                                    0,
+                                    as.integer(delRelativeEnd)),
+           delRelativeEndTD = if_else(Type=="WT",
+                                    0,
+                                    as.integer(delRelativeEndTD)),
+           delSize = if_else(Type=="WT",
+                                    0,
+                                    as.integer(delSize)),
+           insSize = if_else(Type=="WT",
+                                    0,
+                                    as.integer(insSize)),
+           homologyLength = if_else(Type=="WT",
+                                    0,
+                                    as.integer(homologyLength)),
+           Translocation = if_else(Type=="WT",
+                                   FALSE,
+                                   as.logical(Translocation))
+           )
+}else{
+  wb_flag2 = wb_flag1
+}
+
 
 message("Writing output")
 work_book2 <- createWorkbook()

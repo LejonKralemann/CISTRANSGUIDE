@@ -18,6 +18,7 @@ LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick
 GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
 REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
 REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
+CONVERTWT=TRUE #if true, it sets delRelativeStart, delRelativeEnd, insSize, delSize, homologyLength all to 0, and Translocation to FALSE when Type is WT. For troubleshooting this option should be set to FALSE. For SIQplotteR it should be TRUE.
 ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B.
 MAXTARGETLENGTH=10000 #this limits deletion calculation for when flank B is on the target chrom, but far away
@@ -1355,7 +1356,7 @@ if (REMOVEPROBLEMS == TRUE) {
     ungroup() 
 }
 
-wb_flag2 = wb_flag %>%
+wb_flag1 = wb_flag %>%
   mutate(RemoveProblematicEvents = REMOVEPROBLEMS)%>%
   #add/ change several things for compatibility with SIQplotteR
   mutate(getHomologyColor = "dummy",
@@ -1363,6 +1364,32 @@ wb_flag2 = wb_flag %>%
   rename(countEvents = ReadCount,
          insertion = FILLER,
          homology = MH)
+
+#correct all WT events 
+if (CONVERTWT == TRUE){
+  wb_flag2 = wb_flag1 %>%
+    mutate(delRelativeStart = if_else(Type=="WT",
+                                    0,
+                                    as.integer(delRelativeStart)),
+           delRelativeEnd = if_else(Type=="WT",
+                                    0,
+                                    as.integer(delRelativeEnd)),
+           delSize = if_else(Type=="WT",
+                                    0,
+                                    as.integer(delSize)),
+           insSize = if_else(Type=="WT",
+                                    0,
+                                    as.integer(insSize)),
+           homologyLength = if_else(Type=="WT",
+                                    0,
+                                    as.integer(homologyLength)),
+           Translocation = if_else(Type=="WT",
+                                   FALSE,
+                                   as.logical(Translocation))
+           )
+}else{
+  wb_flag2 = wb_flag1
+}
 
 
 message("Writing output")

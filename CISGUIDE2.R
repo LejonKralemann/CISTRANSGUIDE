@@ -182,15 +182,26 @@ for (i in row.names(sample_info)){
   DSB_OVERHANG = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DSB_OVERHANG)) #e.g. 1 if cas9, 5 if cas12a
   TDNA_LB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_LB_END))
   TDNA_RB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_RB_END))
-  TDNA_IS_LBRB = as.logical(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_IS_LBRB))
   TDNA_ALT_LB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_ALT_LB_END))
   TDNA_ALT_RB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_ALT_RB_END))
-  TDNA_ALT_IS_LBRB = as.logical(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_ALT_IS_LBRB))
-  
-  
-  
+ 
 
   ####################  calculated general variables  #####################
+  
+  if (TDNA_LB_END < TDNA_RB_END){
+    TDNA_IS_LBRB = TRUE
+  }else{
+    TDNA_IS_LBRB = FALSE
+  }
+  if (is.na(TDNA_ALT_LB_END)==FALSE & is.na(TDNA_ALT_RB_END)==FALSE){
+  if (TDNA_ALT_LB_END < TDNA_ALT_RB_END){
+    TDNA_ALT_IS_LBRB = TRUE
+  }else{
+    TDNA_ALT_IS_LBRB = FALSE
+  }
+  }else{
+    TDNA_ALT_IS_LBRB = NA
+  }
   
   if (FOCUS_LOCUS == "LB"){
     FlankAUltEnd = TDNA_LB_END

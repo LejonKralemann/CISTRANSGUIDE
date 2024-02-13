@@ -50,10 +50,8 @@ R2Suffix: 					The part of the filename after File_name, but before the extentio
 UMISuffix: 					The part of the filename after File_name, but before the extention .fastq.gz, for the UMI.
 Family:						Indicate here if some samples are related and therefore junctions can occur in multiple samples. Use integers starting from "1". Use "0" in all rows not to include family information. This information is used to keep some junctions which otherwise would be filtered out by the duplicate position filter. 
 AgroGeno:					Genotype/strain of Agrobacterium that was used in the transformation.
-TDNA_IS_LBRB:				Indicate whether the reference contains the T-DNA in LB:RB orientation (TRUE or FALSE)
 TDNA_ALT_LB_END:			LB position on the alternative T-DNA plasmid. "NA" if no alternative plasmid.
 TDNA_ALT_RB_END:			Same as previous but for RB.
-TDNA_ALT_IS_LBRB:			Indicates whether alternative plasmid is in LB:RB orientation in the reference. "NA" if no alternative plasmid.
 
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 General notes
@@ -72,3 +70,5 @@ About the output
 In the case of microhomology, the output gives you the end of flank A and flank B including the microhomology.
 
 countEvents:	the number of read pairs associated with this event
+
+The output can be analysed with SIQPlotteR: https://siq.researchlumc.nl/SIQPlotteR/

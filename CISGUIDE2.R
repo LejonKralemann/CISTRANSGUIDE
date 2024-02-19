@@ -15,9 +15,9 @@ input_dir= "./input/"
 output_dir= "./output/"
 MAX_DIST_FLANK_B_END = 10000 #distance from end of flank B to DSB, determines max deletion size and also affects maximum insertion size
 LOCUS_WINDOW = 1000 #size of the window centered on the DSB, RB nick, or LB nick to determine locus info
-GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
-REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
+GROUPSAMEPOS=FALSE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
+REMOVEPROBLEMS=FALSE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
 CONVERTWT=TRUE #if true, it sets delRelativeStart, delRelativeEnd, insSize, delSize, homologyLength all to 0, and Translocation to FALSE when Type is WT. For troubleshooting this option should be set to FALSE. For SIQplotteR it should be TRUE.
 ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B.
@@ -258,7 +258,7 @@ for (i in row.names(sample_info)){
     
     #get the LB and RB positions of the alternative plasmid
     if (!is.na(PLASMID_ALT)){
-      plasmid_alt_seq = as.character(eval(parse(text = paste0("genomeseq$", PLASMID))))
+      plasmid_alt_seq = as.character(eval(parse(text = paste0("genomeseq$", PLASMID_ALT))))
       
       #find the LB
       LB_match = as.data.frame(matchPattern(pattern = LB_SEQUENCES[[1]], subject = DNAString(plasmid_alt_seq), max.mismatch = 0, fixed=TRUE))

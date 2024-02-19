@@ -23,6 +23,8 @@ ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherw
 MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B.
 MAXTARGETLENGTH=10000 #this limits deletion calculation for when flank B is on the target chrom, but far away
 MAXANCHORDIST=5000
+LB_SEQUENCES = c("TGGCAGGATATATTGTGGTGTAAAC", "CGGCAGGATATATTCAATTGTAAAT") #the nick is made after the 3rd nt
+RB_SEQUENCES = c("TGACAGGATATATTGGCGGGTAAAC", "TGGCAGGATATATGCGGTTGTAATT") #the nick is made after the 3rd nt
 
 ###############################################################################
 #set parameters - non-adjustable
@@ -180,20 +182,149 @@ for (i in row.names(sample_info)){
   Primer_seq = str_replace_all(toupper(as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Primer))), "TCAGACGTGTGCTCTTCCGATCT", "")
   DSB_FW_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DSB_FW_END)) #end of left flank before DSB
   DSB_OVERHANG = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DSB_OVERHANG)) #e.g. 1 if cas9, 5 if cas12a
-  TDNA_LB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_LB_END))
-  TDNA_RB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_RB_END))
-  TDNA_ALT_LB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_ALT_LB_END))
-  TDNA_ALT_RB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_ALT_RB_END))
- 
 
   ####################  calculated general variables  #####################
   
+  ############# REF CHECK ##############
+  
+  if (file.exists(paste0(input_dir, REF))==FALSE){
+    message("Reference fasta not found. Moving to next sample.")
+    next
+  }else{
+    message(paste0("Using ref ", input_dir, REF))
+  }
+  
+  genomeseq = readDNAStringSet(paste0(input_dir, REF) , format="fasta")
+  
+  ############ FINDING LB, RB ############################
+  
+  plasmid_seq = as.character(eval(parse(text = paste0("genomeseq$", PLASMID))))
+  
+  #find the LB
+    LB_match = as.data.frame(matchPattern(pattern = LB_SEQUENCES[[1]], subject = DNAString(plasmid_seq), max.mismatch = 0, fixed=TRUE))
+    LB_match_RV = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(LB_SEQUENCES[[1]]))), subject = DNAString(plasmid_seq), max.mismatch = 0, fixed=TRUE))
+    LB2_match = as.data.frame(matchPattern(pattern = LB_SEQUENCES[[2]],subject = DNAString(plasmid_seq),max.mismatch = 0,fixed = TRUE))
+    LB2_match_RV = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(LB_SEQUENCES[[2]]))),subject = DNAString(plasmid_seq),max.mismatch = 0,fixed = TRUE))
+    TDNA_LB_END = NA
+    TDNA_LB_FW = NA
+    
+    for (i in c("LB_match", "LB_match_RV", "LB2_match", "LB2_match_RV")){
+      if (nrow(get(i)) > 0 & nrow(get(i)) < 2) {
+        
+        
+        if (i=="LB_match" | i=="LB2_match"){
+        TDNA_LB_FW = TRUE
+        TDNA_LB_END = as.numeric(get(i)$start)+3 
+        }else{
+        TDNA_LB_FW = FALSE
+        TDNA_LB_END = as.numeric(get(i)$start)+21 
+        }
+      } else {
+        next
+      } 
+    }
+    if (is.na(TDNA_LB_END)){
+      message("No single LB sequence found, moving to next sample")
+      next
+    }
+    
+    #find the RB
+    RB_match = as.data.frame(matchPattern(pattern = RB_SEQUENCES[[1]], subject = DNAString(plasmid_seq), max.mismatch = 0, fixed=TRUE))
+    RB_match_RV = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(RB_SEQUENCES[[1]]))), subject = DNAString(plasmid_seq), max.mismatch = 0, fixed=TRUE))
+    RB2_match = as.data.frame(matchPattern(pattern = RB_SEQUENCES[[2]],subject = DNAString(plasmid_seq),max.mismatch = 0,fixed = TRUE))
+    RB2_match_RV = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(RB_SEQUENCES[[2]]))),subject = DNAString(plasmid_seq),max.mismatch = 0,fixed = TRUE))
+    TDNA_RB_END = NA
+    TDNA_RB_FW = NA
+    
+    for (i in c("RB_match", "RB_match_RV", "RB2_match", "RB2_match_RV")){
+      if (nrow(get(i)) > 0 & nrow(get(i)) < 2) {
+        
+        
+        if (i=="RB_match" | i=="RB2_match"){
+          TDNA_RB_FW = TRUE
+          TDNA_RB_END = as.numeric(get(i)$start)+2 
+        }else{
+          TDNA_RB_FW = FALSE
+          TDNA_RB_END = as.numeric(get(i)$start)+22 
+        }
+      } else {
+        next
+      } 
+    }
+    if (is.na(TDNA_RB_END)){
+      message("No single RB sequence found, moving to next sample")
+      next
+    }
+    
+    #get the LB and RB positions of the alternative plasmid
+    if (!is.na(PLASMID_ALT)){
+      plasmid_alt_seq = as.character(eval(parse(text = paste0("genomeseq$", PLASMID))))
+      
+      #find the LB
+      LB_match = as.data.frame(matchPattern(pattern = LB_SEQUENCES[[1]], subject = DNAString(plasmid_alt_seq), max.mismatch = 0, fixed=TRUE))
+      LB_match_RV = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(LB_SEQUENCES[[1]]))), subject = DNAString(plasmid_alt_seq), max.mismatch = 0, fixed=TRUE))
+      LB2_match = as.data.frame(matchPattern(pattern = LB_SEQUENCES[[2]],subject = DNAString(plasmid_alt_seq),max.mismatch = 0,fixed = TRUE))
+      LB2_match_RV = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(LB_SEQUENCES[[2]]))),subject = DNAString(plasmid_alt_seq),max.mismatch = 0,fixed = TRUE))
+      TDNA_ALT_LB_END = NA
+      TDNA_ALT_LB_FW = NA
+      
+      for (i in c("LB_match", "LB_match_RV", "LB2_match", "LB2_match_RV")){
+        if (nrow(get(i)) > 0 & nrow(get(i)) < 2) {
+          
+          
+          if (i=="LB_match" | i=="LB2_match"){
+            TDNA_ALT_LB_FW = TRUE
+            TDNA_ALT_LB_END = as.numeric(get(i)$start)+3 
+          }else{
+            TDNA_ALT_LB_FW = FALSE
+            TDNA_ALT_LB_END = as.numeric(get(i)$start)+21 
+          }
+        } else {
+          next
+        } 
+      }
+      if (is.na(TDNA_ALT_LB_END)){
+        message("No single LB sequence found, moving to next sample")
+        next
+      }
+      
+      #find the RB
+      RB_match = as.data.frame(matchPattern(pattern = RB_SEQUENCES[[1]], subject = DNAString(plasmid_alt_seq), max.mismatch = 0, fixed=TRUE))
+      RB_match_RV = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(RB_SEQUENCES[[1]]))), subject = DNAString(plasmid_alt_seq), max.mismatch = 0, fixed=TRUE))
+      RB2_match = as.data.frame(matchPattern(pattern = RB_SEQUENCES[[2]],subject = DNAString(plasmid_alt_seq),max.mismatch = 0,fixed = TRUE))
+      RB2_match_RV = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(RB_SEQUENCES[[2]]))),subject = DNAString(plasmid_alt_seq),max.mismatch = 0,fixed = TRUE))
+      TDNA_ALT_RB_END = NA
+      TDNA_ALT_RB_FW = NA
+      
+      for (i in c("RB_match", "RB_match_RV", "RB2_match", "RB2_match_RV")){
+        if (nrow(get(i)) > 0 & nrow(get(i)) < 2) {
+          
+          
+          if (i=="RB_match" | i=="RB2_match"){
+            TDNA_ALT_RB_FW = TRUE
+            TDNA_ALT_RB_END = as.numeric(get(i)$start)+2 
+          }else{
+            TDNA_ALT_RB_FW = FALSE
+            TDNA_ALT_RB_END = as.numeric(get(i)$start)+22 
+          }
+        } else {
+          next
+        } 
+      }
+      if (is.na(TDNA_ALT_RB_END)){
+        message("No single RB sequence found, moving to next sample")
+        next
+      }
+    }
+    
+
+  #determine the orientation of the T-DNA on the main and alternative plasmids
   if (TDNA_LB_END < TDNA_RB_END){
     TDNA_IS_LBRB = TRUE
   }else{
     TDNA_IS_LBRB = FALSE
   }
-  if (is.na(TDNA_ALT_LB_END)==FALSE & is.na(TDNA_ALT_RB_END)==FALSE){
+  if (!is.na(PLASMID_ALT)){
   if (TDNA_ALT_LB_END < TDNA_ALT_RB_END){
     TDNA_ALT_IS_LBRB = TRUE
   }else{
@@ -248,16 +379,9 @@ for (i in row.names(sample_info)){
  
   Primer_seq_len = nchar(Primer_seq)
   
-  ####################  REF checks  #####################
+  ####################  REF check  #####################
   
-  if (file.exists(paste0(input_dir, REF))==FALSE){
-    message("Reference fasta not found. Moving to next sample.")
-    next
-  }else{
-    message(paste0("Using ref ", input_dir, REF))
-  }
   
-  genomeseq = readDNAStringSet(paste0(input_dir, REF) , format="fasta")
   contig_seq = as.character(eval(parse(text = paste0("genomeseq$", FOCUS_CONTIG))))
   if (length(contig_seq)==0){
     message("Focus contig not found in reference fasta. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
@@ -1402,7 +1526,8 @@ if (CONVERTWT == TRUE){
                                     as.integer(homologyLength)),
            Translocation = if_else(Type=="WT",
                                    FALSE,
-                                   as.logical(Translocation))
+                                   as.logical(Translocation)),
+           CONVERTWT = TRUE
            )
 }else{
   wb_flag2 = wb_flag1

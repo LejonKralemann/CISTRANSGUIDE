@@ -198,7 +198,7 @@ for (i in row.names(sample_info)){
   
   ############ FINDING LB, RB ############################
   
-  plasmid_seq = as.character(eval(parse(text = paste0("genomeseq$", PLASMID))))
+  plasmid_seq = as.character(eval(parse(text = paste0("genomeseq$`", PLASMID, "`"))))
   
   #find the LB
     LB_match = as.data.frame(matchPattern(pattern = LB_SEQUENCES[[1]], subject = DNAString(plasmid_seq), max.mismatch = 0, fixed=TRUE))
@@ -258,7 +258,7 @@ for (i in row.names(sample_info)){
     
     #get the LB and RB positions of the alternative plasmid
     if (!is.na(PLASMID_ALT)){
-      plasmid_alt_seq = as.character(eval(parse(text = paste0("genomeseq$", PLASMID_ALT))))
+      plasmid_alt_seq = as.character(eval(parse(text = paste0("genomeseq$`", PLASMID_ALT, "`"))))
       
       #find the LB
       LB_match = as.data.frame(matchPattern(pattern = LB_SEQUENCES[[1]], subject = DNAString(plasmid_alt_seq), max.mismatch = 0, fixed=TRUE))
@@ -382,7 +382,7 @@ for (i in row.names(sample_info)){
   ####################  REF check  #####################
   
   
-  contig_seq = as.character(eval(parse(text = paste0("genomeseq$", FOCUS_CONTIG))))
+  contig_seq = as.character(eval(parse(text = paste0("genomeseq$`", FOCUS_CONTIG, "`"))))
   if (length(contig_seq)==0){
     message("Focus contig not found in reference fasta. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
     next 
@@ -719,16 +719,16 @@ for (i in row.names(sample_info)){
                  substr(TOTAL_REF, start = 1, stop = (FLANK_A_START_POS-(FLANK_B_END_POS-1)))
                }else{
                  if (FLANK_B_ORIENT == "FW"){
-                 substr(as.character(eval(parse(text = paste0("genomeseq$", FLANK_B_CHROM)))), FLANK_B_END_POS-(SEQ_1_LEN-1), FLANK_B_END_POS)
+                 substr(as.character(eval(parse(text = paste0("genomeseq$`", FLANK_B_CHROM, "`")))), FLANK_B_END_POS-(SEQ_1_LEN-1), FLANK_B_END_POS)
                  }else{
-                   as.character(reverseComplement(DNAString(substr(as.character(eval(parse(text = paste0("genomeseq$", FLANK_B_CHROM)))), FLANK_B_END_POS, FLANK_B_END_POS+(SEQ_1_LEN-1)))))
+                   as.character(reverseComplement(DNAString(substr(as.character(eval(parse(text = paste0("genomeseq$`", FLANK_B_CHROM, "`")))), FLANK_B_END_POS, FLANK_B_END_POS+(SEQ_1_LEN-1)))))
                  }
                }
              }else{
                if (FLANK_B_ORIENT == "FW"){
-                 substr(as.character(eval(parse(text = paste0("genomeseq$", FLANK_B_CHROM)))), FLANK_B_END_POS-(SEQ_1_LEN-1), FLANK_B_END_POS)
+                 substr(as.character(eval(parse(text = paste0("genomeseq$`", FLANK_B_CHROM, "`")))), FLANK_B_END_POS-(SEQ_1_LEN-1), FLANK_B_END_POS)
                }else{
-                 as.character(reverseComplement(DNAString(substr(as.character(eval(parse(text = paste0("genomeseq$", FLANK_B_CHROM)))), FLANK_B_END_POS, FLANK_B_END_POS+(SEQ_1_LEN-1)))))
+                 as.character(reverseComplement(DNAString(substr(as.character(eval(parse(text = paste0("genomeseq$`", FLANK_B_CHROM, "`")))), FLANK_B_END_POS, FLANK_B_END_POS+(SEQ_1_LEN-1)))))
                }
              }) %>%
     mutate(FLANK_B_MATCH = stri_reverse(matcher_skipper(stri_reverse(FLANK_B_REF), stri_reverse(SEQ_1)))) %>%     #find the full flank b match, while skipping over seq errors. But causes a problem on focus contig when del=1 en ins=1

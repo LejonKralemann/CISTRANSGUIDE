@@ -257,6 +257,11 @@ for (i in row.names(sample_info)){
     }
     
     #get the LB and RB positions of the alternative plasmid
+    TDNA_ALT_LB_END = NA
+    TDNA_ALT_LB_FW = NA
+    TDNA_ALT_RB_END = NA
+    TDNA_ALT_RB_FW = NA
+    
     if (!is.na(PLASMID_ALT)){
       plasmid_alt_seq = as.character(eval(parse(text = paste0("genomeseq$`", PLASMID_ALT, "`"))))
       
@@ -265,8 +270,7 @@ for (i in row.names(sample_info)){
       LB_match_RV = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(LB_SEQUENCES[[1]]))), subject = DNAString(plasmid_alt_seq), max.mismatch = 0, fixed=TRUE))
       LB2_match = as.data.frame(matchPattern(pattern = LB_SEQUENCES[[2]],subject = DNAString(plasmid_alt_seq),max.mismatch = 0,fixed = TRUE))
       LB2_match_RV = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(LB_SEQUENCES[[2]]))),subject = DNAString(plasmid_alt_seq),max.mismatch = 0,fixed = TRUE))
-      TDNA_ALT_LB_END = NA
-      TDNA_ALT_LB_FW = NA
+      
       
       for (i in c("LB_match", "LB_match_RV", "LB2_match", "LB2_match_RV")){
         if (nrow(get(i)) > 0 & nrow(get(i)) < 2) {
@@ -293,8 +297,7 @@ for (i in row.names(sample_info)){
       RB_match_RV = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(RB_SEQUENCES[[1]]))), subject = DNAString(plasmid_alt_seq), max.mismatch = 0, fixed=TRUE))
       RB2_match = as.data.frame(matchPattern(pattern = RB_SEQUENCES[[2]],subject = DNAString(plasmid_alt_seq),max.mismatch = 0,fixed = TRUE))
       RB2_match_RV = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(RB_SEQUENCES[[2]]))),subject = DNAString(plasmid_alt_seq),max.mismatch = 0,fixed = TRUE))
-      TDNA_ALT_RB_END = NA
-      TDNA_ALT_RB_FW = NA
+      
       
       for (i in c("RB_match", "RB_match_RV", "RB2_match", "RB2_match_RV")){
         if (nrow(get(i)) > 0 & nrow(get(i)) < 2) {

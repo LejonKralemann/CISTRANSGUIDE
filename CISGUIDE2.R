@@ -23,6 +23,7 @@ ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherw
 MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B.
 MAXTARGETLENGTH=10000 #this limits deletion calculation for when flank B is on the target chrom, but far away
 MAXANCHORDIST=5000
+MINLEN=90 #this is the minimal read length. if you write NA here, then the software will calculate the minimal read length based on the distance to nick/dsb and FLANK_B_LEN_MIN. Should be at the very least 60bp, but 90bp is more common to have as minimum.
 LB_SEQUENCES = c("TGGCAGGATATATTGTGGTGTAAAC", "CGGCAGGATATATTCAATTGTAAAT") #the nick is made after the 3rd nt
 RB_SEQUENCES = c("TGACAGGATATATTGGCGGGTAAAC", "TGGCAGGATATATGCGGTTGTAATT") #the nick is made after the 3rd nt
 
@@ -521,11 +522,9 @@ for (i in row.names(sample_info)){
   }
   
   #set the minimum length of a read
-  if (FASTA_MODE == FALSE){
+  if (FASTA_MODE == FALSE & is.na(MINLEN)){
   MINLEN = PRIMER_TO_DSB_GLOBAL+FLANK_B_LEN_MIN
-  }else{
-  MINLEN = 60
-  message("MINLEN set to 60 because no primer seq available")
+  message(paste0("MINLEN set to ", MINLEN))
   }
   
   function_time("Step 1 took ")
@@ -1294,7 +1293,8 @@ for (i in row.names(sample_info)){
            TDNA_ALT_LB_END = TDNA_ALT_LB_END,
            TDNA_ALT_RB_END = TDNA_ALT_RB_END,
            TDNA_ALT_IS_LBRB = TDNA_ALT_IS_LBRB,
-           MAXTARGETLENGTH = MAXTARGETLENGTH)
+           MAXTARGETLENGTH = MAXTARGETLENGTH,
+           MinumumReadLength = MINLEN)
   
 
   

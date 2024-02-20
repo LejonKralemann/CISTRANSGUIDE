@@ -146,7 +146,7 @@ for (i in row.names(sample_info)){
   ####################  check for existence of files  #####################
   
   if (file.exists(paste0(input_dir, Sample, "_", RunID, "_A.txt"))==FALSE){
-    message("Primary processed file not found, moving to the next sample")
+    message(paste0("Primary processed file ",Sample, "_", RunID, "_A.txt not found, moving to the next sample"))
     next
   }else if (file.exists(paste0(output_dir, Sample, "_", RunID, "_CISTRANSGUIDE_V2.xlsx"))==TRUE){   #check whether file has already been processed
     message(paste0("File ", output_dir, Sample, "_", RunID, "_A.txt has already been processed, moving to the next sample"))
@@ -182,7 +182,15 @@ for (i in row.names(sample_info)){
   Primer_seq = str_replace_all(toupper(as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Primer))), "TCAGACGTGTGCTCTTCCGATCT", "")
   DSB_FW_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DSB_FW_END)) #end of left flank before DSB
   DSB_OVERHANG = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DSB_OVERHANG)) #e.g. 1 if cas9, 5 if cas12a
-
+  
+  #the following variables can be supplied via the sample information sheet, but NA is also allowed, then the software will look.
+  TDNA_LB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_LB_END))
+  TDNA_RB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_RB_END))
+  TDNA_ALT_LB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_ALT_LB_END))
+  TDNA_ALT_RB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_ALT_RB_END))
+  
+  
+  
   ####################  calculated general variables  #####################
   
   ############# REF CHECK ##############
@@ -200,7 +208,13 @@ for (i in row.names(sample_info)){
   
   plasmid_seq = as.character(eval(parse(text = paste0("genomeseq$`", PLASMID, "`"))))
   
+  if (isEmpty(plasmid_seq)==TRUE){
+    message(paste0("Plasmid name ", PLASMID, " not found in ", REF, " . Moving to next sample."))
+    next
+  }
+  
   #find the LB
+  if (is.na(TDNA_LB_END)){
     LB_match = as.data.frame(matchPattern(pattern = LB_SEQUENCES[[1]], subject = DNAString(plasmid_seq), max.mismatch = 0, fixed=TRUE))
     LB_match_RV = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(LB_SEQUENCES[[1]]))), subject = DNAString(plasmid_seq), max.mismatch = 0, fixed=TRUE))
     LB2_match = as.data.frame(matchPattern(pattern = LB_SEQUENCES[[2]],subject = DNAString(plasmid_seq),max.mismatch = 0,fixed = TRUE))
@@ -227,8 +241,12 @@ for (i in row.names(sample_info)){
       message("No single LB sequence found, moving to next sample")
       next
     }
+  }else{
+    message("Using user supplied LB position")
+  }
     
     #find the RB
+  if (is.na(TDNA_RB_END)){
     RB_match = as.data.frame(matchPattern(pattern = RB_SEQUENCES[[1]], subject = DNAString(plasmid_seq), max.mismatch = 0, fixed=TRUE))
     RB_match_RV = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(RB_SEQUENCES[[1]]))), subject = DNAString(plasmid_seq), max.mismatch = 0, fixed=TRUE))
     RB2_match = as.data.frame(matchPattern(pattern = RB_SEQUENCES[[2]],subject = DNAString(plasmid_seq),max.mismatch = 0,fixed = TRUE))
@@ -255,6 +273,9 @@ for (i in row.names(sample_info)){
       message("No single RB sequence found, moving to next sample")
       next
     }
+  }else{
+    message("Using user supplied RB position")
+  }
     
     #get the LB and RB positions of the alternative plasmid
     TDNA_ALT_LB_END = NA
@@ -464,9 +485,9 @@ for (i in row.names(sample_info)){
     ERROR_NUMBER
   }
 
+  #usually you dont want the primer to be so far away. But sometimes when you cut away the end of the T-DNA for instance, then you may want to keep the T-DNA end position.
   if (PRIMER_TO_DSB_GLOBAL>300){
-    message("primer too far away from the DSB. Did you fill in the Sample_information sheet correctly?")
-    next
+    message("Warning: primer is more than 300 bp away from the indicated end of FLANK A. Continuing anyway.")
   }
 
   #get the REF seq for flank A. from primer start to DSB +3 if RV primer, not if FW primer. Because CAS9 can cut further away from the PAM, but not closer. So the FLANK_A_REF is going as far as FLANK A is allowed to go.

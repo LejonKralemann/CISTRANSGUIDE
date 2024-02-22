@@ -213,6 +213,17 @@ for (i in row.names(sample_info)){
   
   plasmid_seq = as.character(eval(parse(text = paste0("genomeseq$`", PLASMID, "`"))))
   
+  #emptying some variables
+  LB_match = NULL
+  LB_match_RV = NULL
+  LB2_match = NULL
+  LB2_match_RV = NULL
+  RB_match = NULL
+  RB_match_RV = NULL
+  RB2_match = NULL
+  RB2_match_RV = NULL
+  
+  #check whether plasmid can be found in ref
   if (isEmpty(plasmid_seq)==TRUE){
     message(paste0("Plasmid name ", PLASMID, " not found in ", REF, " . Moving to next sample."))
     rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, data)
@@ -246,7 +257,7 @@ for (i in row.names(sample_info)){
     }
     if (is.na(TDNA_LB_END)){
       message("No single LB sequence found, moving to next sample")
-      rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, LB_match, LB_match_RV, LB2_match, LB2_match_RV, TDNA_LB_END, TDNA_LB_FW, data)
+      rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, data)
       
       next
     }
@@ -280,7 +291,7 @@ for (i in row.names(sample_info)){
     }
     if (is.na(TDNA_RB_END)){
       message("No single RB sequence found, moving to next sample")
-      rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, LB_match, LB_match_RV, LB2_match, LB2_match_RV, TDNA_LB_END, TDNA_LB_FW, RB_match, RB_match_RV, RB2_match, RB2_match_RV, TDNA_RB_END, TDNA_RB_FW, data)
+      rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, DNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, data)
       
       next
     }
@@ -321,7 +332,7 @@ for (i in row.names(sample_info)){
       }
       if (is.na(TDNA_ALT_LB_END)){
         message("No single LB sequence found, moving to next sample")
-        rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, LB_match, LB_match_RV, LB2_match, LB2_match_RV, TDNA_LB_END, TDNA_LB_FW, RB_match, RB_match_RV, RB2_match, RB2_match_RV, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, data)
+        rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, data)
         next
       }
       
@@ -349,7 +360,7 @@ for (i in row.names(sample_info)){
       }
       if (is.na(TDNA_ALT_RB_END)){
         message("No single RB sequence found, moving to next sample")
-        rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, LB_match, LB_match_RV, LB2_match, LB2_match_RV, TDNA_LB_END, TDNA_LB_FW, RB_match, RB_match_RV, RB2_match, RB2_match_RV, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, data)
+        rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, data)
         
         next
       }
@@ -378,7 +389,7 @@ for (i in row.names(sample_info)){
     if (FLANK_A_ORIENT == "FW"){
       if (TDNA_IS_LBRB == TRUE){
         message("T-DNA orientation conflict. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
-        rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, LB_match, LB_match_RV, LB2_match, LB2_match_RV, TDNA_LB_END, TDNA_LB_FW, RB_match, RB_match_RV, RB2_match, RB2_match_RV, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, data)
+        rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, data)
         
         next 
       }
@@ -386,7 +397,7 @@ for (i in row.names(sample_info)){
     }else{
       if (TDNA_IS_LBRB == FALSE){
         message("T-DNA orientation conflict. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
-        rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, LB_match, LB_match_RV, LB2_match, LB2_match_RV, TDNA_LB_END, TDNA_LB_FW, RB_match, RB_match_RV, RB2_match, RB2_match_RV, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, data)
+        rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, data)
         
         next 
       }
@@ -398,7 +409,7 @@ for (i in row.names(sample_info)){
     if (FLANK_A_ORIENT == "FW"){
       if (TDNA_IS_LBRB == FALSE){
         message("T-DNA orientation conflict. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
-        rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, LB_match, LB_match_RV, LB2_match, LB2_match_RV, TDNA_LB_END, TDNA_LB_FW, RB_match, RB_match_RV, RB2_match, RB2_match_RV, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, data)
+        rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, data)
         
         next 
       }
@@ -406,7 +417,7 @@ for (i in row.names(sample_info)){
     }else{
       if (TDNA_IS_LBRB == TRUE){
         message("T-DNA orientation conflict. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
-        rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, LB_match, LB_match_RV, LB2_match, LB2_match_RV, TDNA_LB_END, TDNA_LB_FW, RB_match, RB_match_RV, RB2_match, RB2_match_RV, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, data)
+        rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, data)
         
         next 
       }
@@ -431,7 +442,7 @@ for (i in row.names(sample_info)){
   contig_seq = as.character(eval(parse(text = paste0("genomeseq$`", FOCUS_CONTIG, "`"))))
   if (length(contig_seq)==0){
     message("Focus contig not found in reference fasta. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
-    rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, LB_match, LB_match_RV, LB2_match, LB2_match_RV, TDNA_LB_END, TDNA_LB_FW, RB_match, RB_match_RV, RB2_match, RB2_match_RV, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, data)
+    rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, data)
     
     next 
   }
@@ -468,7 +479,7 @@ for (i in row.names(sample_info)){
       Primer_match_perfect=TRUE
     }else if (nrow(Primer_match) >1){
       message("Primer found several times in the genome")
-      rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, LB_match, LB_match_RV, LB2_match, LB2_match_RV, TDNA_LB_END, TDNA_LB_FW, RB_match, RB_match_RV, RB2_match, RB2_match_RV, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, Primer_match, Primer_RC_match,DSB_AREA_SEQ, DSB_AREA_SEQ_RC, Primer_match, Primer_match_3, data)
+      rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, Primer_match, Primer_RC_match,DSB_AREA_SEQ, DSB_AREA_SEQ_RC, Primer_match, Primer_match_3, data)
       next
     }else if (nrow(Primer_match_3) == 1){
       message("Note! Primer does not match fully. Continuing anyway.")
@@ -476,7 +487,7 @@ for (i in row.names(sample_info)){
       Primer_match_perfect=FALSE
     }else{
       message("Primer not found")
-      rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, LB_match, LB_match_RV, LB2_match, LB2_match_RV, TDNA_LB_END, TDNA_LB_FW, RB_match, RB_match_RV, RB2_match, RB2_match_RV, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, Primer_match, Primer_RC_match,DSB_AREA_SEQ, DSB_AREA_SEQ_RC, Primer_match, Primer_match_3, data)
+      rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, Primer_match, Primer_RC_match,DSB_AREA_SEQ, DSB_AREA_SEQ_RC, Primer_match, Primer_match_3, data)
       next
     }
   }else if (FLANK_A_ORIENT == "RV"){
@@ -487,7 +498,7 @@ for (i in row.names(sample_info)){
       Primer_match_perfect=TRUE
     }else if (nrow(Primer_match) >1){
       message("Primer found several times in the genome")
-      rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, LB_match, LB_match_RV, LB2_match, LB2_match_RV, TDNA_LB_END, TDNA_LB_FW, RB_match, RB_match_RV, RB2_match, RB2_match_RV, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, Primer_match, Primer_RC_match,DSB_AREA_SEQ, DSB_AREA_SEQ_RC, Primer_match, Primer_match_3, data)
+      rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, Primer_match, Primer_RC_match,DSB_AREA_SEQ, DSB_AREA_SEQ_RC, Primer_match, Primer_match_3, data)
       next
     }else if (nrow(Primer_match_3) == 1){
       message("Note! Primer does not match fully. Continuing anyway.")
@@ -495,11 +506,11 @@ for (i in row.names(sample_info)){
       Primer_match_perfect=FALSE
     }else{
       message("Primer not found")
-      rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, LB_match, LB_match_RV, LB2_match, LB2_match_RV, TDNA_LB_END, TDNA_LB_FW, RB_match, RB_match_RV, RB2_match, RB2_match_RV, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, Primer_match, Primer_RC_match,DSB_AREA_SEQ, DSB_AREA_SEQ_RC, Primer_match, Primer_match_3, data)
+      rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, Primer_match, Primer_RC_match,DSB_AREA_SEQ, DSB_AREA_SEQ_RC, Primer_match, Primer_match_3, data)
       next
     }
   }else{
-    rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, LB_match, LB_match_RV, LB2_match, LB2_match_RV, TDNA_LB_END, TDNA_LB_FW, RB_match, RB_match_RV, RB2_match, RB2_match_RV, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, Primer_match, Primer_RC_match,DSB_AREA_SEQ, DSB_AREA_SEQ_RC, data)
+    rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, Primer_match, Primer_RC_match,DSB_AREA_SEQ, DSB_AREA_SEQ_RC, data)
     next
   }
     
@@ -693,7 +704,7 @@ for (i in row.names(sample_info)){
     PercentageDone = PercentageDone + ((CurrentFileSize/TotalFileSize)*100)
     message(paste0("CISTRANSGUIDE analysis ", round(PercentageDone, digits=3), "% complete"))
     
-    rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, LB_match, LB_match_RV, LB2_match, LB2_match_RV, TDNA_LB_FW, RB_match, RB_match_RV, RB2_match, RB2_match_RV, TDNA_RB_FW, TDNA_ALT_LB_FW, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, Primer_match, Primer_RC_match,DSB_AREA_SEQ, DSB_AREA_SEQ_RC, Primer_match_3, Primer_pos, Primer_match_perfect, PRIMER_TO_DSB_GLOBAL, FLANK_A_REF_GLOBAL, GLOBAL_TOTAL_REF, data, data_improved_a, data_improved_b, data_improved_c, data_improved1) 
+    rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_FW, TDNA_RB_FW, TDNA_ALT_LB_FW, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, Primer_match, Primer_RC_match,DSB_AREA_SEQ, DSB_AREA_SEQ_RC, Primer_match_3, Primer_pos, Primer_match_perfect, PRIMER_TO_DSB_GLOBAL, FLANK_A_REF_GLOBAL, GLOBAL_TOTAL_REF, data, data_improved_a, data_improved_b, data_improved_c, data_improved1) 
     next
   }
   
@@ -1341,9 +1352,8 @@ for (i in row.names(sample_info)){
   
   
   ###################### cleanup #########################################
-  rm(data_improved_a, data_improved_b, data_improved_c, data_improved_1, data_improved_2, data_improved_3, data_improved_3b, data_improved_4, data_improved_5, data_improved_5b, data_improved_6, data_improved_8pre2, data_improved_8, data_improved_9, data_improved_10)
-  rm(AgroGeno, contig_seq, DNASample, DSB_AREA_SEQ, DSB_AREA_SEQ_RC, DSB_CONTIG, DSB_FW_END, DSB_OVERHANG, Ecotype, FLANK_A_ORIENT, FLANK_A_REF_GLOBAL, FlankAUltEnd, FlankBUltStart, FOCUS_CONTIG, FOCUS_LOCUS, Genotype, GLOBAL_TOTAL_REF, Library, PLASMID, PLASMID_ALT, plasmid_alt_seq, plasmid_seq, Primer_match_perfect, Primer_pos, Primer_seq, Primer_seq_len, PRIMER_TO_DSB_GLOBAL, REF, RunID, Sample, TDNA_ALT_IS_LBRB, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, TDNA_IS_LBRB, TDNA_LB_END,TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW)
-
+  rm(data, data_improved_a, data_improved_b, data_improved_c, data_improved_1, data_improved_2, data_improved_3, data_improved_3b, data_improved_4, data_improved_5, data_improved_5b, data_improved_6, data_improved_8pre2, data_improved_8, data_improved_9, data_improved_10)
+  rm(AgroGeno, contig_seq, DNASample, DSB_AREA_SEQ, DSB_AREA_SEQ_RC, DSB_CONTIG, DSB_FW_END, DSB_OVERHANG, Ecotype, FLANK_A_ORIENT, FLANK_A_REF_GLOBAL, FlankAUltEnd, FlankBUltStart, FOCUS_CONTIG, FOCUS_LOCUS, Genotype, GLOBAL_TOTAL_REF, Library, PLASMID, PLASMID_ALT, plasmid_alt_seq, plasmid_seq, Primer_match, Primer_match_3, Primer_RC_match, Primer_match_perfect, Primer_pos, Primer_seq, Primer_seq_len, PRIMER_TO_DSB_GLOBAL, REF, RunID, Sample, TDNA_ALT_IS_LBRB, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, TDNA_IS_LBRB, TDNA_LB_END,TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, genomeseq)
   
   function_time("Step 9 took ")
   

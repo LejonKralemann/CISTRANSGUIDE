@@ -693,7 +693,7 @@ for (i in row.names(sample_info)){
     PercentageDone = PercentageDone + ((CurrentFileSize/TotalFileSize)*100)
     message(paste0("CISTRANSGUIDE analysis ", round(PercentageDone, digits=3), "% complete"))
     
-    rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, LB_match, LB_match_RV, LB2_match, LB2_match_RV, TDNA_LB_END, TDNA_LB_FW, RB_match, RB_match_RV, RB2_match, RB2_match_RV, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, Primer_match, Primer_RC_match,DSB_AREA_SEQ, DSB_AREA_SEQ_RC, Primer_match, Primer_match_3, Primer_pos, Primer_match_perfect, PRIMER_TO_DSB_GLOBAL, FLANK_A_REF_GLOBAL, GLOBAL_TOTAL_REF, data, data_improved_a, data_improved_b, data_improved_c, data_improved1) 
+    rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, LB_match, LB_match_RV, LB2_match, LB2_match_RV, TDNA_LB_FW, RB_match, RB_match_RV, RB2_match, RB2_match_RV, TDNA_RB_FW, TDNA_ALT_LB_FW, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, Primer_match, Primer_RC_match,DSB_AREA_SEQ, DSB_AREA_SEQ_RC, Primer_match_3, Primer_pos, Primer_match_perfect, PRIMER_TO_DSB_GLOBAL, FLANK_A_REF_GLOBAL, GLOBAL_TOTAL_REF, data, data_improved_a, data_improved_b, data_improved_c, data_improved1) 
     next
   }
   

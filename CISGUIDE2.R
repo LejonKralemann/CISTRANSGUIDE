@@ -425,12 +425,18 @@ for (i in row.names(sample_info)){
     }
   }else {
     FOCUS_CONTIG = DSB_CONTIG
+    if(is.na(DSB_OVERHANG)==TRUE){
+      message("Did you forget to indicate the DSB_OVERHANG? Moving to next sample.")
+      rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, data)
+      next
+    }else{
     if (FLANK_A_ORIENT == "FW"){
       FlankAUltEnd = DSB_FW_END
       FlankBUltStart = (DSB_FW_END+1)-DSB_OVERHANG
     }else{
       FlankAUltEnd = (DSB_FW_END+1)-DSB_OVERHANG
       FlankBUltStart = DSB_FW_END
+    }
     }
     }
  

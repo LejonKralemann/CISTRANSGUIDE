@@ -46,11 +46,14 @@ CurrentFileSize = 0
 ###############################################################################
 #Initial checks
 ###############################################################################
+runlog=c()
 if (file.exists(paste0(input_dir, "Sample_information.txt"))==FALSE){
-  message("Sample information sheet not present, aborting")
+  runlog=rbind(runlog, "Sample information sheet not present, aborting")
+  message(runlog[length(runlog),])
   quit()}
 if (file.exists(paste0(input_dir, "read_numbers.txt"))==FALSE){
-  message("Read numbers file not found, aborting")
+  runlog=rbind(runlog, "Read numbers file not found, aborting")
+  message(runlog[length(runlog),])
   quit()}
 
 ###############################################################################
@@ -99,9 +102,13 @@ matcher_skipper <-function(ref, seq1){
     return(flank_match)                                                             #return the total match
   }
 }
+funlog <-function(warningtext){
+  runlog<<-rbind(runlog, warningtext)
+  message(runlog[length(runlog),])
+}
 function_time <-function(text){
   TIME_CURRENT=round(as.numeric(Sys.time())*1000, digits=0)
-  message(paste0(text, (TIME_CURRENT - TIME_START), " milliseconds"))
+  funlog(paste0(text, (TIME_CURRENT - TIME_START), " milliseconds"))
   TIME_START<<-round(as.numeric(Sys.time())*1000, digits=0)
 }
 Mode <- function(x) {
@@ -114,7 +121,8 @@ Mode <- function(x) {
 #calculating total work
 ###############################################################################
 
-message("calculating total work")
+funlog("calculating total work")
+
 for (i in row.names(sample_info)){
   Sample = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Sample))
   RunID = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(RunID))
@@ -126,18 +134,26 @@ for (i in row.names(sample_info)){
   }
 }
 
-message(paste0("Total file size to process: ", TotalFileSize, " bytes"))
-
+funlog(paste0("Total file size to process: ", TotalFileSize, " bytes"))
 
 ###############################################################################
 #Process data: step 1
 #checking the file and reading metadata
 ###############################################################################
 
-message("Checking file and reading metadata")
+funlog("Checking file and reading metadata")
 
 #check whether input file exists
 for (i in row.names(sample_info)){
+  
+  ####################  pre-cleanup  #####################
+  objects_to_clean=c("data", "data_improved_a", "data_improved_b", "data_improved_c", "data_improved_1", "data_improved_2", "data_improved_3", "data_improved_3b", "data_improved_4", "data_improved_5", "data_improved_5b", "data_improved_6", "data_improved_8pre2", "data_improved_8", "data_improved_9", "data_improved_10", "AgroGeno", "contig_seq", "DNASample", "DSB_AREA_SEQ", "DSB_AREA_SEQ_RC", "DSB_CONTIG", "DSB_FW_END", "DSB_OVERHANG", "Ecotype", "FLANK_A_ORIENT", "FLANK_A_REF_GLOBAL", "FlankAUltEnd", "FlankBUltStart", "FOCUS_CONTIG", "FOCUS_LOCUS", "Genotype", "GLOBAL_TOTAL_REF", "Library", "PLASMID", "PLASMID_ALT", "plasmid_alt_seq", "plasmid_seq", "Primer_match", "Primer_match_3", "Primer_RC_match", "Primer_match_perfect", "Primer_pos", "Primer_seq", "Primer_seq_len", "PRIMER_TO_DSB_GLOBAL", "REF", "RunID", "Sample", "TDNA_ALT_IS_LBRB", "TDNA_ALT_LB_END", "TDNA_ALT_LB_FW", "TDNA_ALT_RB_END", "TDNA_ALT_RB_FW", "TDNA_IS_LBRB", "TDNA_LB_END,TDNA_LB_FW", "TDNA_RB_END", "TDNA_RB_FW", "genomeseq", "LB_match", "LB_match_RV", "LB2_match", "LB2_match_RV", "RB_match", "RB_match_RV", "RB2_match", "RB2_match_RV")
+  for (z in objects_to_clean){
+    assign(z, NULL)
+  }
+ 
+  
+ 
   
   ####################  general variables acquired from the information sheet  #####################
   
@@ -147,26 +163,23 @@ for (i in row.names(sample_info)){
   ####################  check for existence of files  #####################
   
   if (file.exists(paste0(input_dir, Sample, "_", RunID, "_A.txt"))==FALSE){
-    message(paste0("Primary processed file ",Sample, "_", RunID, "_A.txt not found, moving to the next sample"))
-    rm(Sample, RunID)
+    funlog(paste0("Primary processed file ",Sample, "_", RunID, "_A.txt not found, moving to the next sample"))
     next
   }else if (file.exists(paste0(output_dir, Sample, "_", RunID, "_CISTRANSGUIDE_V2.xlsx"))==TRUE){   #check whether file has already been processed
-    message(paste0("File ", output_dir, Sample, "_", RunID, "_A.txt has already been processed, moving to the next sample"))
+    funlog(paste0("File ", output_dir, Sample, "_", RunID, "_A.txt has already been processed, moving to the next sample"))
     #show progress
     CurrentFileSize = (file.info((paste0(input_dir, Sample, "_", RunID, "_A.txt"))))$size
     PercentageDone = PercentageDone + ((CurrentFileSize/TotalFileSize)*99)
-    message(paste0("CISTRANSGUIDE analysis ", round(PercentageDone, digits=3), "% complete"))
-    rm(Sample, RunID)
+    funlog(paste0("CISTRANSGUIDE analysis ", round(PercentageDone, digits=3), "% complete"))
     next
     }else{
-      message(paste0("Processing ",input_dir, Sample, "_", RunID, "_A.txt"))
+      funlog(paste0("Processing ",input_dir, Sample, "_", RunID, "_A.txt"))
       CurrentFileSize = (file.info((paste0(input_dir, Sample, "_", RunID, "_A.txt"))))$size
     }
   
   data = read.csv(paste0(input_dir, Sample, "_", RunID, "_A.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
   if (nrow(data)==0){
-    message("Primary processed file empty, moving to the next sample")
-    rm(Sample, RunID, data)
+    funlog("Primary processed file empty, moving to the next sample")
     next
   }
   
@@ -200,11 +213,10 @@ for (i in row.names(sample_info)){
   ############# REF CHECK ##############
   
   if (file.exists(paste0(input_dir, REF))==FALSE){
-    message("Reference fasta not found. Moving to next sample.")
-    rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, data)
+    funlog("Reference fasta not found. Moving to next sample.")
     next
   }else{
-    message(paste0("Using ref ", input_dir, REF))
+    funlog(paste0("Using ref ", input_dir, REF))
   }
   
   genomeseq = readDNAStringSet(paste0(input_dir, REF) , format="fasta")
@@ -225,9 +237,7 @@ for (i in row.names(sample_info)){
   
   #check whether plasmid can be found in ref
   if (isEmpty(plasmid_seq)==TRUE){
-    message(paste0("Plasmid name ", PLASMID, " not found in ", REF, " . Moving to next sample."))
-    rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, data)
-    
+   funlog(paste0("Plasmid name ", PLASMID, " not found in ", REF, " . Moving to next sample."))
     next
   }
   
@@ -256,13 +266,11 @@ for (i in row.names(sample_info)){
       } 
     }
     if (is.na(TDNA_LB_END)){
-      message("No single LB sequence found, moving to next sample")
-      rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, data)
-      
+      funlog("No single LB sequence found, moving to next sample")
       next
     }
   }else{
-    message("Using user supplied LB position")
+    funlog("Using user supplied LB position")
   }
     
     #find the RB
@@ -290,13 +298,11 @@ for (i in row.names(sample_info)){
       } 
     }
     if (is.na(TDNA_RB_END)){
-      message("No single RB sequence found, moving to next sample")
-      rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, DNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, data)
-      
+      funlog("No single RB sequence found, moving to next sample")
       next
     }
   }else{
-    message("Using user supplied RB position")
+    funlog("Using user supplied RB position")
   }
     
     #get the LB and RB positions of the alternative plasmid
@@ -331,8 +337,7 @@ for (i in row.names(sample_info)){
         } 
       }
       if (is.na(TDNA_ALT_LB_END)){
-        message("No single LB sequence found, moving to next sample")
-        rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, data)
+        funlog("No single LB sequence found, moving to next sample")
         next
       }
       
@@ -359,9 +364,7 @@ for (i in row.names(sample_info)){
         } 
       }
       if (is.na(TDNA_ALT_RB_END)){
-        message("No single RB sequence found, moving to next sample")
-        rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, data)
-        
+        funlog("No single RB sequence found, moving to next sample")
         next
       }
     }
@@ -388,17 +391,13 @@ for (i in row.names(sample_info)){
     FOCUS_CONTIG = PLASMID
     if (FLANK_A_ORIENT == "FW"){
       if (TDNA_IS_LBRB == TRUE){
-        message("T-DNA orientation conflict. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
-        rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, data)
-        
+        funlog("T-DNA orientation conflict. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
         next 
       }
       FlankBUltStart = TDNA_LB_END + 1
     }else{
       if (TDNA_IS_LBRB == FALSE){
-        message("T-DNA orientation conflict. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
-        rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, data)
-        
+        funlog("T-DNA orientation conflict. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
         next 
       }
       FlankBUltStart = TDNA_LB_END - 1
@@ -408,17 +407,13 @@ for (i in row.names(sample_info)){
     FOCUS_CONTIG = PLASMID
     if (FLANK_A_ORIENT == "FW"){
       if (TDNA_IS_LBRB == FALSE){
-        message("T-DNA orientation conflict. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
-        rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, data)
-        
+        funlog("T-DNA orientation conflict. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
         next 
       }
       FlankBUltStart = TDNA_RB_END + 1
     }else{
       if (TDNA_IS_LBRB == TRUE){
-        message("T-DNA orientation conflict. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
-        rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, data)
-        
+        funlog("T-DNA orientation conflict. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
         next 
       }
       FlankBUltStart = TDNA_RB_END - 1
@@ -426,8 +421,7 @@ for (i in row.names(sample_info)){
   }else {
     FOCUS_CONTIG = DSB_CONTIG
     if(is.na(DSB_OVERHANG)==TRUE){
-      message("Did you forget to indicate the DSB_OVERHANG? Moving to next sample.")
-      rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, data)
+      funlog("Did you forget to indicate the DSB_OVERHANG? Moving to next sample.")
       next
     }else{
     if (FLANK_A_ORIENT == "FW"){
@@ -447,9 +441,7 @@ for (i in row.names(sample_info)){
   
   contig_seq = as.character(eval(parse(text = paste0("genomeseq$`", FOCUS_CONTIG, "`"))))
   if (length(contig_seq)==0){
-    message("Focus contig not found in reference fasta. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
-    rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, data)
-    
+    funlog("Focus contig not found in reference fasta. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
     next 
   }
   
@@ -474,7 +466,7 @@ for (i in row.names(sample_info)){
   FASTA_MODE = FALSE
   }else{
   FASTA_MODE = TRUE
-  message("Primer seq not found, running in fasta mode.")}
+  funlog("Primer seq not found, running in fasta mode.")}
   
   if (FASTA_MODE == FALSE){
   if (FLANK_A_ORIENT == "FW"){
@@ -484,16 +476,14 @@ for (i in row.names(sample_info)){
       Primer_pos = as.numeric(Primer_match$start)
       Primer_match_perfect=TRUE
     }else if (nrow(Primer_match) >1){
-      message("Primer found several times in the genome")
-      rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, Primer_match, Primer_RC_match,DSB_AREA_SEQ, DSB_AREA_SEQ_RC, Primer_match, Primer_match_3, data)
+      funlog("Primer found several times in the genome")
       next
     }else if (nrow(Primer_match_3) == 1){
-      message("Note! Primer does not match fully. Continuing anyway.")
+      funlog("Note! Primer does not match fully. Continuing anyway.")
       Primer_pos = as.numeric(Primer_match_3$start)
       Primer_match_perfect=FALSE
     }else{
-      message("Primer not found")
-      rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, Primer_match, Primer_RC_match,DSB_AREA_SEQ, DSB_AREA_SEQ_RC, Primer_match, Primer_match_3, data)
+      funlog("Primer not found")
       next
     }
   }else if (FLANK_A_ORIENT == "RV"){
@@ -503,20 +493,18 @@ for (i in row.names(sample_info)){
       Primer_pos = as.numeric(Primer_match$end)
       Primer_match_perfect=TRUE
     }else if (nrow(Primer_match) >1){
-      message("Primer found several times in the genome")
-      rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, Primer_match, Primer_RC_match,DSB_AREA_SEQ, DSB_AREA_SEQ_RC, Primer_match, Primer_match_3, data)
+      funlog("Primer found several times in the genome")
       next
     }else if (nrow(Primer_match_3) == 1){
-      message("Note! Primer does not match fully. Continuing anyway.")
+      funlog("Note! Primer does not match fully. Continuing anyway.")
       Primer_pos = as.numeric(Primer_match_3$end)
       Primer_match_perfect=FALSE
     }else{
-      message("Primer not found")
-      rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, Primer_match, Primer_RC_match,DSB_AREA_SEQ, DSB_AREA_SEQ_RC, Primer_match, Primer_match_3, data)
+      funlog("Primer not found")
       next
     }
   }else{
-    rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_END, TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, Primer_match, Primer_RC_match,DSB_AREA_SEQ, DSB_AREA_SEQ_RC, data)
+    funlog("Incorrect value for FLANK_A_ORIENT on the Sample Information sheet")
     next
   }
     
@@ -533,7 +521,7 @@ for (i in row.names(sample_info)){
 
   #usually you dont want the primer to be so far away. But sometimes when you cut away the end of the T-DNA for instance, then you may want to keep the T-DNA end position.
   if (PRIMER_TO_DSB_GLOBAL>300){
-    message("Warning: primer is more than 300 bp away from the indicated end of FLANK A. Continuing anyway.")
+    funlog("Warning: primer is more than 300 bp away from the indicated end of FLANK A. Continuing anyway.")
   }
 
   #get the REF seq for flank A. from primer start to DSB +3 if RV primer, not if FW primer. Because CAS9 can cut further away from the PAM, but not closer. So the FLANK_A_REF is going as far as FLANK A is allowed to go.
@@ -569,7 +557,7 @@ for (i in row.names(sample_info)){
   #set the minimum length of a read
   if (FASTA_MODE == FALSE & is.na(MINLEN)){
   MINLEN = PRIMER_TO_DSB_GLOBAL+FLANK_B_LEN_MIN
-  message(paste0("MINLEN set to ", MINLEN))
+  funlog(paste0("MINLEN set to ", MINLEN))
   }
  
   
@@ -705,12 +693,10 @@ for (i in row.names(sample_info)){
   
   #check if any reads have survived
   if (nrow(data_improved1)==0){
-    message(paste0("No reads surviving for sample ", DNASample))
+    funlog(paste0("No reads surviving for sample ", Library))
     #show progress
     PercentageDone = PercentageDone + ((CurrentFileSize/TotalFileSize)*100)
-    message(paste0("CISTRANSGUIDE analysis ", round(PercentageDone, digits=3), "% complete"))
-    
-    rm(Sample, RunID, DSB_CONTIG, FOCUS_LOCUS, Genotype, PLASMID, PLASMID_ALT, REF, DNASample, Ecotype, Library, AgroGeno, FLANK_A_ORIENT, Primer_seq, DSB_FW_END, DSB_OVERHANG, TDNA_LB_END, TDNA_RB_END, TDNA_ALT_RB_END, TDNA_ALT_LB_END, genomeseq, plasmid_seq, TDNA_LB_FW, TDNA_RB_FW, TDNA_ALT_LB_FW, TDNA_ALT_RB_FW, FlankAUltEnd, FOCUS_CONTIG, FlankBUltStart, contig_seq, Primer_match, Primer_RC_match,DSB_AREA_SEQ, DSB_AREA_SEQ_RC, Primer_match_3, Primer_pos, Primer_match_perfect, PRIMER_TO_DSB_GLOBAL, FLANK_A_REF_GLOBAL, GLOBAL_TOTAL_REF, data, data_improved_a, data_improved_b, data_improved_c, data_improved1) 
+    funlog(paste0("CISTRANSGUIDE analysis ", round(PercentageDone, digits=3), "% complete"))
     next
   }
   
@@ -1357,16 +1343,12 @@ for (i in row.names(sample_info)){
   saveWorkbook(work_book, file = paste0(output_dir, Sample, "_", RunID, "_CISTRANSGUIDE_V2.xlsx"), overwrite = TRUE)
   
   
-  ###################### cleanup #########################################
-  rm(data, data_improved_a, data_improved_b, data_improved_c, data_improved_1, data_improved_2, data_improved_3, data_improved_3b, data_improved_4, data_improved_5, data_improved_5b, data_improved_6, data_improved_8pre2, data_improved_8, data_improved_9, data_improved_10)
-  rm(AgroGeno, contig_seq, DNASample, DSB_AREA_SEQ, DSB_AREA_SEQ_RC, DSB_CONTIG, DSB_FW_END, DSB_OVERHANG, Ecotype, FLANK_A_ORIENT, FLANK_A_REF_GLOBAL, FlankAUltEnd, FlankBUltStart, FOCUS_CONTIG, FOCUS_LOCUS, Genotype, GLOBAL_TOTAL_REF, Library, PLASMID, PLASMID_ALT, plasmid_alt_seq, plasmid_seq, Primer_match, Primer_match_3, Primer_RC_match, Primer_match_perfect, Primer_pos, Primer_seq, Primer_seq_len, PRIMER_TO_DSB_GLOBAL, REF, RunID, Sample, TDNA_ALT_IS_LBRB, TDNA_ALT_LB_END, TDNA_ALT_LB_FW, TDNA_ALT_RB_END, TDNA_ALT_RB_FW, TDNA_IS_LBRB, TDNA_LB_END,TDNA_LB_FW, TDNA_RB_END, TDNA_RB_FW, genomeseq)
-  
   function_time("Step 9 took ")
   
   
   #show progress
   PercentageDone = PercentageDone + ((CurrentFileSize/TotalFileSize)*100)
-  message(paste0("CISTRANSGUIDE analysis ", round(PercentageDone, digits=3), "% complete"))
+  funlog(paste0("CISTRANSGUIDE analysis ", round(PercentageDone, digits=3), "% complete"))
   
 }
 
@@ -1397,7 +1379,7 @@ wb = left_join(wb_pre, missing_columns)
 
 #remove previously marked problematic events as well as duplicate positions
 if (REMOVEPROBLEMS == TRUE) {
-  message("removing problematic events")
+  funlog("removing problematic events")
   total_data_positioncompare_pre = wb %>%
     #first remove problematic events based on characteristics of the events themselves
     filter(AnchorCount >= ANCHORCUTOFF,
@@ -1456,7 +1438,7 @@ if (REMOVEPROBLEMS == TRUE) {
   total_data_positioncompare = left_join(sample_info2, total_data_positioncompare_pre, by=c("Alias"))%>%
     filter(!is.na(Family) & !is.na(Name))
   
-  message("combining junctions with similar positions")
+  funlog("combining junctions with similar positions")
   #combine junctions with similar positions and get the characteristics of the consensus event from the event the most anchors 
   total_data_near_positioncombined = total_data_positioncompare %>%
     group_by(Alias, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, DNASample, Subject, ID, Focus_contig, Genotype, Ecotype, Plasmid_alt, Family, FlankAUltEnd, FlankBUltStart, AgroGeno, RemoveNonTranslocation, GroupSamePosition, Translocation, Translocation_del_resolved, Primer_match_perfect, DSB_FW_END, DSB_OVERHANG, DSB_CONTIG, TDNA_LB_END, TDNA_RB_END, TDNA_IS_LBRB, TDNA_ALT_LB_END, TDNA_ALT_RB_END, TDNA_ALT_IS_LBRB, MAXTARGETLENGTH)%>%
@@ -1501,7 +1483,7 @@ if (REMOVEPROBLEMS == TRUE) {
   #get a list of families
   wb_family = sample_info2 %>% select(Family) %>% distinct() %>% filter(Family!=0)
   if (nrow(wb_family) == 0) {
-    message("no family info detected")
+    funlog("no family info detected")
     #if no families are indicated
 
     wb_flag = total_data_near_positioncombined %>%
@@ -1515,12 +1497,12 @@ if (REMOVEPROBLEMS == TRUE) {
       
   
   } else{
-    message("taking family into consideration")
+    funlog("taking family into consideration")
     #take families into account
     wb_filter_total = total_data_near_positioncombined %>% filter(Family == 99999999) #make an empty file
     
     for (i in wb_family$Family) {
-      message(paste0("Cleanup family ", i))
+      funlog(paste0("Cleanup family ", i))
       #cleanup per family
       wb_current_family = total_data_near_positioncombined %>% filter(Family == i) %>% select(Alias) %>% distinct() #make a list of aliases within the current family
       wb_filter_subtotal = total_data_near_positioncombined %>% filter(Family == 99999999) #make an empty file
@@ -1545,7 +1527,7 @@ if (REMOVEPROBLEMS == TRUE) {
       wb_filter_total = rbind(wb_filter_total, wb_filter_subtotal) #combining surviving events from all families
       
     }
-    message("Fetching non-duplicate position events not belonging to a family")
+    funlog("Fetching non-duplicate position events not belonging to a family")
     wb_nonfamily = total_data_near_positioncombined %>%
       filter(Family == 0) %>%
       group_by(FLANK_B_START_POS) %>%
@@ -1555,12 +1537,12 @@ if (REMOVEPROBLEMS == TRUE) {
       
       ungroup() %>%
       filter(duplicate_position == FALSE)
-    message("combining surviving family and nonfamily events")
+    funlog("combining surviving family and nonfamily events")
     wb_flag = rbind(wb_filter_total, wb_nonfamily)  
     
   }
 } else{
-  message("flagging problems only")
+  funlog("flagging problems only")
   wb_flag = wb %>%
     group_by(FLANK_B_START_POS) %>%
     mutate(duplicate_position = if_else(n() > 1,
@@ -1613,7 +1595,7 @@ if (CONVERTWT == TRUE){
 }
 
 
-message("Writing output")
+funlog("Writing output")
 work_book2 <- createWorkbook()
 addWorksheet(work_book2, "rawData")
 writeData(work_book2, sheet = 1, wb_flag2)
@@ -1624,9 +1606,13 @@ wb_numbers = read_numbers_info %>%
   mutate(Alias = paste0(Sample, "_", RunID))%>%
   mutate(Sample = NULL,
          RunID = NULL)
-
 addWorksheet(work_book2, "Information")
 writeData(work_book2, sheet = 2, wb_numbers)
+
+#write another sheet with all the messages
+addWorksheet(work_book2, "Runlog")
+writeData(work_book2, sheet = 3, runlog)
+
 saveWorkbook(work_book2, file = paste0(output_dir, "Data_combined_CISTRANSGUIDE_V2_", as.integer(Sys.time()), ".xlsx"), overwrite = TRUE)
 
 message("CISTRANSGUIDE analysis has completed")

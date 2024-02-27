@@ -545,7 +545,7 @@ for (i in row.names(sample_info)){
   
   data_improved_a  = data %>%
     
-    #filter(QNAME == "A00379:290:HM7LNDSXY:4:1346:27326:33849")%>%
+    #filter(QNAME == "A00379:290:HM7LNDSXY:4:1117:18023:2957")%>%
     
     #Count number of Ns and remove any reads with Ns
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
@@ -902,8 +902,8 @@ for (i in row.names(sample_info)){
                         "")) %>%
     ungroup()%>%
     
-    #if there is a TD, the FLANK_B_LEN_TD will still be greater than SEQ_1_WO_A
-    mutate(hasTandemDuplication = if_else(SEQ_1_LEN != (FLANK_A_LEN+FLANK_B_LEN_MH - nchar(MH_TD)),
+    #if there is MH, but A+B-MH does not equal seq1, then there is TD
+    mutate(hasTandemDuplication = if_else(nchar(MH_TD)!=0 & SEQ_1_LEN != (FLANK_A_LEN+FLANK_B_LEN_MH - nchar(MH_TD)),
                                         TRUE,
                                         FALSE))%>%
     #adjust the MH

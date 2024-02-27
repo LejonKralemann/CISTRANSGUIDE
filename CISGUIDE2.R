@@ -901,11 +901,15 @@ for (i in row.names(sample_info)){
                         substr(SEQ_1, start = (1 + SEQ_1_LEN - FLANK_B_LEN_MH), stop = FLANK_A_LEN),
                         "")) %>%
     ungroup()%>%
+    mutate(MH_TD_LEN = nchar(MH_TD))%>%
     
     #if there is MH, but A+B-MH does not equal seq1, then there is TD
-    mutate(hasTandemDuplication = if_else(nchar(MH_TD)!=0 & SEQ_1_LEN != (FLANK_A_LEN+FLANK_B_LEN_MH - nchar(MH_TD)),
-                                        TRUE,
-                                        FALSE))%>%
+    mutate(hasTandemDuplication = case_when(
+      FLANK_B_CHROM==FOCUS_CONTIG & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & FLANK_A_ISFORWARD == TRUE & FLANK_A_END_POS > (FLANK_B_START_POS_MH+MH_TD_LEN) ~ TRUE,
+      FLANK_B_CHROM==FOCUS_CONTIG & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & FLANK_A_ISFORWARD == FALSE & FLANK_A_END_POS < (FLANK_B_START_POS_MH-MH_TD_LEN) ~ TRUE,
+      TRUE ~ FALSE))%>%
+             
+
     #adjust the MH
     mutate(MH = if_else(hasTandemDuplication == TRUE,
                         "",
@@ -914,8 +918,8 @@ for (i in row.names(sample_info)){
     #flank B start pos excluding MH or TD, for del calculation
     mutate(FLANK_B_START_POS = case_when(Type!="WT" & Type!="SNP" & hasTandemDuplication == TRUE & FLANK_B_ISFORWARD==TRUE ~ FLANK_A_END_POS +1 ,
                                          Type!="WT" & Type!="SNP" & hasTandemDuplication == TRUE & FLANK_B_ISFORWARD==FALSE ~ FLANK_A_END_POS - 1,
-                                         nchar(MH)>0 & FLANK_B_ISFORWARD == TRUE ~ FLANK_B_START_POS_MH + nchar(MH),
-                                         nchar(MH)>0 & FLANK_B_ISFORWARD == FALSE ~ FLANK_B_START_POS_MH - nchar(MH),
+                                         hasTandemDuplication == FALSE & nchar(MH)>0 & FLANK_B_ISFORWARD == TRUE ~ FLANK_B_START_POS_MH + nchar(MH),
+                                         hasTandemDuplication == FALSE & nchar(MH)>0 & FLANK_B_ISFORWARD == FALSE ~ FLANK_B_START_POS_MH - nchar(MH),
                                          TRUE ~ FLANK_B_START_POS_MH))%>%
 
     #calculate length of flank B minus the MH and TD
@@ -941,12 +945,19 @@ for (i in row.names(sample_info)){
       )) %>%
     mutate(insSize = nchar(FILLER)) %>%
     
-    
+
     #get the tandem duplication out of the filler
+    #match with total ref, because tandem duplication can extend beyond start of read
     rowwise()%>%
-    mutate(tandemDuplicationLength = if_else(hasTandemDuplication == TRUE,
-                                        lcprefix(reverse(substr(SEQ_1, start=1, stop=FLANK_A_LEN)), reverse(FILLER)),
-                                        0))%>%
+    mutate(tandemDuplicationLength = if(hasTandemDuplication == TRUE){
+      if (FLANK_A_ISFORWARD==TRUE){
+        lcprefix(reverse(substr(TOTAL_REF, start=1, stop=FLANK_A_END_POS-TOTAL_REF_START)), reverse(FILLER))
+      }else{
+        lcprefix(reverse(substr(TOTAL_REF, start=1, stop= 1+TOTAL_REF_STOP-FLANK_A_END_POS )), reverse(FILLER))
+      }
+    }else{
+      0
+    })%>%
     
     mutate(TANDEM_DUPLICATION = if_else(hasTandemDuplication == TRUE,
                                         substr(FILLER, start=(1+insSize-tandemDuplicationLength), stop=insSize),
@@ -1324,7 +1335,7 @@ for (i in row.names(sample_info)){
            program_version = hash)
   
 
-  
+
 
   
   #write an excel sheet as output

@@ -1580,11 +1580,11 @@ wb_numbers = read_numbers_info %>%
   mutate(Alias = paste0(Sample, "_", RunID))%>%
   mutate(Sample = NULL,
          RunID = NULL)
-addWorksheet(work_book2, "Information")
+addWorksheet(work_book2, "readNumbers")
 writeData(work_book2, sheet = 2, wb_numbers)
 
 #write another sheet with all the messages
-addWorksheet(work_book2, "Runlog")
+addWorksheet(work_book2, "runLog")
 writeData(work_book2, sheet = 3, runlog)
 
 saveWorkbook(work_book2, file = paste0(output_dir, "Data_combined_CISTRANSGUIDE_V2_", as.integer(Sys.time()), ".xlsx"), overwrite = TRUE)

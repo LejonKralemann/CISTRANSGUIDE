@@ -545,7 +545,7 @@ for (i in row.names(sample_info)){
   
   data_improved_a  = data %>%
     
-    #filter(QNAME == "A00379:290:HM7LNDSXY:4:1117:18023:2957")%>%
+    #filter(QNAME == "A00379:436:H3CHWDMXY:1:2173:6732:14935")%>%
     
     #Count number of Ns and remove any reads with Ns
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
@@ -905,8 +905,10 @@ for (i in row.names(sample_info)){
     
     #if there is MH, but A+B-MH does not equal seq1, then there is TD
     mutate(hasTandemDuplication = case_when(
-      FLANK_B_CHROM==FOCUS_CONTIG & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & FLANK_A_ISFORWARD == TRUE & FLANK_A_END_POS > (FLANK_B_START_POS_MH+MH_TD_LEN) ~ TRUE,
-      FLANK_B_CHROM==FOCUS_CONTIG & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & FLANK_A_ISFORWARD == FALSE & FLANK_A_END_POS < (FLANK_B_START_POS_MH-MH_TD_LEN) ~ TRUE,
+      FLANK_B_CHROM==FOCUS_CONTIG & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & FLANK_A_ISFORWARD == TRUE & FLANK_A_END_POS >= (FLANK_B_START_POS_MH+MH_TD_LEN) ~ TRUE,
+      FLANK_B_CHROM==FOCUS_CONTIG & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & FLANK_A_ISFORWARD == FALSE & FLANK_A_END_POS <= (FLANK_B_START_POS_MH-MH_TD_LEN) ~ TRUE,
+      
+      
       TRUE ~ FALSE))%>%
              
 

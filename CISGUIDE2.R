@@ -1241,7 +1241,7 @@ for (i in row.names(sample_info)){
         Type != "WT" & Type != "SNV" & FAKE_DELIN_CHECK == FALSE & delSize == 0 & insSize != 0 & tandemDuplicationLength==0 ~ "INSERTION",
         Type != "WT" & Type != "SNV" & FAKE_DELIN_CHECK == FALSE & delSize == 0 & insSize != 0 & tandemDuplicationLength!=0 ~ "TANDEMDUPLICATION",
         
-        Type != "WT" & Type != "SNV" & FAKE_DELIN_CHECK == FALSE & delSize == ERROR_NUMBER & insSize == 0 ~ "DELETION",
+        Type != "WT" & Type != "SNV" & FAKE_DELIN_CHECK == FALSE & insSize == 0 ~ "DELETION",
         
         TRUE ~ "OTHER") #this "other" is a catch category for bugs. Nothing should have this value.
     ) %>%

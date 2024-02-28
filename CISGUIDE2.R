@@ -545,7 +545,7 @@ for (i in row.names(sample_info)){
   
   data_improved_a  = data %>%
     
-    #filter(QNAME == "A00379:290:HM7LNDSXY:4:1117:18023:2957")%>%
+    #filter(QNAME == "A00379:290:HM7LNDSXY:4:2352:7229:29356")%>%
     
     #Count number of Ns and remove any reads with Ns
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
@@ -951,7 +951,7 @@ for (i in row.names(sample_info)){
     rowwise()%>%
     mutate(tandemDuplicationLength = if(hasTandemDuplication == TRUE){
       if (FLANK_A_ISFORWARD==TRUE){
-        lcprefix(reverse(substr(TOTAL_REF, start=1, stop=FLANK_A_END_POS-TOTAL_REF_START)), reverse(FILLER))
+        lcprefix(reverse(substr(TOTAL_REF, start=1, stop= 1+FLANK_A_END_POS-TOTAL_REF_START)), reverse(FILLER))
       }else{
         lcprefix(reverse(substr(TOTAL_REF, start=1, stop= 1+TOTAL_REF_STOP-FLANK_A_END_POS )), reverse(FILLER))
       }
@@ -1038,7 +1038,7 @@ for (i in row.names(sample_info)){
       delRelativeEnd = if_else(abs(as.integer(FLANK_B_DEL))<=FLANKBEYONDDSB | FLANK_B_CHROM == PLASMID | FLANK_B_CHROM == PLASMID_ALT,
                                as.integer(FLANK_B_DEL),
                                ERROR_NUMBER),
-      delRelativeEndTD = if_else(abs(as.integer(FLANK_B_DEL))<=FLANKBEYONDDSB  | FLANK_B_CHROM == PLASMID | FLANK_B_CHROM == PLASMID_ALT,
+      delRelativeEndTD = if_else( (abs(as.integer(FLANK_B_DEL))<=FLANKBEYONDDSB  | FLANK_B_CHROM == PLASMID | FLANK_B_CHROM == PLASMID_ALT) & FLANK_B_DEL!=ERROR_NUMBER,
                                as.integer(FLANK_B_DEL-tandemDuplicationLength),
                                ERROR_NUMBER)) %>%
 
@@ -1208,8 +1208,8 @@ for (i in row.names(sample_info)){
 
       #determine whether a translocation has occurred
       mutate(Translocation = case_when(Type=="WT" | Type=="SNP" ~ FALSE,
-                                       FOCUS_CONTIG ==  FLANK_B_CHROM & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & delRelativeEnd != ERROR_NUMBER & FLANK_A_ISFORWARD==TRUE & FLANK_A_END_POS < FLANK_B_START_POS  ~ FALSE,
-                                       FOCUS_CONTIG ==  FLANK_B_CHROM & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & delRelativeEnd != ERROR_NUMBER & FLANK_A_ISFORWARD==FALSE & FLANK_B_START_POS < FLANK_A_END_POS ~ FALSE,
+                                       FOCUS_CONTIG ==  FLANK_B_CHROM & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & delRelativeEnd != ERROR_NUMBER & FLANK_A_ISFORWARD==TRUE & FLANK_A_END_POS < FLANK_B_START_POS & FLANK_B_CHROM != PLASMID   ~ FALSE,
+                                       FOCUS_CONTIG ==  FLANK_B_CHROM & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & delRelativeEnd != ERROR_NUMBER & FLANK_A_ISFORWARD==FALSE & FLANK_B_START_POS < FLANK_A_END_POS & FLANK_B_CHROM != PLASMID ~ FALSE,
                                        TRUE ~ TRUE))%>%
       
       #note whether the deletion of the flank B (in case of translocation) has been determined
@@ -1334,8 +1334,6 @@ for (i in row.names(sample_info)){
            MAXANCHORDIST = MAXANCHORDIST,
            program_version = hash)
   
-
-
 
   
   #write an excel sheet as output

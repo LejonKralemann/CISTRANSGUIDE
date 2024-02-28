@@ -545,7 +545,7 @@ for (i in row.names(sample_info)){
   
   data_improved_a  = data %>%
     
-    #filter(QNAME == "A00379:290:HM7LNDSXY:4:2352:7229:29356")%>%
+    #filter(QNAME == "A00379:290:HM7LNDSXY:4:1117:18023:2957")%>%
     
     #Count number of Ns and remove any reads with Ns
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
@@ -733,14 +733,14 @@ for (i in row.names(sample_info)){
     
     #if the complete read is flank A (or if there are a few bases at the end that dont match) then make the type WT
     mutate(Type=case_when(FLANK_A_MATCH == SEQ_1 ~ "WT", #if the complete read is flank A
-                           FLANK_A_MATCH != SEQ_1 & SEQ_1_WO_A_LEN < 2 ~ "SNP", #or if there are a couple of mismatches
+                           FLANK_A_MATCH != SEQ_1 & SEQ_1_WO_A_LEN < 2 ~ "SNV", #or if there are a couple of mismatches
                             TRUE~ "OTHER"))%>%
     #############
     
     #Then with exception of the reads thus far called "WT", determine whether the area surrounding the DSB is intact
     #if this is the case, then the read is probably a WT read with seq errors.
     #check in both seq1 and seq2
-    #and check allowing for 1 mismatch, though output this as "SNP" because it may be a real 1bp substitution at the DSB.
+    #and check allowing for 1 mismatch, though output this as "SNV" because it may be a real 1bp substitution at the DSB.
     rowwise() %>%
     mutate(DSB_AREA_CHECK = if_else(Type != "WT",
                                     list(matchPattern(DNAString(DSB_AREA_SEQ), DNAString(SEQ_1), max.mismatch = 1)),
@@ -805,7 +805,7 @@ for (i in row.names(sample_info)){
                                         "FALSE")) %>%
     #set the type again
     mutate(Type = case_when(Type=="WT" | DSB_AREA_INTACT_SEQ1 == TRUE ~ "WT",
-                            DSB_AREA_INTACT_SEQ1 == FALSE & DSB_AREA_INTACT_SEQ2 == FALSE & (DSB_AREA_1MM_SEQ1 == TRUE | DSB_AREA_INTACT_SEQ2 == TRUE | DSB_AREA_1MM_SEQ2 == TRUE) ~ "SNP",
+                            DSB_AREA_INTACT_SEQ1 == FALSE & DSB_AREA_INTACT_SEQ2 == FALSE & (DSB_AREA_1MM_SEQ1 == TRUE | DSB_AREA_INTACT_SEQ2 == TRUE | DSB_AREA_1MM_SEQ2 == TRUE) ~ "SNV",
                             TRUE ~ Type)) %>%
     
     
@@ -820,11 +820,11 @@ for (i in row.names(sample_info)){
       
       TRUE ~ FALSE))%>%
     
-    #fix end pos for the WT/SNP case
-    mutate(FLANK_A_LEN = if_else(Type=="WT"| Type=="SNP" | (FLANK_A_ENDS_ON_TDNA==FALSE & FOCUS_CONTIG == PLASMID),
+    #fix end pos for the WT/SNV case
+    mutate(FLANK_A_LEN = if_else(Type=="WT"| Type=="SNV" | (FLANK_A_ENDS_ON_TDNA==FALSE & FOCUS_CONTIG == PLASMID),
                                   PRIMER_TO_DSB,
                                   FLANK_A_LEN))%>%
-    mutate(FLANK_A_END_POS = if_else(Type=="WT"| Type=="SNP"| (FLANK_A_ENDS_ON_TDNA==FALSE & FOCUS_CONTIG == PLASMID),
+    mutate(FLANK_A_END_POS = if_else(Type=="WT"| Type=="SNV"| (FLANK_A_ENDS_ON_TDNA==FALSE & FOCUS_CONTIG == PLASMID),
                                      FlankAUltEnd,
                                      FLANK_A_END_POS))%>%
     #also determine again what the part of the read is without FLANK_A
@@ -852,7 +852,7 @@ for (i in row.names(sample_info)){
     #FLANK_B_REF. This ref includes homology.
     rowwise() %>%
     mutate(FLANK_B_REF =
-             if (Type == "WT" | Type=="SNP"){ #if we already know it's a wt read, don't get the ref
+             if (Type == "WT" | Type=="SNV"){ #if we already know it's a wt read, don't get the ref
                ""
              }else{
              if (FLANK_B_CLOSE_BY==TRUE){
@@ -869,7 +869,7 @@ for (i in row.names(sample_info)){
                }}})%>%
     #find the full flank b match, while skipping over seq errors. But causes a problem on focus contig when del=1 en ins=1
     #skip if the read is wt
-    mutate(FLANK_B_MATCH = if_else(Type != "WT" & Type != "SNP",
+    mutate(FLANK_B_MATCH = if_else(Type != "WT" & Type != "SNV",
                                    stri_reverse(matcher_skipper(stri_reverse(FLANK_B_REF), stri_reverse(SEQ_1))),
                                     ""))%>%     
     ungroup() %>%
@@ -880,19 +880,19 @@ for (i in row.names(sample_info)){
     #flank b start position including MH
     mutate(FLANK_B_START_POS_MH = case_when(
       
-      FLANK_B_ISFORWARD == TRUE & Type!= "WT" & Type!= "SNP" ~ as.integer(FLANK_B_END_POS-(FLANK_B_MATCH_LEN-1)),
-      FLANK_B_ISFORWARD == FALSE & Type!= "WT" & Type!= "SNP" ~ as.integer(FLANK_B_END_POS+(FLANK_B_MATCH_LEN-1)),
+      FLANK_B_ISFORWARD == TRUE & Type!= "WT" & Type!= "SNV" ~ as.integer(FLANK_B_END_POS-(FLANK_B_MATCH_LEN-1)),
+      FLANK_B_ISFORWARD == FALSE & Type!= "WT" & Type!= "SNV" ~ as.integer(FLANK_B_END_POS+(FLANK_B_MATCH_LEN-1)),
       
       #if WT reads, FLANK B should start the base after the final allowed base of flank A
-      (Type=="WT" | Type=="SNP") & FLANK_A_ISFORWARD == TRUE ~ as.integer(FLANK_A_END_POS+1),
-      (Type=="WT" | Type=="SNP") & FLANK_A_ISFORWARD == FALSE ~ as.integer(FLANK_A_END_POS-1),
+      (Type=="WT" | Type=="SNV") & FLANK_A_ISFORWARD == TRUE ~ as.integer(FLANK_A_END_POS+1),
+      (Type=="WT" | Type=="SNV") & FLANK_A_ISFORWARD == FALSE ~ as.integer(FLANK_A_END_POS-1),
 
                                             TRUE ~ ERROR_NUMBER)) %>%
 
     
     #get the FLANK B len including MH, unless the read is WT
-    mutate(FLANK_B_LEN_MH = case_when(Type!="WT" & Type!="SNP" & FLANK_B_ISFORWARD == TRUE ~ FLANK_B_END_POS-(FLANK_B_START_POS_MH-1),
-                                      Type!="WT" & Type!="SNP" & FLANK_B_ISFORWARD == FALSE ~ FLANK_B_START_POS_MH-(FLANK_B_END_POS-1),
+    mutate(FLANK_B_LEN_MH = case_when(Type!="WT" & Type!="SNV" & FLANK_B_ISFORWARD == TRUE ~ FLANK_B_END_POS-(FLANK_B_START_POS_MH-1),
+                                      Type!="WT" & Type!="SNV" & FLANK_B_ISFORWARD == FALSE ~ FLANK_B_START_POS_MH-(FLANK_B_END_POS-1),
                                       TRUE ~ SEQ_1_WO_A_LEN))%>%
              
     rowwise() %>%
@@ -916,15 +916,15 @@ for (i in row.names(sample_info)){
                         MH_TD))%>%
     
     #flank B start pos excluding MH or TD, for del calculation
-    mutate(FLANK_B_START_POS = case_when(Type!="WT" & Type!="SNP" & hasTandemDuplication == TRUE & FLANK_B_ISFORWARD==TRUE ~ FLANK_A_END_POS +1 ,
-                                         Type!="WT" & Type!="SNP" & hasTandemDuplication == TRUE & FLANK_B_ISFORWARD==FALSE ~ FLANK_A_END_POS - 1,
+    mutate(FLANK_B_START_POS = case_when(Type!="WT" & Type!="SNV" & hasTandemDuplication == TRUE & FLANK_B_ISFORWARD==TRUE ~ FLANK_A_END_POS +1 ,
+                                         Type!="WT" & Type!="SNV" & hasTandemDuplication == TRUE & FLANK_B_ISFORWARD==FALSE ~ FLANK_A_END_POS - 1,
                                          hasTandemDuplication == FALSE & nchar(MH)>0 & FLANK_B_ISFORWARD == TRUE ~ FLANK_B_START_POS_MH + nchar(MH),
                                          hasTandemDuplication == FALSE & nchar(MH)>0 & FLANK_B_ISFORWARD == FALSE ~ FLANK_B_START_POS_MH - nchar(MH),
                                          TRUE ~ FLANK_B_START_POS_MH))%>%
 
     #calculate length of flank B minus the MH and TD
-    mutate(FLANK_B_LEN = case_when(Type!="WT" & Type!="SNP" & FLANK_B_ISFORWARD== TRUE ~ FLANK_B_END_POS-(FLANK_B_START_POS-1),
-                                   Type!="WT" & Type!="SNP" & FLANK_B_ISFORWARD== FALSE ~ FLANK_B_START_POS-(FLANK_B_END_POS-1),
+    mutate(FLANK_B_LEN = case_when(Type!="WT" & Type!="SNV" & FLANK_B_ISFORWARD== TRUE ~ FLANK_B_END_POS-(FLANK_B_START_POS-1),
+                                   Type!="WT" & Type!="SNV" & FLANK_B_ISFORWARD== FALSE ~ FLANK_B_START_POS-(FLANK_B_END_POS-1),
                                    TRUE ~ SEQ_1_WO_A_LEN))
             
 
@@ -1004,9 +1004,9 @@ for (i in row.names(sample_info)){
       
     #calculate total deletion length
     #only for deletions around the DSB with no translocations
-    mutate(delSize = case_when(Type=="WT" | Type=="SNP" ~ 0,
-                               Type!= "WT" & Type!="SNP" & FLANK_B_CHROM == FOCUS_CONTIG & FLANK_B_ISFORWARD == FLANK_A_ISFORWARD & FLANK_B_ISFORWARD == TRUE & FLANK_A_END_POS < FLANK_B_START_POS & FLANK_B_DEL != ERROR_NUMBER & FLANK_B_CHROM != PLASMID ~ as.integer(FLANK_A_DEL + FLANK_B_DEL),
-                               Type!= "WT" & Type!="SNP" & FLANK_B_CHROM == FOCUS_CONTIG & FLANK_B_ISFORWARD == FLANK_A_ISFORWARD & FLANK_B_ISFORWARD == FALSE & FLANK_A_END_POS > FLANK_B_START_POS & FLANK_B_DEL != ERROR_NUMBER & FLANK_B_CHROM != PLASMID ~ as.integer(FLANK_A_DEL + FLANK_B_DEL),
+    mutate(delSize = case_when(Type=="WT" | Type=="SNV" ~ 0,
+                               Type!= "WT" & Type!="SNV" & FLANK_B_CHROM == FOCUS_CONTIG & FLANK_B_ISFORWARD == FLANK_A_ISFORWARD & FLANK_B_ISFORWARD == TRUE & FLANK_A_END_POS < FLANK_B_START_POS & FLANK_B_DEL != ERROR_NUMBER & FLANK_B_CHROM != PLASMID ~ as.integer(FLANK_A_DEL + FLANK_B_DEL),
+                               Type!= "WT" & Type!="SNV" & FLANK_B_CHROM == FOCUS_CONTIG & FLANK_B_ISFORWARD == FLANK_A_ISFORWARD & FLANK_B_ISFORWARD == FALSE & FLANK_A_END_POS > FLANK_B_START_POS & FLANK_B_DEL != ERROR_NUMBER & FLANK_B_CHROM != PLASMID ~ as.integer(FLANK_A_DEL + FLANK_B_DEL),
                                TRUE ~ ERROR_NUMBER))%>%
 
     #correct MH if delSize == 0
@@ -1207,7 +1207,7 @@ for (i in row.names(sample_info)){
                                    ANCHOR_DIST)) %>%
 
       #determine whether a translocation has occurred
-      mutate(Translocation = case_when(Type=="WT" | Type=="SNP" ~ FALSE,
+      mutate(Translocation = case_when(Type=="WT" | Type=="SNV" ~ FALSE,
                                        FOCUS_CONTIG ==  FLANK_B_CHROM & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & delRelativeEnd != ERROR_NUMBER & FLANK_A_ISFORWARD==TRUE & FLANK_A_END_POS < FLANK_B_START_POS & FLANK_B_CHROM != PLASMID   ~ FALSE,
                                        FOCUS_CONTIG ==  FLANK_B_CHROM & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & delRelativeEnd != ERROR_NUMBER & FLANK_A_ISFORWARD==FALSE & FLANK_B_START_POS < FLANK_A_END_POS & FLANK_B_CHROM != PLASMID ~ FALSE,
                                        TRUE ~ TRUE))%>%
@@ -1232,11 +1232,18 @@ for (i in row.names(sample_info)){
       Subject = FOCUS_LOCUS,
       Type = case_when(
         Type=="WT"  ~ "WT",
-        Type != "WT" & (Type=="SNP" | FAKE_DELIN_CHECK == TRUE)  ~ "SNP",
-        Type != "WT" & Type != "SNP" & FAKE_DELIN_CHECK == FALSE & delSize != 0 & delSize != ERROR_NUMBER & insSize == 0 ~ "DELETION",
-        Type != "WT" & Type != "SNP" & FAKE_DELIN_CHECK == FALSE & delSize != 0 & delSize != ERROR_NUMBER & insSize != 0 ~ "DELINS",
-        Type != "WT" & Type != "SNP" & FAKE_DELIN_CHECK == FALSE & delSize == 0                           & insSize != 0 ~ "INSERTION",
-        TRUE ~ "OTHER")
+        Type != "WT" & (Type=="SNV" | FAKE_DELIN_CHECK == TRUE)  ~ "SNV",
+
+        Type != "WT" & Type != "SNV" & FAKE_DELIN_CHECK == FALSE & delSize != 0 & insSize != 0 & tandemDuplicationLength==0 ~ "DELINS",
+        Type != "WT" & Type != "SNV" & FAKE_DELIN_CHECK == FALSE & delSize != 0 & insSize != 0 & tandemDuplicationLength!=0 ~ "TANDEMDUPLICATION_COMPOUND",
+        
+
+        Type != "WT" & Type != "SNV" & FAKE_DELIN_CHECK == FALSE & delSize == 0 & insSize != 0 & tandemDuplicationLength==0 ~ "INSERTION",
+        Type != "WT" & Type != "SNV" & FAKE_DELIN_CHECK == FALSE & delSize == 0 & insSize != 0 & tandemDuplicationLength!=0 ~ "TANDEMDUPLICATION",
+        
+        Type != "WT" & Type != "SNV" & FAKE_DELIN_CHECK == FALSE & delSize == ERROR_NUMBER & insSize == 0 ~ "DELETION",
+        
+        TRUE ~ "OTHER") #this "other" is a catch category for bugs. Nothing should have this value.
     ) %>%
       
     

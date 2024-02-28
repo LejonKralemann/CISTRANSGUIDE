@@ -1005,8 +1005,8 @@ for (i in row.names(sample_info)){
     #calculate total deletion length
     #only for deletions around the DSB with no translocations
     mutate(delSize = case_when(Type=="WT" | Type=="SNP" ~ 0,
-                               Type!= "WT" & Type!="SNP" & FLANK_B_CHROM == FOCUS_CONTIG & FLANK_B_ISFORWARD == FLANK_A_ISFORWARD & FLANK_B_ISFORWARD == TRUE & FLANK_A_END_POS < FLANK_B_START_POS & FLANK_B_DEL != ERROR_NUMBER ~ as.integer(FLANK_A_DEL + FLANK_B_DEL),
-                               Type!= "WT" & Type!="SNP" & FLANK_B_CHROM == FOCUS_CONTIG & FLANK_B_ISFORWARD == FLANK_A_ISFORWARD & FLANK_B_ISFORWARD == FALSE & FLANK_A_END_POS > FLANK_B_START_POS & FLANK_B_DEL != ERROR_NUMBER ~ as.integer(FLANK_A_DEL + FLANK_B_DEL),
+                               Type!= "WT" & Type!="SNP" & FLANK_B_CHROM == FOCUS_CONTIG & FLANK_B_ISFORWARD == FLANK_A_ISFORWARD & FLANK_B_ISFORWARD == TRUE & FLANK_A_END_POS < FLANK_B_START_POS & FLANK_B_DEL != ERROR_NUMBER & FLANK_B_CHROM != PLASMID ~ as.integer(FLANK_A_DEL + FLANK_B_DEL),
+                               Type!= "WT" & Type!="SNP" & FLANK_B_CHROM == FOCUS_CONTIG & FLANK_B_ISFORWARD == FLANK_A_ISFORWARD & FLANK_B_ISFORWARD == FALSE & FLANK_A_END_POS > FLANK_B_START_POS & FLANK_B_DEL != ERROR_NUMBER & FLANK_B_CHROM != PLASMID ~ as.integer(FLANK_A_DEL + FLANK_B_DEL),
                                TRUE ~ ERROR_NUMBER))%>%
 
     #correct MH if delSize == 0

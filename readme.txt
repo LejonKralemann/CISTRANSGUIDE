@@ -42,18 +42,16 @@ Genotype: 					The name of the genotype of the organism that was sampled.
 Plasmid_alt: 				The name of the second plasmid, if a transformation with multiple plasmids has been performed. Enter "NA" if you only used 1 plasmid.
 DNA: 						Name of the DNA sample from which libraries were made. Often one DNA sample is used to do an LB, RB, FW, and RV reaction. Example: "7C1".
 RunID: 						Name of the sequencing run. This allows one to differentiate between samples that were sequenced multiple times, or to limit comparisons within runs to avoid effects of different sequencing depths between runs.
-TDNA_LB_END:				The most extreme position on the T-DNA at the LB end.
-TDNA_RB_END:				The most extreme position on the T-DNA at the RB end.
+TDNA_LB_END:				The most extreme position on the T-DNA at the LB end. If 'NA', then the program will look for the position.
+TDNA_RB_END:				The most extreme position on the T-DNA at the RB end. If 'NA', then the program will look for the position.
 Ecotype: 					The name of the ecotype of the organism that was sampled. E.g. "Col-0".
 R1Suffix: 					The part of the filename after File_name, but before the extention .fastq.gz, for read 1 (the read sequenced from the p5 adapter).
 R2Suffix: 					The part of the filename after File_name, but before the extention .fastq.gz, for read 2 (the read sequenced from the p7 adapter).
 UMISuffix: 					The part of the filename after File_name, but before the extention .fastq.gz, for the UMI.
 Family:						Indicate here if some samples are related and therefore junctions can occur in multiple samples. Use integers starting from "1". Use "0" in all rows not to include family information. This information is used to keep some junctions which otherwise would be filtered out by the duplicate position filter. 
 AgroGeno:					Genotype/strain of Agrobacterium that was used in the transformation.
-TDNA_IS_LBRB:				Indicate whether the reference contains the T-DNA in LB:RB orientation (TRUE or FALSE)
-TDNA_ALT_LB_END:			LB position on the alternative T-DNA plasmid. "NA" if no alternative plasmid.
+TDNA_ALT_LB_END:			LB position on the alternative T-DNA plasmid. "NA" if no alternative plasmid, or if you want the program to look for the position.
 TDNA_ALT_RB_END:			Same as previous but for RB.
-TDNA_ALT_IS_LBRB:			Indicates whether alternative plasmid is in LB:RB orientation in the reference. "NA" if no alternative plasmid.
 
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 General notes
@@ -72,3 +70,5 @@ About the output
 In the case of microhomology, the output gives you the end of flank A and flank B including the microhomology.
 
 countEvents:	the number of read pairs associated with this event
+
+The output can be analysed with SIQPlotteR: https://siq.researchlumc.nl/SIQPlotteR/

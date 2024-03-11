@@ -1397,8 +1397,7 @@ if (REMOVEPROBLEMS == TRUE) {
            ANCHOR_DIST <= MAXANCHORDIST,
            Consensus_freq >= 0.75,
            MATE_FLANK_B_CHROM_AGREE == TRUE,
-           FAKE_DELIN_CHECK == FALSE,
-           !(DSB_AREA_INTACT==TRUE & (delSize !=0 | insSize != 0 | homologyLength != 0))) %>% 
+           FAKE_DELIN_CHECK == FALSE) %>% 
     #then sort the data based on genomic location
     arrange(Alias, FLANK_B_CHROM, FLANK_B_START_POS)%>%
     #then check whether for each event, the one on the previous row is close by (within 10bp).

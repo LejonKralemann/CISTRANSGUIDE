@@ -13,9 +13,9 @@ if (require(openxlsx)==FALSE){install.packages("openxlsx", repos = "http://cran.
 ###############################################################################
 input_dir= "./input/"
 output_dir= "./output/"
-GROUPSAMEPOS=FALSE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
-REMOVEPROBLEMS=FALSE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
+GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
+REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
 ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B.
 MAXANCHORDIST=2000 #the furthest position that the mate anchor can be, except on T-DNA.
@@ -545,7 +545,7 @@ for (i in row.names(sample_info)){
   
   data_improved_a  = data %>%
     
-    #filter(QNAME == "A00379:436:H3CHWDMXY:1:2173:6732:14935")%>%
+    #filter(QNAME == "A00379:436:H3CHWDMXY:1:2127:30852:25300")%>%
     
     #Count number of Ns and remove any reads with Ns
     mutate(NrN = str_count(SEQ_1, pattern = "N"),
@@ -1172,6 +1172,7 @@ for (i in row.names(sample_info)){
             DSB_AREA_1MM_SEQ2_con = as.logical(names(which.max(table(DSB_AREA_1MM_SEQ2)))),
             DSB_HIT_MULTI_SEQ1_con = as.logical(names(which.max(table(DSB_HIT_MULTI_SEQ1)))),
             DSB_HIT_MULTI_SEQ2_con = as.logical(names(which.max(table(DSB_HIT_MULTI_SEQ2)))),
+            Type = as.logical(names(which.max(table(Type)))),
             .groups="drop"
           )%>%
           mutate(Consensus_freq = Count_consensus/ReadCount)%>%

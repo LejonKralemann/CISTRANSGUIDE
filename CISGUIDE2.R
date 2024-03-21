@@ -13,9 +13,9 @@ if (require(openxlsx)==FALSE){install.packages("openxlsx", repos = "http://cran.
 ###############################################################################
 input_dir= "./input/"
 output_dir= "./output/"
-GROUPSAMEPOS=FALSE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
-REMOVEPROBLEMS=FALSE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
+GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
+REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
 ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B.
 MAXANCHORDIST=2000 #the furthest position that the mate anchor can be, except on T-DNA.
@@ -144,7 +144,7 @@ funlog("Checking file and reading metadata")
 for (i in row.names(sample_info)){
   
   ####################  pre-cleanup  #####################
-  objects_to_clean=c("data", "data_improved_a", "data_improved_b", "data_improved_c", "data_improved_1", "data_improved_2", "data_improved_3", "data_improved_3b", "data_improved_4", "data_improved_5", "data_improved_5b", "data_improved_6", "data_improved_8pre2", "data_improved_8", "data_improved_9", "data_improved_10", "AgroGeno", "contig_seq", "DNASample", "DSB_AREA_SEQ", "DSB_AREA_SEQ_RC", "DSB_CONTIG", "DSB_FW_END", "DSB_OVERHANG", "Ecotype", "FLANK_A_ISFORWARD", "FLANK_A_REF_GLOBAL", "FlankAUltEnd", "FlankBUltStart", "FOCUS_CONTIG", "FOCUS_LOCUS", "Genotype", "GLOBAL_TOTAL_REF", "Library", "PLASMID", "PLASMID_ALT", "plasmid_alt_seq", "plasmid_seq", "Primer_match", "Primer_match_3", "Primer_RC_match", "Primer_match_perfect", "Primer_pos", "Primer_seq", "Primer_seq_len", "PRIMER_TO_DSB_GLOBAL", "REF", "RunID", "Sample", "TDNA_ALT_IS_LBRB", "TDNA_ALT_LB_END", "TDNA_ALT_LB_FW", "TDNA_ALT_RB_END", "TDNA_ALT_RB_FW", "TDNA_IS_LBRB", "TDNA_LB_END,TDNA_LB_FW", "TDNA_RB_END", "TDNA_RB_FW", "genomeseq", "LB_match", "LB_match_RV", "LB2_match", "LB2_match_RV", "RB_match", "RB_match_RV", "RB2_match", "RB2_match_RV")
+  objects_to_clean=c("data", "data_improved_a", "data_improved_b", "data_improved_c", "data_improved_1", "data_improved_2", "data_improved_3", "data_improved_3b", "data_improved_4", "data_improved_5", "data_improved_5b", "data_improved_6", "data_improved_8pre2", "data_improved_8", "data_improved_9", "data_improved_10", "AgroGeno", "contig_seq", "DNASample", "DSB_AREA_SEQ", "DSB_AREA_SEQ_RC", "DSB_CONTIG", "DSB_FW_END", "DSB_OVERHANG", "Ecotype", "FLANK_A_ISFORWARD", "FLANK_A_REF_GLOBAL", "FlankAUltEnd", "FOCUS_CONTIG", "FOCUS_LOCUS", "Genotype", "GLOBAL_TOTAL_REF", "Library", "PLASMID", "PLASMID_ALT", "plasmid_alt_seq", "plasmid_seq", "Primer_match", "Primer_match_3", "Primer_RC_match", "Primer_match_perfect", "Primer_pos", "Primer_seq", "Primer_seq_len", "PRIMER_TO_DSB_GLOBAL", "REF", "RunID", "Sample", "TDNA_ALT_IS_LBRB", "TDNA_ALT_LB_END", "TDNA_ALT_LB_FW", "TDNA_ALT_RB_END", "TDNA_ALT_RB_FW", "TDNA_IS_LBRB", "TDNA_LB_END,TDNA_LB_FW", "TDNA_RB_END", "TDNA_RB_FW", "genomeseq", "LB_match", "LB_match_RV", "LB2_match", "LB2_match_RV", "RB_match", "RB_match_RV", "RB2_match", "RB2_match_RV")
   for (z in objects_to_clean){
     assign(z, NULL)
   }
@@ -1172,6 +1172,7 @@ for (i in row.names(sample_info)){
             DSB_AREA_1MM_SEQ2_con = as.logical(names(which.max(table(DSB_AREA_1MM_SEQ2)))),
             DSB_HIT_MULTI_SEQ1_con = as.logical(names(which.max(table(DSB_HIT_MULTI_SEQ1)))),
             DSB_HIT_MULTI_SEQ2_con = as.logical(names(which.max(table(DSB_HIT_MULTI_SEQ2)))),
+            Type = as.logical(names(which.max(table(Type)))),
             .groups="drop"
           )%>%
           mutate(Consensus_freq = Count_consensus/ReadCount)%>%
@@ -1316,7 +1317,6 @@ for (i in row.names(sample_info)){
     #add columns for all the input options and software version
     mutate(countReadsTotal = NULL,
            FlankAUltEnd = FlankAUltEnd,
-           FlankBUltStart = FlankBUltStart,
            Flank_A_isforward = FLANK_A_ISFORWARD,
            Focus_contig = FOCUS_CONTIG,
            Genotype = Genotype,
@@ -1382,7 +1382,9 @@ missing_columns = wb_pre %>%
          DSB_CONTIG = NA,
          TDNA_ALT_LB_END = NA,
          TDNA_ALT_RB_END = NA,
-         TDNA_ALT_IS_LBRB = NA)
+         TDNA_ALT_IS_LBRB = NA,
+         TANDEM_DUPLICATION = NA,
+         FLANK_B_TDNA_SIDE = NA)
 
 wb = left_join(wb_pre, missing_columns)
 
@@ -1396,8 +1398,7 @@ if (REMOVEPROBLEMS == TRUE) {
            ANCHOR_DIST <= MAXANCHORDIST,
            Consensus_freq >= 0.75,
            MATE_FLANK_B_CHROM_AGREE == TRUE,
-           FAKE_DELIN_CHECK == FALSE,
-           !(DSB_AREA_INTACT==TRUE & (delSize !=0 | insSize != 0 | homologyLength != 0))) %>% 
+           FAKE_DELIN_CHECK == FALSE) %>% 
     #then sort the data based on genomic location
     arrange(Alias, FLANK_B_CHROM, FLANK_B_START_POS)%>%
     #then check whether for each event, the one on the previous row is close by (within 10bp).
@@ -1450,7 +1451,7 @@ if (REMOVEPROBLEMS == TRUE) {
   funlog("combining junctions with similar positions")
   #combine junctions with similar positions and get the characteristics of the consensus event from the event the most anchors 
   total_data_near_positioncombined = total_data_positioncompare %>%
-    group_by(Alias, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, DNASample, Subject, ID, Focus_contig, Genotype, Ecotype, Plasmid_alt, Family, FlankAUltEnd, FlankBUltStart, AgroGeno, RemoveNonTranslocation, GroupSamePosition, Translocation, Translocation_del_resolved, TANDEM_DUPLICATION, Primer_match_perfect, DSB_FW_END, DSB_OVERHANG, DSB_CONTIG, TDNA_LB_END, TDNA_RB_END, TDNA_IS_LBRB, TDNA_ALT_LB_END, TDNA_ALT_RB_END, TDNA_ALT_IS_LBRB, MAXTARGETLENGTH, FLANK_B_TDNA_SIDE)%>%
+    group_by(Alias, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, DNASample, Subject, ID, Focus_contig, Genotype, Ecotype, Plasmid_alt, Family, FlankAUltEnd, AgroGeno, RemoveNonTranslocation, GroupSamePosition, Translocation, Translocation_del_resolved, TANDEM_DUPLICATION, Primer_match_perfect, DSB_FW_END, DSB_OVERHANG, DSB_CONTIG, TDNA_LB_END, TDNA_RB_END, TDNA_IS_LBRB, TDNA_ALT_LB_END, TDNA_ALT_RB_END, TDNA_ALT_IS_LBRB, FLANK_B_TDNA_SIDE)%>%
     summarize(AnchorCountSum = sum(AnchorCount), 
               ReadCountSum = sum(ReadCount),
               FLANK_B_START_POS_CON = as.integer(FLANK_B_START_POS[which.max(AnchorCount)]),

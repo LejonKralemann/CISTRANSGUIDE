@@ -23,6 +23,7 @@ FLANKBEYONDDSB=5000 #how much flank A and flank B are allowed to continue beyond
 MINLEN=90 #this is the minimal read length. if you write NA here, then the software will calculate the minimal read length based on the distance to nick/dsb and FLANK_B_LEN_MIN. Should be at the very least 60bp, but 90bp is more common to have as minimum.
 LB_SEQUENCES = c("TGGCAGGATATATTGTGGTGTAAAC", "CGGCAGGATATATTCAATTGTAAAT") #the nick is made after the 3rd nt
 RB_SEQUENCES = c("TGACAGGATATATTGGCGGGTAAAC", "TGGCAGGATATATGCGGTTGTAATT") #the nick is made after the 3rd nt
+TD_SIZE_CUTOFF = 2 #the smallest TD that is considered as TD (*with regards to the Type variable). Any smaller TD is considered merely an insertion.
 
 ###############################################################################
 #set parameters - non-adjustable
@@ -1241,8 +1242,8 @@ for (i in row.names(sample_info)){
         Type != "WT" & Type != "SNV" & FAKE_DELIN_CHECK == FALSE & delSize != 0 & insSize != 0 & tandemDuplicationLength!=0 ~ "TANDEMDUPLICATION_COMPOUND",
         
 
-        Type != "WT" & Type != "SNV" & FAKE_DELIN_CHECK == FALSE & delSize == 0 & insSize != 0 & tandemDuplicationLength==0 ~ "INSERTION",
-        Type != "WT" & Type != "SNV" & FAKE_DELIN_CHECK == FALSE & delSize == 0 & insSize != 0 & tandemDuplicationLength!=0 ~ "TANDEMDUPLICATION",
+        Type != "WT" & Type != "SNV" & FAKE_DELIN_CHECK == FALSE & delSize == 0 & insSize != 0 & tandemDuplicationLength < TD_SIZE_CUTOFF ~ "INSERTION",
+        Type != "WT" & Type != "SNV" & FAKE_DELIN_CHECK == FALSE & delSize == 0 & insSize != 0 & tandemDuplicationLength >= TD_SIZE_CUTOFF ~ "TANDEMDUPLICATION",
         
         Type != "WT" & Type != "SNV" & FAKE_DELIN_CHECK == FALSE & insSize == 0 ~ "DELETION",
         

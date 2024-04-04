@@ -13,9 +13,9 @@ if (require(openxlsx)==FALSE){install.packages("openxlsx", repos = "http://cran.
 ###############################################################################
 input_dir= "./input/"
 output_dir= "./output/"
-GROUPSAMEPOS=FALSE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
-REMOVEPROBLEMS=FALSE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
+GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
+REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
 ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B.
 MAXANCHORDIST=2000 #the furthest position that the mate anchor can be, except on T-DNA.
@@ -444,11 +444,16 @@ for (i in row.names(sample_info)){
   
   DSB_AREA_SEQ = (if (FLANK_A_ISFORWARD == TRUE){
     substr(contig_seq, start= FlankAUltEnd - ((FLANK_B_LEN_MIN/2)-1), stop= FlankAUltEnd + (FLANK_B_LEN_MIN/2))
-  }else if (FLANK_A_ISFORWARD == FALSE){
+    }else if (FLANK_A_ISFORWARD == FALSE){
     as.character(reverseComplement(DNAString(substr(contig_seq, start= FlankAUltEnd - (FLANK_B_LEN_MIN/2), stop= FlankAUltEnd + ((FLANK_B_LEN_MIN/2)-1)))))
-  }else{
+      }else{
     ""
-  })
+        })
+  if (DSB_AREA_SEQ == ""){
+    EXECUTE_DSB_AREA_CHECK=FALSE
+  }else{
+    EXECUTE_DSB_AREA_CHECK=TRUE
+  }
   
   DSB_AREA_SEQ_RC = as.character(reverseComplement(DNAString(DSB_AREA_SEQ)))
   
@@ -718,7 +723,7 @@ for (i in row.names(sample_info)){
   #Process data: step 4
   ###############################################################################
   
-  data_improved3 = data_improved2 %>%
+  data_improved2b = data_improved2 %>%
 
     #Find how much SEQ_1 matches with FLANK_A_REF. Allow 1 bp mismatch somewhere, if the alignment after that continues for at least another 10 bp.
     rowwise() %>%
@@ -735,14 +740,20 @@ for (i in row.names(sample_info)){
     #if the complete read is flank A (or if there are a few bases at the end that dont match) then make the type WT
     mutate(Type=case_when(FLANK_A_MATCH == SEQ_1 ~ "WT", #if the complete read is flank A
                            FLANK_A_MATCH != SEQ_1 & SEQ_1_WO_A_LEN < 2 ~ "SNV", #or if there are a couple of mismatches
-                            TRUE~ "OTHER"))%>%
-    #############
+                            TRUE~ "OTHER"))
+  
+  
+   if (EXECUTE_DSB_AREA_CHECK==TRUE){
+    
+
+     #############
     
     #Then with exception of the reads thus far called "WT", determine whether the area surrounding the DSB is intact
     #if this is the case, then the read is probably a WT read with seq errors.
     #check in both seq1 and seq2
     #and check allowing for 1 mismatch, though output this as "SNV" because it may be a real 1bp substitution at the DSB.
-    rowwise() %>%
+  data_improved3 = data_improved2b %>%  
+  rowwise() %>%
     mutate(DSB_AREA_CHECK = if_else(Type != "WT",
                                     list(matchPattern(DNAString(DSB_AREA_SEQ), DNAString(SEQ_1), max.mismatch = 1)),
                                     list("")))%>%
@@ -807,9 +818,24 @@ for (i in row.names(sample_info)){
     #set the type again
     mutate(Type = case_when(Type=="WT" | DSB_AREA_INTACT_SEQ1 == TRUE ~ "WT",
                             DSB_AREA_INTACT_SEQ1 == FALSE & DSB_AREA_INTACT_SEQ2 == FALSE & (DSB_AREA_1MM_SEQ1 == TRUE | DSB_AREA_INTACT_SEQ2 == TRUE | DSB_AREA_1MM_SEQ2 == TRUE) ~ "SNV",
-                            TRUE ~ Type)) %>%
+                            TRUE ~ Type))
+  
+   }else{
+     data_improved3b = data_improved2b %>%
+       mutate(
+         #the following variables are set to FALSE. This does not mean that there is a DSB area that does not match wt sequence, but rather that it has not been determined.
+       DSB_AREA_INTACT_SEQ1 = FALSE,
+     DSB_AREA_INTACT_SEQ2 = FALSE,
+     DSB_AREA_1MM_SEQ1 = FALSE,
+     DSB_AREA_1MM_SEQ2 = FALSE,
+     DSB_HIT_MULTI_SEQ1 = FALSE,
+     DSB_HIT_MULTI_SEQ2 = FALSE)
+     }
+  
+  
+  
     
-    
+    data_improved3c = data_improved3b %>%
     
     #check whether FLANK_A ends within the T-DNA. (IF LB or RB transguide reaction. if not, limit to the T-DNA)
     mutate(FLANK_A_ENDS_ON_TDNA = case_when(
@@ -845,7 +871,7 @@ for (i in row.names(sample_info)){
   #Process data: step 5
   ###############################################################################
   
-  data_improved4 = data_improved3b %>%
+  data_improved4 = data_improved3c %>%
     mutate(FLANK_B_CLOSE_BY = case_when(FLANK_A_ISFORWARD == TRUE & TOTAL_REF_STOP > FLANK_B_END_POS &  FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & FLANK_B_CHROM == FOCUS_CONTIG ~ TRUE,
                                         FLANK_A_ISFORWARD == FALSE & TOTAL_REF_START < FLANK_B_END_POS &  FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & FLANK_B_CHROM == FOCUS_CONTIG ~ TRUE,
                                         TRUE ~ FALSE))%>%
@@ -1343,7 +1369,8 @@ for (i in row.names(sample_info)){
            MinumumReadLength = MINLEN,
            MAXANCHORDIST = MAXANCHORDIST,
            program_version = hash,
-           TD_SIZE_CUTOFF = TD_SIZE_CUTOFF)
+           TD_SIZE_CUTOFF = TD_SIZE_CUTOFF,
+           EXECUTE_DSB_AREA_CHECK = EXECUTE_DSB_AREA_CHECK)
   
 
   

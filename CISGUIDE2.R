@@ -192,7 +192,7 @@ for (i in row.names(sample_info)){
   Ecotype = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Ecotype))
   Library = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Sample))
   AgroGeno = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(AgroGeno))
-  FLANK_A_ISFORWARD = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(FLANK_A_ISFORWARD))
+  FLANK_A_ISFORWARD = as.logical(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(FLANK_A_ISFORWARD))
   Primer_seq = str_replace_all(toupper(as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Primer))), "TCAGACGTGTGCTCTTCCGATCT", "")
   DSB_FW_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DSB_FW_END)) #end of left flank before DSB
 

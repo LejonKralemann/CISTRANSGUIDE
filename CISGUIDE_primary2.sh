@@ -349,6 +349,7 @@ sed -E 's/[[:space:]]/\t/g' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1.tx
 paste ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R2.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1.txt |
 awk -v OFS="\t" -v FS="\t" '{print $1, $3, $5, $8, $10}' | sort -k 1,1 |
 cut -c 2- > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1R2.txt
+#this file contains the QNAME, SEQ1, QUAL1, SEQ2, QUAL2
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 echo "Mapping" ${i}
@@ -398,12 +399,14 @@ samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -F 0x10 |
 awk -v OFS="\t" -v FS="\t" '{ if ($5>1 && $6=="30M"){print $1, $3, "FW", $4}}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt
+#this is QNAME, CHROM, ORIENT, POS
 
 samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30.bam |
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -f 0x10 |
 awk -v OFS="\t" -v FS="\t" '{ if ($5>1 && $6=="30M"){print $1, $3, "RV", $4}}' >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt
+#this is QNAME, CHROM, ORIENT, POS
 
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt | sort -k 1,1  > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names_sorted.txt
 
@@ -415,12 +418,15 @@ samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -F 0x10 |
 awk -v OFS="\t" -v FS="\t" '{ if ($5>1 && $6=="30M"){print $1, $3, $4, $5, "FW"}}'  > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names.txt
+#this is QNAME, CHROM, POS, MAPQ, ORIENT
 
 samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30.bam |
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -f 0x10 |
 awk -v OFS="\t" -v FS="\t" '{ if ($5>1 && $6=="30M"){print $1, $3, $4, $5, "RV"}}'  >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names.txt
+#this is QNAME, CHROM, POS, MAPQ, ORIENT
+
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names.txt | sort -k 1,1  > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names_sorted.txt
 
 samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30.bam |
@@ -428,12 +434,14 @@ samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -F 0x10 |
 awk -v OFS="\t" -v FS="\t" '{ if ($5>1 && $6=="30M"){print $1, $3, $4, $5, "FW"}}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names.txt
-
+#this is QNAME, CHROM, POS, MAPQ, orientation
 samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30.bam |
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -f 0x10 |
 awk -v OFS="\t" -v FS="\t" '{ if ($5>1 && $6=="30M"){print $1, $3, $4, $5, "RV"}}' >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names.txt
+#this is QNAME, CHROM, POS, MAPQ, orientation
+
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names.txt | sort -k 1,1  > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names_sorted.txt
 
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"

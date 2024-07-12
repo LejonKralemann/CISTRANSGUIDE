@@ -13,9 +13,9 @@ if (require(openxlsx)==FALSE){install.packages("openxlsx", repos = "http://cran.
 ###############################################################################
 input_dir= "./input/"
 output_dir= "./output/"
-GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
-REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
+GROUPSAMEPOS=FALSE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
+REMOVEPROBLEMS=FALSE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
 ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B.
 MAXANCHORDIST=2000 #the furthest position that the mate anchor can be, except on T-DNA.
@@ -24,6 +24,7 @@ MINLEN=90 #this is the minimal read length. if you write NA here, then the softw
 LB_SEQUENCES = c("TGGCAGGATATATTGTGGTGTAAAC", "CGGCAGGATATATTCAATTGTAAAT") #the nick is made after the 3rd nt
 RB_SEQUENCES = c("TGACAGGATATATTGGCGGGTAAAC", "TGGCAGGATATATGCGGTTGTAATT") #the nick is made after the 3rd nt
 TD_SIZE_CUTOFF = 6 #the smallest TD that is considered as TD (*with regards to the Type variable). Any smaller TD is considered merely an insertion.
+FASTA_MODE = TRUE #Typically false, if TRANSGUIDE/CISGUIDE library prep and illumina sequencing has been done. TRUE if sequences from another source are being analyzed with this program.
 
 ###############################################################################
 #set parameters - non-adjustable
@@ -181,7 +182,6 @@ for (i in row.names(sample_info)){
   ####################  continue general variables acquired from the information sheet  #####################
   
   DSB_CONTIG = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DSB_CONTIG))#chromosome name or NA
-  FOCUS_LOCUS = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Locus_name))#LB or RB if TRANSGUIDE, or a name of a locus if CISGUIDE
   Genotype = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Genotype))
   PLASMID = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Plasmid))
   PLASMID_ALT = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Plasmid_alt))
@@ -192,10 +192,11 @@ for (i in row.names(sample_info)){
   Ecotype = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Ecotype))
   Library = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Sample))
   AgroGeno = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(AgroGeno))
-  FLANK_A_ISFORWARD = as.logical(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(FLANK_A_ISFORWARD))
-  Primer_seq = str_replace_all(toupper(as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Primer))), "TCAGACGTGTGCTCTTCCGATCT", "")
   DSB_FW_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DSB_FW_END)) #end of left flank before DSB
-
+  FOCUS_CONTIG = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Focus_contig_name))#Same as DSB_contig, or same as plasmid
+  LOCUS_NAME = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Locus_name))#LB or RB if TRANSGUIDE, or a name of a locus if CISGUIDE
+  Primer_seq = str_replace_all(toupper(as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Primer))), "TCAGACGTGTGCTCTTCCGATCT", "")
+  
   #the following variables can be supplied via the sample information sheet, but NA is also allowed, then the software will look.
   TDNA_LB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_LB_END))
   TDNA_RB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_RB_END))
@@ -365,7 +366,6 @@ for (i in row.names(sample_info)){
       }
     }
     
-
   #determine the orientation of the T-DNA on the main and alternative plasmids
   if (TDNA_LB_END < TDNA_RB_END){
     TDNA_IS_LBRB = TRUE
@@ -382,52 +382,6 @@ for (i in row.names(sample_info)){
     TDNA_ALT_IS_LBRB = NA
   }
   
-  if (FOCUS_LOCUS == "LB"){
-    FlankAUltEnd = TDNA_LB_END
-    FOCUS_CONTIG = PLASMID
-    if (FLANK_A_ISFORWARD == TRUE){
-      if (TDNA_IS_LBRB == TRUE){
-        funlog("T-DNA orientation conflict. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
-        next 
-      }
-      #FlankBUltStart = TDNA_LB_END + 1
-    }else{
-      if (TDNA_IS_LBRB == FALSE){
-        funlog("T-DNA orientation conflict. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
-        next 
-      }
-      #FlankBUltStart = TDNA_LB_END - 1
-    }
-  }else if (FOCUS_LOCUS == "RB"){
-    FlankAUltEnd = TDNA_RB_END  
-    FOCUS_CONTIG = PLASMID
-    if (FLANK_A_ISFORWARD == TRUE){
-      if (TDNA_IS_LBRB == FALSE){
-        funlog("T-DNA orientation conflict. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
-        next 
-      }
-      #FlankBUltStart = TDNA_RB_END + 1
-    }else{
-      if (TDNA_IS_LBRB == TRUE){
-        funlog("T-DNA orientation conflict. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
-        next 
-      }
-      #FlankBUltStart = TDNA_RB_END - 1
-    }
-  }else {
-    FOCUS_CONTIG = DSB_CONTIG
-    if (FLANK_A_ISFORWARD == TRUE){
-      FlankAUltEnd = DSB_FW_END
-      #FlankBUltStart = DSB_FW_END-FLANKBEYONDDSB
-    }else{
-      FlankAUltEnd = DSB_FW_END+1
-      #FlankBUltStart = DSB_FW_END+FLANKBEYONDDSB
-
-    }
-    }
- 
-  Primer_seq_len = nchar(Primer_seq)
-  
   ####################  REF check  #####################
   
   
@@ -437,11 +391,77 @@ for (i in row.names(sample_info)){
     next 
   }
   
-  ####################  continue calculated general variables  #####################
+  ####################  Primer check  #####################
   
+  #this checks whether primer can be found, checks what the orientation of flank A is, whether the primer matches the plasmid or not
+  Primer_seq_len = nchar(Primer_seq)
   Primer_match = as.data.frame(matchPattern(pattern = Primer_seq, subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))
   Primer_RC_match = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(Primer_seq))), subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))
   
+  if (FOCUS_CONTIG == Plasmid){
+  if (nrow(Primer_match) > 0 & nrow(Primer_match) < 2){
+    Primer_pos = as.numeric(Primer_match$start)
+    Primer_match_perfect=TRUE
+    if (Primer_pos > TDNA_LB_END & Primer_pos < TDNA_RB_END){
+      Primer_on_TDNA=TRUE
+      FLANK_A_ISFORWARD=TRUE
+      if (TDNA_IS_LBRB == TRUE){
+      FOCUS_LOCUS="RB"
+      FlankAUltEnd = TDNA_RB_END  
+      }else{
+        FOCUS_LOCUS="LB"
+        FlankAUltEnd = TDNA_LB_END
+      }
+    }else{
+      Primer_on_TDNA=FALSE
+      FOCUS_LOCUS="OTHER"
+    }
+  }else  if (nrow(Primer_RC_match) > 0 & nrow(Primer_RC_match) < 2){
+    Primer_pos = as.numeric(Primer_match$start)
+    Primer_match_perfect=TRUE
+    if (Primer_pos > TDNA_LB_END & Primer_pos < TDNA_RB_END){
+      Primer_on_TDNA=TRUE
+      FLANK_A_ISFORWARD=FALSE
+      if (TDNA_IS_LBRB == TRUE){
+        FOCUS_LOCUS="LB"
+        FlankAUltEnd = TDNA_LB_END
+      }else{
+        FOCUS_LOCUS="RB"
+        FlankAUltEnd = TDNA_RB_END  
+      }
+    }else{
+      Primer_on_TDNA=FALSE
+      FOCUS_LOCUS="OTHER"
+    }
+    }else if (nrow(Primer_match) >1 | nrow(Primer_RC_match) >1){
+    funlog("Primer found several times on this contig")
+    next
+  }else{
+    funlog("Primer not found")
+    next
+  }
+  }else{
+    FOCUS_LOCUS=LOCUS_NAME
+    Primer_on_TDNA=FALSE
+    
+      if (nrow(Primer_match) > 0 & nrow(Primer_match) < 2){
+        FLANK_A_ISFORWARD=TRUE
+        FlankAUltEnd = DSB_FW_END
+      }else if (nrow(Primer_RC_match) > 0 & nrow(Primer_RC_match) < 2){
+        FLANK_A_ISFORWARD=FALSE
+        FlankAUltEnd = DSB_FW_END+1
+      }else if (nrow(Primer_match) >1 | nrow(Primer_RC_match) >1){
+        funlog("Primer found several times on this contig")
+        next
+      }else{
+        funlog("Primer not found")
+        next
+      }
+  }
+  
+  ####################  acquire the DSB AREA SEQ  #####################
+  
+ 
   DSB_AREA_SEQ = (if (FLANK_A_ISFORWARD == TRUE){
     substr(contig_seq, start= FlankAUltEnd - ((FLANK_B_LEN_MIN/2)-1), stop= FlankAUltEnd + (FLANK_B_LEN_MIN/2))
     }else if (FLANK_A_ISFORWARD == FALSE){
@@ -456,50 +476,6 @@ for (i in row.names(sample_info)){
   }
   
   DSB_AREA_SEQ_RC = as.character(reverseComplement(DNAString(DSB_AREA_SEQ)))
-  
-  ####################  Primer checks  #####################
-  
-  if (Primer_seq != "NA"){
-  FASTA_MODE = FALSE
-  }else{
-  FASTA_MODE = TRUE
-  funlog("Primer seq not found, running in fasta mode.")}
-  
-  if (FLANK_A_ISFORWARD == TRUE){
-    Primer_match = as.data.frame(matchPattern(pattern = Primer_seq, subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))  
-    Primer_match_3 = as.data.frame(matchPattern(pattern = Primer_seq, subject = DNAString(contig_seq), max.mismatch = 3, fixed=TRUE)) 
-    if (nrow(Primer_match) > 0 & nrow(Primer_match) < 2){
-      Primer_pos = as.numeric(Primer_match$start)
-      Primer_match_perfect=TRUE
-    }else if (nrow(Primer_match) >1){
-      funlog("Primer found several times in the genome")
-      next
-    }else if (nrow(Primer_match_3) == 1){
-      funlog("Note! Primer does not match fully. Continuing anyway.")
-      Primer_pos = as.numeric(Primer_match_3$start)
-      Primer_match_perfect=FALSE
-    }else{
-      funlog("Primer not found")
-      next
-    }
-  }else {
-    Primer_match = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(Primer_seq))), subject = DNAString(contig_seq), max.mismatch = 0, fixed=TRUE))
-    Primer_match_3 = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(Primer_seq))), subject = DNAString(contig_seq), max.mismatch = 3, fixed=TRUE))
-    if (nrow(Primer_match) > 0 & nrow(Primer_match) < 2){
-      Primer_pos = as.numeric(Primer_match$end)
-      Primer_match_perfect=TRUE
-    }else if (nrow(Primer_match) >1){
-      funlog("Primer found several times in the genome")
-      next
-    }else if (nrow(Primer_match_3) == 1){
-      funlog("Note! Primer does not match fully. Continuing anyway.")
-      Primer_pos = as.numeric(Primer_match_3$end)
-      Primer_match_perfect=FALSE
-    }else{
-      funlog("Primer not found")
-      next
-    }
-  }
     
   ####################  continue calculated general variables  #####################  
     

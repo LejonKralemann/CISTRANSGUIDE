@@ -519,8 +519,30 @@ for (i in row.names(GLOBAL.sample_info)){
   ###############################################################################
   
   if (GLOBAL.FASTA_MODE == TRUE){
-    #make the first 30 bp a fake primer, and find where the primer matches
+    
     FILE.data1 = FILE.data  %>%
+    #first determine if the read is T-DNA:genome or genome:T-DNA. If genome:T-DNA, reverse the sequence and change the B_POS
+    mutate(fasta_orient = case_when(A_CHROM == FILE.PLASMID & FLANK_B_CHROM != FILE.PLASMID ~ "TDNA-genome",
+                                    A_CHROM != FILE.PLASMID & FLANK_B_CHROM == FILE.PLASMID ~ "genome-TDNA",
+                                    TRUE ~ "Other"))%>%
+      rowwise()%>%
+    mutate(SEQ_1_NEW = if_else(fasta_orient == "genome-TDNA",
+                               as.character(reverseComplement(DNAString(SEQ_1))),
+                               SEQ_1))%>%
+    mutate(B_POS_NEW = if_else(fasta_orient == "genome-TDNA",
+                               A_POS,
+                               B_POS))%>%
+    mutate(FLANK_B_ORIENT_NEW = case_when(fasta_orient == "genome-TDNA" & A_ORIENT == "FW" ~ "RV",
+                          fasta_orient == "genome-TDNA" & A_ORIENT == "RV" ~ "FW",
+                          TRUE ~ FLANK_B_ORIENT))%>%
+      mutate(FLANK_B_CHROM_NEW = if_else(fasta_orient == "genome-TDNA",
+                                       A_CHROM,
+                                       FLANK_B_CHROM))%>%
+      mutate(SEQ_1 = SEQ_1_NEW,
+             B_POS = B_POS_NEW,
+             FLANK_B_ORIENT = FLANK_B_ORIENT_NEW,
+             FLANK_B_CHROM = FLANK_B_CHROM_NEW)%>%
+    #make the first 30 bp a fake primer, and find where the primer matches  
     rowwise()%>%
     mutate(PRIMER_SEQ = substr(SEQ_1, 1, 30))%>%
     #initialize columns
@@ -602,7 +624,7 @@ for (i in row.names(GLOBAL.sample_info)){
     }
     FILE.data1_filter = FILE.data1  %>%
       #remove rows from fasta_mode == TRUE where the first bit matches the plasmid but not T-DNA, or not matches anything, or matches multiple things, or matches genome.
-      filter(Primer_OK == TRUE)
+      filter(Primer_OK == TRUE & fasta_orient != "Other")
     
     #check whether any reads survived
     if (nrow(FILE.data1_filter)==0){
@@ -658,7 +680,7 @@ for (i in row.names(GLOBAL.sample_info)){
   FILE.data3  = FILE.data2 %>%
     
     
-    #filter(QNAME == "A00379:436:H3CHWDMXY:1:2127:30852:25300")%>%
+    #filter(QNAME == "LN503798")%>%
     #get the length of the ref seq
     mutate(TOTAL_REF_LEN = nchar(TOTAL_REF)) %>%
     #Count number of Ns and remove any reads with Ns

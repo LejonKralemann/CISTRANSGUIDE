@@ -24,7 +24,7 @@ GLOBAL.MINLEN=90 #this is the minimal read length. if you write NA here, then th
 GLOBAL.LB_SEQUENCES = c("TGGCAGGATATATTGTGGTGTAAAC", "CGGCAGGATATATTCAATTGTAAAT") #the nick is made after the 3rd nt
 GLOBAL.RB_SEQUENCES = c("TGACAGGATATATTGGCGGGTAAAC", "TGGCAGGATATATGCGGTTGTAATT") #the nick is made after the 3rd nt
 GLOBAL.TD_SIZE_CUTOFF = 6 #the smallest TD that is considered as TD (*with regards to the Type variable). Any smaller TD is considered merely an insertion.
-GLOBAL.FASTA_MODE = TRUE #Typically false, if TRANSGUIDE/CISGUIDE library prep and illumina sequencing has been done. TRUE if sequences from another source are being analyzed with this program.
+GLOBAL.FASTA_MODE = FALSE #Typically false, if TRANSGUIDE/CISGUIDE library prep and illumina sequencing has been done. TRUE if sequences from another source are being analyzed with this program.
 
 ###############################################################################
 #set parameters - non-adjustable
@@ -32,8 +32,8 @@ GLOBAL.FASTA_MODE = TRUE #Typically false, if TRANSGUIDE/CISGUIDE library prep a
 GLOBAL.NF_NUMBER = as.integer(-99999999) #don't change
 GLOBAL.ERROR_NUMBER = as.integer(99999999) #don't change
 GLOBAL.hash=system("git rev-parse HEAD", intern=TRUE)
-GLOBAL.hash_little=substr(hash, 1, 8)
-GLOBAL.sample_info = read.csv(paste0(input_dir, "Sample_information.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
+GLOBAL.hash_little=substr(GLOBAL.hash, 1, 8)
+GLOBAL.sample_info = read.csv(paste0(GLOBAL.input_dir, "Sample_information.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
 GLOBAL.TIME_START=round(as.numeric(Sys.time())*1000, digits=0)
 GLOBAL.FLANK_B_LEN_MIN = 30 #minimum length of flank B. Also determines the size of DSB_AREA_SEQ. do not change because the preprocessing program will still be set at 30.
 GLOBAL.MINMAPQUALA = 42 #minimum mapping quality (phred). 42 means a perfect, unambiguous match (well, should be)
@@ -121,14 +121,14 @@ Mode <- function(x) {
 
 funlog("calculating total work")
 
-for (i in row.names(sample_info)){
-  FILE.Sample = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Sample))
-  FILE.RunID = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(RunID))
+for (i in row.names(GLOBAL.sample_info)){
+  FILE.Sample = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Sample))
+  FILE.RunID = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(RunID))
   
-  if (file.exists(paste0(input_dir, FILE.Sample, "_", FILE.RunID, "_A.txt"))==FALSE){
+  if (file.exists(paste0(GLOBAL.input_dir, FILE.Sample, "_", FILE.RunID, "_A.txt"))==FALSE){
     next
   }else{
-    GLOBAL.TotalFileSize = GLOBAL.TotalFileSize + (file.info((paste0(input_dir, FILE.Sample, "_", FILE.RunID, "_A.txt"))))$size
+    GLOBAL.TotalFileSize = GLOBAL.TotalFileSize + (file.info((paste0(GLOBAL.input_dir, FILE.Sample, "_", FILE.RunID, "_A.txt"))))$size
   }
 }
 
@@ -142,18 +142,18 @@ funlog(paste0("Total file size to process: ", GLOBAL.TotalFileSize, " bytes"))
 funlog("Checking file and reading metadata")
 
 #process all files
-for (i in row.names(sample_info)){
+for (i in row.names(GLOBAL.sample_info)){
   
   ####################  pre-cleanup  #####################
-  objects_to_clean=c("data", "data_improved_a", "data_improved_b", "data_improved_c", "data_improved_1", "data_improved_2", "data_improved_3", "data_improved_3b", "data_improved_4", "data_improved_5", "data_improved_5b", "data_improved_6", "data_improved_8pre2", "data_improved_8", "data_improved_9", "data_improved_10", "AgroGeno", "contig_seq", "DNASample", "DSB_AREA_SEQ", "DSB_AREA_SEQ_RC", "DSB_CONTIG", "DSB_FW_END", "DSB_OVERHANG", "Ecotype", "FLANK_A_ISFORWARD", "FLANK_A_REF_GLOBAL", "FlankAUltEnd", "FOCUS_CONTIG", "FOCUS_LOCUS", "Genotype", "GLOBAL_TOTAL_REF", "Library", "PLASMID", "PLASMID_ALT", "plasmid_alt_seq", "plasmid_seq", "Primer_match", "Primer_match_3", "Primer_RC_match", "Primer_match_perfect", "Primer_pos", "Primer_seq", "Primer_seq_len", "PRIMER_TO_DSB_GLOBAL", "REF", "RunID", "Sample", "TDNA_ALT_IS_LBRB", "TDNA_ALT_LB_END", "TDNA_ALT_LB_FW", "TDNA_ALT_RB_END", "TDNA_ALT_RB_FW", "TDNA_IS_LBRB", "TDNA_LB_END,TDNA_LB_FW", "TDNA_RB_END", "TDNA_RB_FW", "genomeseq", "LB_match", "LB_match_RV", "LB2_match", "LB2_match_RV", "RB_match", "RB_match_RV", "RB2_match", "RB2_match_RV")
+  objects_to_clean=c("FILE.AgroGeno", "FILE.contig_seq", "FILE.CurrentFileSize", "FILE.DNASample", "FILE.DSB_AREA_SEQ", "FILE.DSB_AREA_SEQ_RC", "FILE.DSB_CONTIG", "FILE.DSB_FW_END", "FILE.Ecotype", "FILE.EXECUTE_DSB_AREA_CHECK", "FILE.FLANK_A_ISFORWARD", "FILE.FLANK_A_REF", "FILE.FlankAUltEnd", "FILE.FOCUS_CONTIG", "FILE.FOCUS_LOCUS", "FILE.Genotype", "FILE.LOCUS_NAME", "FILE.PLASMID", "FILE.PLASMID_ALT", "FILE.plasmid_seq", "FILE.Primer_match_perfect", "FILE.Primer_on_TDNA", "FILE.Primer_pos", "FILE.Primer_seq", "FILE.PRIMER_TO_DSB", "FILE.REF", "FILE.RunID", "FILE.Sample", "FILE.TDNA_ALT_IS_LBRB", "FILE.TDNA_ALT_LB_END", "FILE.TDNA_ALT_LB_FW", "FILE.TDNA_ALT_RB_END", "FILE.TDNA_ALT_RB_FW", "FILE.TDNA_IS_LBRB", "FILE.TDNA_LB_END", "FILE.TDNA_LB_FW", "FILE.TDNA_RB_END", "FILE.TDNA_RB_FW", "FILE.TOTAL_REF", "FILE.TOTAL_REF_START", "FILE.TOTAL_REF_STOP", "FILE.data", "FILE.data2", "FILE.data3", "FILE.data4", "FILE.data5", "FILE.data6", "FILE.data7", "FILE.data8", "FILE.data9", "FILE.data10", "FILE.data11", "FILE.data12", "FILE.data13", "FILE.data14", "FILE.data15", "FILE.data16", "FILE.data17", "FILE.data18", "FILE.genomeseq", "FILE.LB_match", "FILE.LB_match_RV", "FILE.LB2_match", "FILE.LB2_match_RV", "FILE.Primer_match", "FILE.Primer_RC_match", "FILE.RB_match", "FILE.RB_match_RV", "FILE.RB2_match", "FILE.RB2_match_RV")
   for (z in objects_to_clean){
     assign(z, NULL)
   }
  
   ####################  general variables acquired from the information sheet  #####################
   
-  FILE.Sample = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Sample))
-  FILE.RunID = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(RunID))
+  FILE.Sample = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Sample))
+  FILE.RunID = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(RunID))
   
   ####################  check for existence of files  #####################
   
@@ -173,34 +173,33 @@ for (i in row.names(sample_info)){
     }
   
   FILE.data = read.csv(paste0(GLOBAL.input_dir, FILE.Sample, "_", FILE.RunID, "_A.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
-  if (nrow(data)==0){
+  if (nrow(FILE.data)==0){
     funlog("Primary processed file empty, moving to the next sample")
     next
   }
   
   ####################  continue general variables acquired from the information sheet  #####################
   
-  FILE.DSB_CONTIG = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DSB_CONTIG))#chromosome name or NA
-  FILE.Genotype = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Genotype))
-  FILE.PLASMID = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Plasmid))
-  FILE.PLASMID_ALT = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Plasmid_alt))
+  FILE.DSB_CONTIG = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(DSB_CONTIG))#chromosome name or NA
+  FILE.Genotype = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Genotype))
+  FILE.PLASMID = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Plasmid))
+  FILE.PLASMID_ALT = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Plasmid_alt))
   if (is.na(FILE.PLASMID_ALT) | FILE.PLASMID_ALT=="NA"){FILE.PLASMID_ALT=""} #to avoid doing the following check: FLANK_B_CHROM==NA
   
-  FILE.REF = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Ref))
-  FILE.DNASample = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DNA))
-  FILE.Ecotype = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Ecotype))
-  FILE.Library = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Sample))
-  FILE.AgroGeno = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(AgroGeno))
-  FILE.DSB_FW_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(DSB_FW_END)) #end of left flank before DSB
-  FILE.FOCUS_CONTIG = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Focus_contig_name))#Same as DSB_contig, or same as plasmid
-  FILE.LOCUS_NAME = as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Locus_name))#LB or RB if TRANSGUIDE, or a name of a locus if CISGUIDE
-  FILE.Primer_seq = str_replace_all(toupper(as.character(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(Primer))), "TCAGACGTGTGCTCTTCCGATCT", "")
+  FILE.REF = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Ref))
+  FILE.DNASample = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(DNA))
+  FILE.Ecotype = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Ecotype))
+  FILE.AgroGeno = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(AgroGeno))
+  FILE.DSB_FW_END = as.integer(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(DSB_FW_END)) #end of left flank before DSB
+  FILE.FOCUS_CONTIG = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Focus_contig_name))#Same as DSB_contig, or same as plasmid
+  FILE.LOCUS_NAME = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Locus_name))#LB or RB if TRANSGUIDE, or a name of a locus if CISGUIDE
+  FILE.Primer_seq = str_replace_all(toupper(as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Primer))), "TCAGACGTGTGCTCTTCCGATCT", "")
   
   #the following variables can be supplied via the sample information sheet, but NA is also allowed, then the software will look.
-  FILE.TDNA_LB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_LB_END))
-  FILE.TDNA_RB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_RB_END))
-  FILE.TDNA_ALT_LB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_ALT_LB_END))
-  FILE.TDNA_ALT_RB_END = as.integer(sample_info %>% filter(row.names(sample_info) %in% i) %>% select(TDNA_ALT_RB_END))
+  FILE.TDNA_LB_END = as.integer(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(TDNA_LB_END))
+  FILE.TDNA_RB_END = as.integer(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(TDNA_RB_END))
+  FILE.TDNA_ALT_LB_END = as.integer(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(TDNA_ALT_LB_END))
+  FILE.TDNA_ALT_RB_END = as.integer(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(TDNA_ALT_RB_END))
   
   
   
@@ -219,7 +218,7 @@ for (i in row.names(sample_info)){
   
   ############ FINDING LB, RB ############################
   
-  FILE.plasmid_seq = as.character(eval(parse(text = paste0("genomeseq$`", FILE.PLASMID, "`"))))
+  FILE.plasmid_seq = as.character(eval(parse(text = paste0("FILE.genomeseq$`", FILE.PLASMID, "`"))))
   
   #emptying some variables
   FILE.LB_match = NULL
@@ -246,11 +245,11 @@ for (i in row.names(sample_info)){
     FILE.TDNA_LB_END = NA
     FILE.TDNA_LB_FW = NA
     
-    for (i in c("LB_match", "LB_match_RV", "LB2_match", "LB2_match_RV")){
+    for (i in c("FILE.LB_match", "FILE.LB_match_RV", "FILE.LB2_match", "FILE.LB2_match_RV")){
       if (nrow(get(i)) > 0 & nrow(get(i)) < 2) {
         
         
-        if (i=="LB_match" | i=="LB2_match"){
+        if (i=="FILE.LB_match" | i=="FILE.LB2_match"){
         FILE.TDNA_LB_FW = TRUE
         FILE.TDNA_LB_END = as.numeric(get(i)$start)+3 
         }else{
@@ -278,11 +277,11 @@ for (i in row.names(sample_info)){
     FILE.TDNA_RB_END = NA
     FILE.TDNA_RB_FW = NA
     
-    for (i in c("RB_match", "RB_match_RV", "RB2_match", "RB2_match_RV")){
+    for (i in c("FILE.RB_match", "FILE.RB_match_RV", "FILE.RB2_match", "FILE.RB2_match_RV")){
       if (nrow(get(i)) > 0 & nrow(get(i)) < 2) {
         
         
-        if (i=="RB_match" | i=="RB2_match"){
+        if (i=="FILE.RB_match" | i=="FILE.RB2_match"){
           FILE.TDNA_RB_FW = TRUE
           FILE.TDNA_RB_END = as.numeric(get(i)$start)+2 
         }else{
@@ -308,7 +307,7 @@ for (i in row.names(sample_info)){
   FILE.TDNA_ALT_RB_FW = NA
     
     if (FILE.PLASMID_ALT != ""){
-      FILE.plasmid_alt_seq = as.character(eval(parse(text = paste0("genomeseq$`", FILE.PLASMID_ALT, "`"))))
+      FILE.plasmid_alt_seq = as.character(eval(parse(text = paste0("FILE.genomeseq$`", FILE.PLASMID_ALT, "`"))))
       
       #find the LB
       FILE.LB_match = as.data.frame(matchPattern(pattern = GLOBAL.LB_SEQUENCES[[1]], subject = DNAString(FILE.plasmid_alt_seq), max.mismatch = 0, fixed=TRUE))
@@ -384,7 +383,7 @@ for (i in row.names(sample_info)){
   ####################  REF check  #####################
   
   
-  FILE.contig_seq = as.character(eval(parse(text = paste0("genomeseq$`", FILE.FOCUS_CONTIG, "`"))))
+  FILE.contig_seq = as.character(eval(parse(text = paste0("FILE.genomeseq$`", FILE.FOCUS_CONTIG, "`"))))
   if (length(FILE.contig_seq)==0){
     funlog("Focus contig not found in reference fasta. Did you fill in the Sample_information sheet correctly? Moving to next sample.")
     next 
@@ -398,10 +397,9 @@ for (i in row.names(sample_info)){
   FILE.Primer_match = as.data.frame(matchPattern(pattern = FILE.Primer_seq, subject = DNAString(FILE.contig_seq), max.mismatch = 0, fixed=TRUE))
   FILE.Primer_RC_match = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(FILE.Primer_seq))), subject = DNAString(FILE.contig_seq), max.mismatch = 0, fixed=TRUE))
   
-  if (FILE.FOCUS_CONTIG == FILE.Plasmid){
+  if (FILE.FOCUS_CONTIG == FILE.PLASMID){
   if (nrow(FILE.Primer_match) > 0 & nrow(FILE.Primer_match) < 2){
     FILE.Primer_pos = as.numeric(FILE.Primer_match$start)
-    FILE.Primer_match_perfect=TRUE
     if (FILE.Primer_pos > FILE.TDNA_LB_END & FILE.Primer_pos < FILE.TDNA_RB_END){
       FILE.Primer_on_TDNA=TRUE
       FILE.FLANK_A_ISFORWARD=TRUE
@@ -417,8 +415,7 @@ for (i in row.names(sample_info)){
       FILE.FOCUS_LOCUS="OTHER"
     }
   }else  if (nrow(FILE.Primer_RC_match) > 0 & nrow(FILE.Primer_RC_match) < 2){
-    FILE.Primer_pos = as.numeric(FILE.Primer_match$start)
-    FILE.Primer_match_perfect=TRUE
+    FILE.Primer_pos = as.numeric(FILE.Primer_RC_match$end)
     if (FILE.Primer_pos > FILE.TDNA_LB_END & FILE.Primer_pos < FILE.TDNA_RB_END){
       FILE.Primer_on_TDNA=TRUE
       FILE.FLANK_A_ISFORWARD=FALSE
@@ -480,32 +477,32 @@ for (i in row.names(sample_info)){
   ####################  continue calculated general variables  #####################  
     
   #calculate the distance from primer to DSB/nick
-  FILE.PRIMER_TO_DSB_GLOBAL = if (FILE.FLANK_A_ISFORWARD == TRUE){
+  FILE.PRIMER_TO_DSB = if (FILE.FLANK_A_ISFORWARD == TRUE){
     FILE.FlankAUltEnd - (FILE.Primer_pos -1)
   }else{
     FILE.Primer_pos - (FILE.FlankAUltEnd -1)
   }
 
   #usually you don't want the primer to be so far away. But sometimes when you cut away the end of the T-DNA for instance, then you may want to keep the T-DNA end position.
-  if (FILE.PRIMER_TO_DSB_GLOBAL>300){
+  if (FILE.PRIMER_TO_DSB>300){
     funlog("Warning: primer is more than 300 bp away from the indicated end of FLANK A. Continuing anyway.")
   }
 
  
   #get the start and stop positions for the ref sequence, in case it goes beyond the end of the chromosome
-  FILE.TOTAL_REF_START = if(FILE.FlankAUltEnd-FILE.FLANKBEYONDDSB < 1){
+  FILE.TOTAL_REF_START = if(FILE.FlankAUltEnd-GLOBAL.FLANKBEYONDDSB < 1){
     1
   }else{
-    FILE.FlankAUltEnd-FILE.FLANKBEYONDDSB
+    FILE.FlankAUltEnd-GLOBAL.FLANKBEYONDDSB
   }
-  FILE.TOTAL_REF_STOP = if(FILE.FlankAUltEnd+FILE.FLANKBEYONDDSB > nchar(FILE.contig_seq)){
+  FILE.TOTAL_REF_STOP = if(FILE.FlankAUltEnd+GLOBAL.FLANKBEYONDDSB > nchar(FILE.contig_seq)){
     nchar(FILE.contig_seq)
   }else{
-    FILE.FlankAUltEnd+FILE.FLANKBEYONDDSB
+    FILE.FlankAUltEnd+GLOBAL.FLANKBEYONDDSB
   }
   
   #get the REF seq for flank A.
-  FILE.FLANK_A_REF_GLOBAL = if (FILE.FLANK_A_ISFORWARD == TRUE){
+  FILE.FLANK_A_REF = if (FILE.FLANK_A_ISFORWARD == TRUE){
     substr(FILE.contig_seq, start= FILE.Primer_pos, stop= FILE.TOTAL_REF_STOP)
   }else{
     as.character(reverseComplement(DNAString(
@@ -513,7 +510,7 @@ for (i in row.names(sample_info)){
     ))
   }
   #get the REF seq that includes both flank a and b, later used to get the ref for flank b  
-  FILE.TOTAL_REF_GLOBAL = if (FILE.FLANK_A_ISFORWARD == TRUE){substr(FILE.contig_seq, start= FILE.TOTAL_REF_START, stop= FILE.TOTAL_REF_STOP)
+  FILE.TOTAL_REF = if (FILE.FLANK_A_ISFORWARD == TRUE){substr(FILE.contig_seq, start= FILE.TOTAL_REF_START, stop= FILE.TOTAL_REF_STOP)
   }else{
     as.character(reverseComplement(DNAString(substr(FILE.contig_seq, start= FILE.TOTAL_REF_START, stop= FILE.TOTAL_REF_STOP))))
   }
@@ -525,52 +522,50 @@ for (i in row.names(sample_info)){
   #Process data: step 2
   ###############################################################################
   
-  if (FASTA_MODE == TRUE){
-    FILE.data_pre = FILE.data  %>%
+  if (GLOBAL.FASTA_MODE == TRUE){
+    FILE.data2 = FILE.data  %>%
     rowwise()%>%
     mutate(PRIMER_SEQ = substr(SEQ_1, 1, 30))%>%
     mutate(Primer_match = as.data.frame(matchPattern(pattern = PRIMER_SEQ, subject = DNAString(FILE.contig_seq), max.mismatch = 0, fixed=TRUE)))%>%
     mutate(Primer_RC_match = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(PRIMER_SEQ))), subject = DNAString(FILE.contig_seq), max.mismatch = 0, fixed=TRUE))
     )
     
-    for (j in row.names(FILE.data_pre)){
+    for (j in row.names(FILE.data2)){
       j_int=as.integer(j)
     if (FILE.FOCUS_CONTIG == FILE.Plasmid){
-      if (nrow(FILE.data_pre$Primer_match[[j_int]]) > 0 & nrow(FILE.data_pre$Primer_match[[j_int]]) < 2){
-        FILE.data_pre$Primer_pos[[j_int]] = as.numeric(FILE.data_pre$Primer_match$start[[j_int]])
-        FILE.data_pre$Primer_match_perfect[[j_int]]=TRUE
-        if (FILE.data_pre$Primer_pos[[j_int]] > FILE.data_pre$TDNA_LB_END[[j_int]] & FILE.data_pre$Primer_pos[[j_int]] < FILE.data_pre$TDNA_RB_END[[j_int]]){
-          FILE.data_pre$Primer_on_TDNA[[j_int]]=TRUE
-          FILE.data_pre$FLANK_A_ISFORWARD[[j_int]]=TRUE
+      if (nrow(FILE.data2$Primer_match[[j_int]]) > 0 & nrow(FILE.data2$Primer_match[[j_int]]) < 2){
+        FILE.data2$Primer_pos[[j_int]] = as.numeric(FILE.data2$Primer_match$start[[j_int]])
+        if (FILE.data2$Primer_pos[[j_int]] > FILE.data2$TDNA_LB_END[[j_int]] & FILE.data2$Primer_pos[[j_int]] < FILE.data2$TDNA_RB_END[[j_int]]){
+          FILE.data2$Primer_on_TDNA[[j_int]]=TRUE
+          FILE.data2$FLANK_A_ISFORWARD[[j_int]]=TRUE
           if (FILE.TDNA_IS_LBRB == TRUE){
-            FILE.data_pre$FOCUS_LOCUS[[j_int]]="RB"
-            FILE.data_pre$FlankAUltEnd[[j_int]] = FILE.TDNA_RB_END  
+            FILE.data2$FOCUS_LOCUS[[j_int]]="RB"
+            FILE.data2$FlankAUltEnd[[j_int]] = FILE.TDNA_RB_END  
           }else{
-            FILE.data_pre$FOCUS_LOCUS[[j_int]]="LB"
-            FILE.data_pre$FlankAUltEnd[[j_int]] = FILE.TDNA_LB_END
+            FILE.data2$FOCUS_LOCUS[[j_int]]="LB"
+            FILE.data2$FlankAUltEnd[[j_int]] = FILE.TDNA_LB_END
           }
         }else{
-          FILE.data_pre$Primer_on_TDNA[[j_int]]=FALSE
-          FILE.data_pre$FOCUS_LOCUS[[j_int]]="OTHER"
+          FILE.data2$Primer_on_TDNA[[j_int]]=FALSE
+          FILE.data2$FOCUS_LOCUS[[j_int]]="OTHER"
         }
-      }else  if (nrow(FILE.data_pre$Primer_RC_match[[j_int]]) > 0 & nrow(FILE.data_pre$Primer_RC_match[[j_int]]) < 2){
-        FILE.data_pre$Primer_pos[[j_int]] = as.numeric(FILE.data_pre$Primer_match[[j_int]]$start)
-        FILE.data_pre$Primer_match_perfect[[j_int]]=TRUE
-        if (FILE.data_pre$Primer_pos[[j_int]] > FILE.TDNA_LB_END & FILE.data_pre$Primer_pos[[j_int]] < FILE.TDNA_RB_END){
-          FILE.data_pre$Primer_on_TDNA[[j_int]]=TRUE
-          FILE.data_pre$FLANK_A_ISFORWARD[[j_int]]=FALSE
+      }else  if (nrow(FILE.data2$Primer_RC_match[[j_int]]) > 0 & nrow(FILE.data2$Primer_RC_match[[j_int]]) < 2){
+        FILE.data2$Primer_pos[[j_int]] = as.numeric(FILE.data2$Primer_match[[j_int]]$start)
+        if (FILE.data2$Primer_pos[[j_int]] > FILE.TDNA_LB_END & FILE.data2$Primer_pos[[j_int]] < FILE.TDNA_RB_END){
+          FILE.data2$Primer_on_TDNA[[j_int]]=TRUE
+          FILE.data2$FLANK_A_ISFORWARD[[j_int]]=FALSE
           if (FILE.TDNA_IS_LBRB == TRUE){
-            FILE.data_pre$FOCUS_LOCUS[[j_int]]="LB"
-            FILE.data_pre$FlankAUltEnd[[j_int]] = FILE.TDNA_LB_END
+            FILE.data2$FOCUS_LOCUS[[j_int]]="LB"
+            FILE.data2$FlankAUltEnd[[j_int]] = FILE.TDNA_LB_END
           }else{
-            FILE.data_pre$FOCUS_LOCUS[[j_int]]="RB"
-            FILE.data_pre$FlankAUltEnd[[j_int]] = FILE.TDNA_RB_END  
+            FILE.data2$FOCUS_LOCUS[[j_int]]="RB"
+            FILE.data2$FlankAUltEnd[[j_int]] = FILE.TDNA_RB_END  
           }
         }else{
-          FILE.data_pre$Primer_on_TDNA[[j_int]]=FALSE
-          FILE.data_pre$FOCUS_LOCUS[[j_int]]="OTHER"
+          FILE.data2$Primer_on_TDNA[[j_int]]=FALSE
+          FILE.data2$FOCUS_LOCUS[[j_int]]="OTHER"
         }
-      }else if (nrow(FILE.data_pre$Primer_match[[j_int]]) >1 | nrow(FILE.data_pre$Primer_RC_match[[j_int]]) >1){
+      }else if (nrow(FILE.data2$Primer_match[[j_int]]) >1 | nrow(FILE.data2$Primer_RC_match[[j_int]]) >1){
         funlog("Primer found several times on this contig")
         next
       }else{
@@ -578,16 +573,16 @@ for (i in row.names(sample_info)){
         next
       }
     }else{
-      FILE.data_pre$FOCUS_LOCUS[[j_int]]=FILE.LOCUS_NAME
-      FILE.data_pre$Primer_on_TDNA[[j_int]]=FALSE
+      FILE.data2$FOCUS_LOCUS[[j_int]]=FILE.LOCUS_NAME
+      FILE.data2$Primer_on_TDNA[[j_int]]=FALSE
       
-      if (nrow(FILE.data_pre$Primer_match[[j_int]]) > 0 & nrow(FILE.data_pre$Primer_match[[j_int]]) < 2){
-        FILE.data_pre$FLANK_A_ISFORWARD[[j_int]]=TRUE
-        FILE.data_pre$FlankAUltEnd[[j_int]] = FILE.DSB_FW_END
-      }else if (nrow(FILE.data_pre$Primer_RC_match[[j_int]]) > 0 & nrow(FILE.data_pre$Primer_RC_match[[j_int]]) < 2){
-        FILE.data_pre$FLANK_A_ISFORWARD[[j_int]]=FALSE
-        FILE.data_pre$FlankAUltEnd[[j_int]] = FILE.DSB_FW_END+1
-      }else if (nrow(FILE.data_pre$Primer_match[[j_int]]) >1 | nrow(FILE.data_pre$Primer_RC_match[[j_int]]) >1){
+      if (nrow(FILE.data2$Primer_match[[j_int]]) > 0 & nrow(FILE.data2$Primer_match[[j_int]]) < 2){
+        FILE.data2$FLANK_A_ISFORWARD[[j_int]]=TRUE
+        FILE.data2$FlankAUltEnd[[j_int]] = FILE.DSB_FW_END
+      }else if (nrow(FILE.data2$Primer_RC_match[[j_int]]) > 0 & nrow(FILE.data2$Primer_RC_match[[j_int]]) < 2){
+        FILE.data2$FLANK_A_ISFORWARD[[j_int]]=FALSE
+        FILE.data2$FlankAUltEnd[[j_int]] = FILE.DSB_FW_END+1
+      }else if (nrow(FILE.data2$Primer_match[[j_int]]) >1 | nrow(FILE.data2$Primer_RC_match[[j_int]]) >1){
         funlog("Primer found several times on this contig")
         next
       }else{
@@ -601,12 +596,32 @@ for (i in row.names(sample_info)){
  
     
   }else{
-    FILE.data_pre = FILE.data %>%
-    mutate(FLANK_A_ISFORWARD = FILE.FLANK_A_ISFORWARD) 
+    FILE.data2 = FILE.data %>%
+      mutate(FLANK_A_ISFORWARD = FILE.FLANK_A_ISFORWARD) %>%
+      mutate(FlankAUltEnd = FILE.FlankAUltEnd) %>% 
+      mutate(FOCUS_LOCUS = FILE.FOCUS_LOCUS) %>% 
+      mutate(TDNA_LB_END = FILE.TDNA_LB_END) %>% 
+      mutate(TDNA_RB_END = FILE.TDNA_RB_END) %>% 
+      mutate(TDNA_IS_LBRB = FILE.TDNA_IS_LBRB) %>% 
+      mutate(TDNA_ALT_LB_END = FILE.TDNA_ALT_LB_END) %>% 
+      mutate(TDNA_ALT_RB_END = FILE.TDNA_ALT_RB_END) %>% 
+      mutate(TDNA_ALT_IS_LBRB = FILE.TDNA_ALT_IS_LBRB) %>% 
+      mutate(PRIMER_SEQ = FILE.Primer_seq) %>%
+      mutate(PRIMER_TO_DSB = FILE.PRIMER_TO_DSB) %>%
+      mutate(FLANK_A_REF = FILE.FLANK_A_REF)  %>%
+      mutate(TOTAL_REF = FILE.TOTAL_REF) %>%
+      mutate(Primer_pos = FILE.Primer_pos) %>%
+      mutate(DSB_AREA_SEQ = FILE.DSB_AREA_SEQ)%>%
+      mutate(DSB_AREA_SEQ_RC = FILE.DSB_AREA_SEQ_RC)%>%
+      mutate(TOTAL_REF_START = FILE.TOTAL_REF_START)%>%
+      mutate(TOTAL_REF_STOP = FILE.TOTAL_REF_STOP)%>%
+      rowwise() %>%
+      mutate(TOTAL_REF_LEN = nchar(TOTAL_REF)) %>%
+      ungroup()
   }
   
 
-  FILE.data_improved_a  = FILE.data_pre %>%
+  FILE.data3  = FILE.data2 %>%
     
     
     #filter(QNAME == "A00379:436:H3CHWDMXY:1:2127:30852:25300")%>%
@@ -632,14 +647,14 @@ for (i in row.names(sample_info)){
   #here remove all reads where flank A and flank B are on the same chromosome
   #for transguide these are typically removed because we are interested in T-DNA-genome junctions
   if (GLOBAL.REMOVENONTRANS==TRUE){
-    FILE.data_improved_b = FILE.data_improved_a %>%
+    FILE.data4 = FILE.data3 %>%
       filter(FLANK_B_CHROM != FILE.FOCUS_CONTIG)
   }else{
-    FILE.data_improved_b = FILE.data_improved_a
+    FILE.data4 = FILE.data3
   }
   
   
-  FILE.data_improved_c = FILE.data_improved_b %>%
+  FILE.data5 = FILE.data4 %>%
     
     #turn string variables into logical variables
     mutate(FLANK_B_ISFORWARD = if_else(FLANK_B_ORIENT=="FW",
@@ -653,7 +668,7 @@ for (i in row.names(sample_info)){
     #calculate the end position of the B flank in the mate. This is the end the furthest away from the junction.
     mutate(MATE_B_END_POS = case_when(MATE_B_ISFORWARD==TRUE ~ as.integer(MATE_B_POS),
                                       MATE_B_ISFORWARD==FALSE ~ as.integer(MATE_B_POS + 29),
-                                      TRUE ~ ERROR_NUMBER))  %>%
+                                      TRUE ~ GLOBAL.ERROR_NUMBER))  %>%
     
     #test whether B flanks from read and mate are mapped to same chromosome, and agree on orientation.
     #note that the two reads are in two different orientations, so the B orientation should not agree
@@ -665,7 +680,7 @@ for (i in row.names(sample_info)){
   
   
   
-  FILE.data_improved1 = FILE.data_improved_c %>%
+  FILE.data6 = FILE.data5 %>%
     
     #count reads, taking the highest quals
     #acts as basic dupfilter
@@ -682,7 +697,25 @@ for (i in row.names(sample_info)){
       TRIM_LEN,
       SEQ_1_LEN,
       MATE_FLANK_B_CHROM_AGREE,
-      MATE_FLANK_B_CHROM) %>%
+      MATE_FLANK_B_CHROM,
+      FLANK_A_ISFORWARD,
+      FlankAUltEnd,
+      FOCUS_LOCUS,
+      TDNA_LB_END,
+      TDNA_RB_END,
+      TDNA_IS_LBRB,
+      TDNA_ALT_LB_END,
+      TDNA_ALT_RB_END,
+      TDNA_ALT_IS_LBRB,
+      FLANK_A_REF,
+      Primer_pos,
+      DSB_AREA_SEQ,
+      DSB_AREA_SEQ_RC,
+      PRIMER_TO_DSB,
+      TOTAL_REF,
+      TOTAL_REF_START,
+      TOTAL_REF_STOP,
+      TOTAL_REF_LEN) %>%
     arrange(desc(AvgBaseQual_1), desc(AvgBaseQual_2)) %>%
     summarize(QNAME_first = dplyr::first(QNAME),
               SEQ_2_first = dplyr::first(SEQ_2),
@@ -693,62 +726,11 @@ for (i in row.names(sample_info)){
     #then remove reads that don't begin with the primer
     mutate(PRIMER_SEQ_LEN = nchar(PRIMER_SEQ)) %>%
     mutate(SEQ_1_start = substr(SEQ_1, 1, PRIMER_SEQ_LEN)) %>%
-    filter(SEQ_1_start == PRIMER_SEQ) %>%
-    
-    #the lines below until the grouping are under investigation. Maybe doesn't work well yet. First make the code so that the output is identical to the output before the changes of a non fasta sample. Then test the fasta data.
-    mutate(PRIMER_SEQ = if (FASTA_MODE == FALSE){
-      PRIMER_SEQ
-      }else{
-        substr(SEQ_1, 1, 30)
-      }) %>%
-    mutate(PRIMER_POS_FAKE_match = if (FASTA_MODE == FALSE){
-      NA
-    }else{
-      if (FLANK_A_ISFORWARD == TRUE){
-        list(matchPattern(DNAString(PRIMER_SEQ), DNAString(contig_seq), max.mismatch = 0))
-      }else{
-        list(matchPattern(as.character(reverseComplement(DNAString(PRIMER_SEQ))), DNAString(contig_seq), max.mismatch = 0))
-      }}) %>%
-    mutate(PRIMER_POS_FAKE = if (FASTA_MODE == FALSE){
-      as.integer(ERROR_NUMBER)
-    }else{
-      if (FLANK_A_ISFORWARD == TRUE){
-      as.integer(PRIMER_POS_FAKE_match@ranges@start)
-      }else{
-      as.integer(PRIMER_POS_FAKE_match@ranges@start)+29
-      }
-    }) %>%
-    mutate(PRIMER_TO_DSB = if (FASTA_MODE == FALSE){
-      as.integer(PRIMER_TO_DSB_GLOBAL)
-    }else{
-      if (FLANK_A_ISFORWARD == TRUE){
-        FlankAUltEnd - (PRIMER_POS_FAKE -1)
-      }else{
-        PRIMER_POS_FAKE - (FlankAUltEnd -1)
-      }}) %>%
-    mutate(FLANK_A_REF = if (FASTA_MODE == FALSE){
-      FLANK_A_REF_GLOBAL
-    }else{
-      if (FLANK_A_ISFORWARD == TRUE){
-        substr(contig_seq, start= PRIMER_POS_FAKE, stop= FlankAUltEnd)
-      }else{
-        as.character(reverseComplement(DNAString(substr(contig_seq, start= FlankAUltEnd, stop= PRIMER_POS_FAKE))))
-      }}) %>%
-    mutate(TOTAL_REF = if (FASTA_MODE == FALSE){
-      TOTAL_REF_GLOBAL
-    }else{
-      if (FLANK_A_ISFORWARD == TRUE){
-        substr(contig_seq, start= PRIMER_POS_FAKE, stop= PRIMER_POS_FAKE+MAX_DIST_FLANK_B_END+PRIMER_TO_DSB)
-      }else{
-        as.character(reverseComplement(DNAString(
-          substr(contig_seq, start= PRIMER_POS_FAKE-(MAX_DIST_FLANK_B_END+PRIMER_TO_DSB), stop= PRIMER_POS_FAKE))))
-      }}) %>%
-    mutate(TOTAL_REF_LEN = nchar(TOTAL_REF))%>%
-    ungroup() 
+    filter(SEQ_1_start == PRIMER_SEQ) 
   
   #check if any reads have survived
-  if (nrow(FILE.data_improved1)==0){
-    funlog(paste0("No reads surviving for sample ", FILE.Library))
+  if (nrow(FILE.data6)==0){
+    funlog(paste0("No reads surviving for sample ", FILE.Sample))
     #show progress
     GLOBAL.PercentageDone = GLOBAL.PercentageDone + ((FILE.CurrentFileSize/GLOBAL.TotalFileSize)*100)
     funlog(paste0("CISTRANSGUIDE analysis ", round(GLOBAL.PercentageDone, digits=3), "% complete"))
@@ -761,23 +743,17 @@ for (i in row.names(sample_info)){
   #Process data: step 3
   ###############################################################################
   
-  FILE.data_improved2 = FILE.data_improved1 %>%
+  FILE.data7 = FILE.data6 %>%
     
     #check for expected position and orientation base on primer seqs
     rowwise()%>%
-    mutate(FLANK_A_START_POS =
-      if (FASTA_MODE == FALSE){
-        Primer_pos
-      }else{
-        PRIMER_POS_FAKE
-      }
-    )%>%
+    mutate(FLANK_A_START_POS =  Primer_pos)%>%
     ungroup() %>%
     
     #calculate the end position of the B flank, in order to get the ref seq. This is the end the furthest away from the junction.
     mutate(FLANK_B_END_POS = case_when(FLANK_B_ISFORWARD==FALSE ~ as.integer(B_POS),
                                        FLANK_B_ISFORWARD==TRUE ~ as.integer(B_POS + 29),
-                                       TRUE ~ ERROR_NUMBER))
+                                       TRUE ~ GLOBAL.ERROR_NUMBER))
     
 
   function_time("Step 3 took ")
@@ -786,7 +762,7 @@ for (i in row.names(sample_info)){
   #Process data: step 4
   ###############################################################################
   
-  FILE.data_improved2b = FILE.data_improved2 %>%
+  FILE.data8 = FILE.data7 %>%
 
     #Find how much SEQ_1 matches with FLANK_A_REF. Allow 1 bp mismatch somewhere, if the alignment after that continues for at least another 10 bp.
     rowwise() %>%
@@ -795,7 +771,7 @@ for (i in row.names(sample_info)){
     mutate(FLANK_A_LEN = nchar(FLANK_A_MATCH)) %>%
     mutate(FLANK_A_END_POS = case_when(FLANK_A_ISFORWARD == TRUE ~ as.integer(FLANK_A_START_POS + (FLANK_A_LEN -1)),
                                        FLANK_A_ISFORWARD == FALSE ~ as.integer(FLANK_A_START_POS - (FLANK_A_LEN -1)),
-                                       TRUE ~ ERROR_NUMBER)) %>%
+                                       TRUE ~ GLOBAL.ERROR_NUMBER)) %>%
     
     mutate(SEQ_1_WO_A = substr(SEQ_1, start = FLANK_A_LEN + 1, stop = SEQ_1_LEN)) %>%
     mutate(SEQ_1_WO_A_LEN = nchar(SEQ_1_WO_A))%>%
@@ -806,7 +782,7 @@ for (i in row.names(sample_info)){
                             TRUE~ "OTHER"))
   
   
-   if (EXECUTE_DSB_AREA_CHECK==TRUE){
+   if (FILE.EXECUTE_DSB_AREA_CHECK==TRUE){
     
 
      #############
@@ -815,7 +791,7 @@ for (i in row.names(sample_info)){
     #if this is the case, then the read is probably a WT read with seq errors.
     #check in both seq1 and seq2
     #and check allowing for 1 mismatch, though output this as "SNV" because it may be a real 1bp substitution at the DSB.
-  data_improved3 = data_improved2b %>%  
+  FILE.data9 = FILE.data8 %>%  
   rowwise() %>%
     mutate(DSB_AREA_CHECK = if_else(Type != "WT",
                                     list(matchPattern(DNAString(DSB_AREA_SEQ), DNAString(SEQ_1), max.mismatch = 1)),
@@ -835,29 +811,29 @@ for (i in row.names(sample_info)){
            DSB_AREA_INTACT = FALSE,
            DSB_AREA_1MM = FALSE)
   
-  for (j in row.names(data_improved3)){
+  for (j in row.names(FILE.data9)){
     j_int=as.integer(j)
-    if (data_improved3$DSB_AREA_COUNT[[j_int]]==1){
-      if ((data_improved3$SEQ_1_LEN[[j_int]] >= (data_improved3$DSB_AREA_CHECK[[j_int]]@ranges@start[1]+data_improved3$DSB_AREA_CHECK[[j_int]]@ranges@width[1]-1)) & (data_improved3$DSB_AREA_CHECK[[j_int]]@ranges@start[1]>0)){
-        data_improved3$DSB_AREA_HIT[[j_int]] = as.character(data_improved3$DSB_AREA_CHECK[[j_int]])
+    if (FILE.data9$DSB_AREA_COUNT[[j_int]]==1){
+      if ((FILE.data9$SEQ_1_LEN[[j_int]] >= (FILE.data9$DSB_AREA_CHECK[[j_int]]@ranges@start[1]+FILE.data9$DSB_AREA_CHECK[[j_int]]@ranges@width[1]-1)) & (FILE.data9$DSB_AREA_CHECK[[j_int]]@ranges@start[1]>0)){
+        FILE.data9$DSB_AREA_HIT[[j_int]] = as.character(FILE.data9$DSB_AREA_CHECK[[j_int]])
       }else{
-        data_improved3$DSB_AREA_HIT[[j_int]] = ""
+        FILE.data9$DSB_AREA_HIT[[j_int]] = ""
       }
     }else{
-      data_improved3$DSB_AREA_HIT[[j_int]] = ""
+      FILE.data9$DSB_AREA_HIT[[j_int]] = ""
     }
-    if (data_improved3$DSB_AREA2_COUNT[[j_int]]==1){
-      if ((nchar(data_improved3$SEQ_2_first[[j_int]]) >= (data_improved3$DSB_AREA2_CHECK[[j_int]]@ranges@start[1]+data_improved3$DSB_AREA2_CHECK[[j_int]]@ranges@width[1]-1)) & (data_improved3$DSB_AREA2_CHECK[[j_int]]@ranges@start[1]>0)){
-        data_improved3$DSB_AREA2_HIT[[j_int]] = as.character(data_improved3$DSB_AREA2_CHECK[[j_int]])
+    if (FILE.data9$DSB_AREA2_COUNT[[j_int]]==1){
+      if ((nchar(FILE.data9$SEQ_2_first[[j_int]]) >= (FILE.data9$DSB_AREA2_CHECK[[j_int]]@ranges@start[1]+FILE.data9$DSB_AREA2_CHECK[[j_int]]@ranges@width[1]-1)) & (FILE.data9$DSB_AREA2_CHECK[[j_int]]@ranges@start[1]>0)){
+        FILE.data9$DSB_AREA2_HIT[[j_int]] = as.character(FILE.data9$DSB_AREA2_CHECK[[j_int]])
       }else{
-        data_improved3$DSB_AREA2_HIT[[j_int]] = ""
+        FILE.data9$DSB_AREA2_HIT[[j_int]] = ""
       }
     }else{
-      data_improved3$DSB_AREA2_HIT[[j_int]] = ""
+      FILE.data9$DSB_AREA2_HIT[[j_int]] = ""
     }
   }
   
-  FILE.data_improved3b =   FILE.data_improved3 %>%
+  FILE.data10 =   FILE.data9 %>%
     mutate(DSB_AREA_INTACT_SEQ1 = if_else(DSB_AREA_HIT == DSB_AREA_SEQ,
                                      "TRUE",
                                      "FALSE"))%>%
@@ -884,7 +860,7 @@ for (i in row.names(sample_info)){
                             TRUE ~ Type))
   
    }else{
-     FILE.data_improved3b = FILE.data_improved2b %>%
+     FILE.data10 = FILE.data8 %>%
        mutate(
          #the following variables are set to FALSE. This does not mean that there is a DSB area that does not match wt sequence, but rather that it has not been determined.
        DSB_AREA_INTACT_SEQ1 = FALSE,
@@ -898,23 +874,23 @@ for (i in row.names(sample_info)){
   
   
     
-  FILE.data_improved3c = FILE.data_improved3b %>%
+  FILE.data11 = FILE.data10 %>%
     
     #check whether FLANK_A ends within the T-DNA. (IF LB or RB transguide reaction. if not, limit to the T-DNA)
     mutate(FLANK_A_ENDS_ON_TDNA = case_when(
       
-      FOCUS_CONTIG == PLASMID & FOCUS_LOCUS=="LB" & TDNA_IS_LBRB == TRUE & FLANK_A_END_POS >= TDNA_LB_END ~ TRUE,
-      FOCUS_CONTIG == PLASMID & FOCUS_LOCUS=="LB" & TDNA_IS_LBRB == FALSE & FLANK_A_END_POS <= TDNA_LB_END ~ TRUE,
-      FOCUS_CONTIG == PLASMID & FOCUS_LOCUS=="RB" & TDNA_IS_LBRB == TRUE & FLANK_A_END_POS <= TDNA_RB_END ~ TRUE,
-      FOCUS_CONTIG == PLASMID & FOCUS_LOCUS=="RB" & TDNA_IS_LBRB == FALSE & FLANK_A_END_POS >= TDNA_RB_END ~ TRUE,
+      FILE.FOCUS_CONTIG == FILE.PLASMID & FOCUS_LOCUS=="LB" & TDNA_IS_LBRB == TRUE & FLANK_A_END_POS >= TDNA_LB_END ~ TRUE,
+      FILE.FOCUS_CONTIG == FILE.PLASMID & FOCUS_LOCUS=="LB" & TDNA_IS_LBRB == FALSE & FLANK_A_END_POS <= TDNA_LB_END ~ TRUE,
+      FILE.FOCUS_CONTIG == FILE.PLASMID & FOCUS_LOCUS=="RB" & TDNA_IS_LBRB == TRUE & FLANK_A_END_POS <= TDNA_RB_END ~ TRUE,
+      FILE.FOCUS_CONTIG == FILE.PLASMID & FOCUS_LOCUS=="RB" & TDNA_IS_LBRB == FALSE & FLANK_A_END_POS >= TDNA_RB_END ~ TRUE,
       
       TRUE ~ FALSE))%>%
     
     #fix end pos for the WT/SNV case
-    mutate(FLANK_A_LEN = if_else(Type=="WT"| Type=="SNV" | (FLANK_A_ENDS_ON_TDNA==FALSE & FOCUS_CONTIG == PLASMID),
+    mutate(FLANK_A_LEN = if_else(Type=="WT"| Type=="SNV" | (FLANK_A_ENDS_ON_TDNA==FALSE & FILE.FOCUS_CONTIG == FILE.PLASMID),
                                   PRIMER_TO_DSB,
                                   FLANK_A_LEN))%>%
-    mutate(FLANK_A_END_POS = if_else(Type=="WT"| Type=="SNV"| (FLANK_A_ENDS_ON_TDNA==FALSE & FOCUS_CONTIG == PLASMID),
+    mutate(FLANK_A_END_POS = if_else(Type=="WT"| Type=="SNV"| (FLANK_A_ENDS_ON_TDNA==FALSE & FILE.FOCUS_CONTIG == FILE.PLASMID),
                                      FlankAUltEnd,
                                      FLANK_A_END_POS))%>%
     #also determine again what the part of the read is without FLANK_A
@@ -924,8 +900,8 @@ for (i in row.names(sample_info)){
     #calculate FLANK A DEL length
     mutate(
       FLANK_A_DEL = case_when(
-        FLANK_A_LEN != ERROR_NUMBER & FLANK_A_LEN != NF_NUMBER ~ as.integer(PRIMER_TO_DSB - FLANK_A_LEN),
-        TRUE ~ ERROR_NUMBER))
+        FLANK_A_LEN != GLOBAL.ERROR_NUMBER & FLANK_A_LEN != GLOBAL.NF_NUMBER ~ as.integer(PRIMER_TO_DSB - FLANK_A_LEN),
+        TRUE ~ GLOBAL.ERROR_NUMBER))
 
 
   function_time("Step 4 took ")
@@ -934,9 +910,9 @@ for (i in row.names(sample_info)){
   #Process data: step 5
   ###############################################################################
   
-  FILE.data_improved4 = FILE.data_improved3c %>%
-    mutate(FLANK_B_CLOSE_BY = case_when(FLANK_A_ISFORWARD == TRUE & TOTAL_REF_STOP > FLANK_B_END_POS &  FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & FLANK_B_CHROM == FOCUS_CONTIG ~ TRUE,
-                                        FLANK_A_ISFORWARD == FALSE & TOTAL_REF_START < FLANK_B_END_POS &  FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & FLANK_B_CHROM == FOCUS_CONTIG ~ TRUE,
+  FILE.data12 = FILE.data11 %>%
+    mutate(FLANK_B_CLOSE_BY = case_when(FLANK_A_ISFORWARD == TRUE & TOTAL_REF_STOP > FLANK_B_END_POS &  FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & FLANK_B_CHROM == FILE.FOCUS_CONTIG ~ TRUE,
+                                        FLANK_A_ISFORWARD == FALSE & TOTAL_REF_START < FLANK_B_END_POS &  FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & FLANK_B_CHROM == FILE.FOCUS_CONTIG ~ TRUE,
                                         TRUE ~ FALSE))%>%
 
     #FLANK_B_REF. This ref includes homology.
@@ -953,9 +929,9 @@ for (i in row.names(sample_info)){
                } 
              }else{ #translocations
                if (FLANK_B_ISFORWARD == TRUE){
-                 substr(as.character(eval(parse(text = paste0("genomeseq$`", FLANK_B_CHROM, "`")))), FLANK_B_END_POS-(SEQ_1_LEN-1), FLANK_B_END_POS)
+                 substr(as.character(eval(parse(text = paste0("FILE.genomeseq$`", FLANK_B_CHROM, "`")))), FLANK_B_END_POS-(SEQ_1_LEN-1), FLANK_B_END_POS)
                }else{
-                 as.character(reverseComplement(DNAString(substr(as.character(eval(parse(text = paste0("genomeseq$`", FLANK_B_CHROM, "`")))), FLANK_B_END_POS, FLANK_B_END_POS+(SEQ_1_LEN-1)))))
+                 as.character(reverseComplement(DNAString(substr(as.character(eval(parse(text = paste0("FILE.genomeseq$`", FLANK_B_CHROM, "`")))), FLANK_B_END_POS, FLANK_B_END_POS+(SEQ_1_LEN-1)))))
                }}})%>%
     #find the full flank b match, while skipping over seq errors. But causes a problem on focus contig when del=1 en ins=1
     #skip if the read is wt
@@ -977,7 +953,7 @@ for (i in row.names(sample_info)){
       (Type=="WT" | Type=="SNV") & FLANK_A_ISFORWARD == TRUE ~ as.integer(FLANK_A_END_POS+1),
       (Type=="WT" | Type=="SNV") & FLANK_A_ISFORWARD == FALSE ~ as.integer(FLANK_A_END_POS-1),
 
-                                            TRUE ~ ERROR_NUMBER)) %>%
+                                            TRUE ~ GLOBAL.ERROR_NUMBER)) %>%
 
     
     #get the FLANK B len including MH, unless the read is WT
@@ -995,8 +971,8 @@ for (i in row.names(sample_info)){
     
     #if there is MH, but A+B-MH does not equal seq1, then there is TD
     mutate(hasTandemDuplication = case_when(
-      FLANK_B_CHROM==FOCUS_CONTIG & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & FLANK_A_ISFORWARD == TRUE & FLANK_A_END_POS >= (FLANK_B_START_POS_MH+MH_TD_LEN) ~ TRUE,
-      FLANK_B_CHROM==FOCUS_CONTIG & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & FLANK_A_ISFORWARD == FALSE & FLANK_A_END_POS <= (FLANK_B_START_POS_MH-MH_TD_LEN) ~ TRUE,
+      FLANK_B_CHROM==FILE.FOCUS_CONTIG & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & FLANK_A_ISFORWARD == TRUE & FLANK_A_END_POS >= (FLANK_B_START_POS_MH+MH_TD_LEN) ~ TRUE,
+      FLANK_B_CHROM==FILE.FOCUS_CONTIG & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & FLANK_A_ISFORWARD == FALSE & FLANK_A_END_POS <= (FLANK_B_START_POS_MH-MH_TD_LEN) ~ TRUE,
       
       
       TRUE ~ FALSE))%>%
@@ -1026,7 +1002,7 @@ for (i in row.names(sample_info)){
   #Process data: step 6
   ###############################################################################
   
-  FILE.data_improved5 = FILE.data_improved4 %>%
+  FILE.data13 = FILE.data12 %>%
     
     #determine the filler sequence 
     mutate(
@@ -1059,37 +1035,37 @@ for (i in row.names(sample_info)){
   
     #determine how much from flank B has been deleted
     #only report deletion when ends are known
-    mutate(FLANK_B_ON_TDNA = case_when(FLANK_B_CHROM == PLASMID & TDNA_IS_LBRB == TRUE & FLANK_B_START_POS >= TDNA_LB_END & FLANK_B_START_POS <= TDNA_RB_END ~ TRUE,
-                                       FLANK_B_CHROM == PLASMID & TDNA_IS_LBRB == FALSE & FLANK_B_START_POS <= TDNA_LB_END & FLANK_B_START_POS >= TDNA_RB_END ~ TRUE,
-                                       FLANK_B_CHROM == PLASMID_ALT & TDNA_ALT_IS_LBRB == TRUE & FLANK_B_START_POS >= TDNA_ALT_LB_END & FLANK_B_START_POS <= TDNA_ALT_RB_END ~ TRUE,
-                                       FLANK_B_CHROM == PLASMID_ALT & TDNA_ALT_IS_LBRB == FALSE & FLANK_B_START_POS <= TDNA_ALT_LB_END & FLANK_B_START_POS >= TDNA_ALT_RB_END ~ TRUE,
+    mutate(FLANK_B_ON_TDNA = case_when(FLANK_B_CHROM == FILE.PLASMID & TDNA_IS_LBRB == TRUE & FLANK_B_START_POS >= TDNA_LB_END & FLANK_B_START_POS <= TDNA_RB_END ~ TRUE,
+                                       FLANK_B_CHROM == FILE.PLASMID & TDNA_IS_LBRB == FALSE & FLANK_B_START_POS <= TDNA_LB_END & FLANK_B_START_POS >= TDNA_RB_END ~ TRUE,
+                                       FLANK_B_CHROM == FILE.PLASMID_ALT & TDNA_ALT_IS_LBRB == TRUE & FLANK_B_START_POS >= TDNA_ALT_LB_END & FLANK_B_START_POS <= TDNA_ALT_RB_END ~ TRUE,
+                                       FLANK_B_CHROM == FILE.PLASMID_ALT & TDNA_ALT_IS_LBRB == FALSE & FLANK_B_START_POS <= TDNA_ALT_LB_END & FLANK_B_START_POS >= TDNA_ALT_RB_END ~ TRUE,
                                        TRUE ~ FALSE
                                        ))%>%
-    mutate(FLANK_B_DEL = case_when(FLANK_B_CHROM == DSB_CONTIG & FLANK_B_ISFORWARD == TRUE   ~ as.integer(FLANK_B_START_POS - (DSB_FW_END+1)),
-                                   FLANK_B_CHROM == DSB_CONTIG & FLANK_B_ISFORWARD == FALSE  ~ as.integer(DSB_FW_END - FLANK_B_START_POS),
+    mutate(FLANK_B_DEL = case_when(FLANK_B_CHROM == FILE.DSB_CONTIG & FLANK_B_ISFORWARD == TRUE   ~ as.integer(FLANK_B_START_POS - (FILE.DSB_FW_END+1)),
+                                   FLANK_B_CHROM == FILE.DSB_CONTIG & FLANK_B_ISFORWARD == FALSE  ~ as.integer(FILE.DSB_FW_END - FLANK_B_START_POS),
                                    
-                                   FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == TRUE & TDNA_IS_LBRB == TRUE & FLANK_B_ON_TDNA==TRUE ~ FLANK_B_START_POS - TDNA_LB_END,
-                                   FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == TRUE & TDNA_IS_LBRB == FALSE & FLANK_B_ON_TDNA==TRUE ~ FLANK_B_START_POS - TDNA_RB_END,
-                                   FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == FALSE & TDNA_IS_LBRB == TRUE & FLANK_B_ON_TDNA==TRUE ~ TDNA_RB_END - FLANK_B_START_POS,
-                                   FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == FALSE & TDNA_IS_LBRB == FALSE & FLANK_B_ON_TDNA==TRUE ~ TDNA_LB_END - FLANK_B_START_POS,
+                                   FLANK_B_CHROM == FILE.PLASMID & FLANK_B_ISFORWARD == TRUE & TDNA_IS_LBRB == TRUE & FLANK_B_ON_TDNA==TRUE ~ FLANK_B_START_POS - TDNA_LB_END,
+                                   FLANK_B_CHROM == FILE.PLASMID & FLANK_B_ISFORWARD == TRUE & TDNA_IS_LBRB == FALSE & FLANK_B_ON_TDNA==TRUE ~ FLANK_B_START_POS - TDNA_RB_END,
+                                   FLANK_B_CHROM == FILE.PLASMID & FLANK_B_ISFORWARD == FALSE & TDNA_IS_LBRB == TRUE & FLANK_B_ON_TDNA==TRUE ~ TDNA_RB_END - FLANK_B_START_POS,
+                                   FLANK_B_CHROM == FILE.PLASMID & FLANK_B_ISFORWARD == FALSE & TDNA_IS_LBRB == FALSE & FLANK_B_ON_TDNA==TRUE ~ TDNA_LB_END - FLANK_B_START_POS,
                                    
-                                   FLANK_B_CHROM == PLASMID_ALT & FLANK_B_ISFORWARD == TRUE & TDNA_ALT_IS_LBRB == TRUE & FLANK_B_ON_TDNA==TRUE ~ FLANK_B_START_POS - TDNA_ALT_LB_END,
-                                   FLANK_B_CHROM == PLASMID_ALT & FLANK_B_ISFORWARD == TRUE & TDNA_ALT_IS_LBRB == FALSE & FLANK_B_ON_TDNA==TRUE ~ FLANK_B_START_POS - TDNA_ALT_RB_END,
-                                   FLANK_B_CHROM == PLASMID_ALT & FLANK_B_ISFORWARD == FALSE & TDNA_ALT_IS_LBRB == TRUE & FLANK_B_ON_TDNA==TRUE ~ TDNA_ALT_RB_END - FLANK_B_START_POS,
-                                   FLANK_B_CHROM == PLASMID_ALT & FLANK_B_ISFORWARD == FALSE & TDNA_ALT_IS_LBRB == FALSE & FLANK_B_ON_TDNA==TRUE ~ TDNA_ALT_LB_END - FLANK_B_START_POS,
+                                   FLANK_B_CHROM == FILE.PLASMID_ALT & FLANK_B_ISFORWARD == TRUE & TDNA_ALT_IS_LBRB == TRUE & FLANK_B_ON_TDNA==TRUE ~ FLANK_B_START_POS - TDNA_ALT_LB_END,
+                                   FLANK_B_CHROM == FILE.PLASMID_ALT & FLANK_B_ISFORWARD == TRUE & TDNA_ALT_IS_LBRB == FALSE & FLANK_B_ON_TDNA==TRUE ~ FLANK_B_START_POS - TDNA_ALT_RB_END,
+                                   FLANK_B_CHROM == FILE.PLASMID_ALT & FLANK_B_ISFORWARD == FALSE & TDNA_ALT_IS_LBRB == TRUE & FLANK_B_ON_TDNA==TRUE ~ TDNA_ALT_RB_END - FLANK_B_START_POS,
+                                   FLANK_B_CHROM == FILE.PLASMID_ALT & FLANK_B_ISFORWARD == FALSE & TDNA_ALT_IS_LBRB == FALSE & FLANK_B_ON_TDNA==TRUE ~ TDNA_ALT_LB_END - FLANK_B_START_POS,
                                    
-                                   TRUE ~ ERROR_NUMBER))%>%
+                                   TRUE ~ GLOBAL.ERROR_NUMBER))%>%
     
     #also report what side of the T-DNA flank B is
-    mutate(FLANK_B_TDNA_SIDE = case_when(FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == TRUE & TDNA_IS_LBRB == TRUE & FLANK_B_ON_TDNA==TRUE ~ "LB",
-                                         FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == TRUE & TDNA_IS_LBRB == FALSE & FLANK_B_ON_TDNA==TRUE ~ "RB",
-                                         FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == FALSE & TDNA_IS_LBRB == TRUE & FLANK_B_ON_TDNA==TRUE ~ "RB",
-                                         FLANK_B_CHROM == PLASMID & FLANK_B_ISFORWARD == FALSE & TDNA_IS_LBRB == FALSE & FLANK_B_ON_TDNA==TRUE ~ "LB",
+    mutate(FLANK_B_TDNA_SIDE = case_when(FLANK_B_CHROM == FILE.PLASMID & FLANK_B_ISFORWARD == TRUE & TDNA_IS_LBRB == TRUE & FLANK_B_ON_TDNA==TRUE ~ "LB",
+                                         FLANK_B_CHROM == FILE.PLASMID & FLANK_B_ISFORWARD == TRUE & TDNA_IS_LBRB == FALSE & FLANK_B_ON_TDNA==TRUE ~ "RB",
+                                         FLANK_B_CHROM == FILE.PLASMID & FLANK_B_ISFORWARD == FALSE & TDNA_IS_LBRB == TRUE & FLANK_B_ON_TDNA==TRUE ~ "RB",
+                                         FLANK_B_CHROM == FILE.PLASMID & FLANK_B_ISFORWARD == FALSE & TDNA_IS_LBRB == FALSE & FLANK_B_ON_TDNA==TRUE ~ "LB",
                                          
-                                         FLANK_B_CHROM == PLASMID_ALT & FLANK_B_ISFORWARD == TRUE & TDNA_ALT_IS_LBRB == TRUE & FLANK_B_ON_TDNA==TRUE ~ "LB",
-                                         FLANK_B_CHROM == PLASMID_ALT & FLANK_B_ISFORWARD == TRUE & TDNA_ALT_IS_LBRB == FALSE & FLANK_B_ON_TDNA==TRUE ~ "RB",
-                                         FLANK_B_CHROM == PLASMID_ALT & FLANK_B_ISFORWARD == FALSE & TDNA_ALT_IS_LBRB == TRUE & FLANK_B_ON_TDNA==TRUE ~ "RB",
-                                         FLANK_B_CHROM == PLASMID_ALT & FLANK_B_ISFORWARD == FALSE & TDNA_ALT_IS_LBRB == FALSE & FLANK_B_ON_TDNA==TRUE ~ "LB",
+                                         FLANK_B_CHROM == FILE.PLASMID_ALT & FLANK_B_ISFORWARD == TRUE & TDNA_ALT_IS_LBRB == TRUE & FLANK_B_ON_TDNA==TRUE ~ "LB",
+                                         FLANK_B_CHROM == FILE.PLASMID_ALT & FLANK_B_ISFORWARD == TRUE & TDNA_ALT_IS_LBRB == FALSE & FLANK_B_ON_TDNA==TRUE ~ "RB",
+                                         FLANK_B_CHROM == FILE.PLASMID_ALT & FLANK_B_ISFORWARD == FALSE & TDNA_ALT_IS_LBRB == TRUE & FLANK_B_ON_TDNA==TRUE ~ "RB",
+                                         FLANK_B_CHROM == FILE.PLASMID_ALT & FLANK_B_ISFORWARD == FALSE & TDNA_ALT_IS_LBRB == FALSE & FLANK_B_ON_TDNA==TRUE ~ "LB",
                                          
                                          TRUE ~ NA))%>%
     
@@ -1097,9 +1073,9 @@ for (i in row.names(sample_info)){
     #calculate total deletion length
     #only for deletions around the DSB with no translocations
     mutate(delSize = case_when(Type=="WT" | Type=="SNV" ~ 0,
-                               Type!= "WT" & Type!="SNV" & FLANK_B_CHROM == FOCUS_CONTIG & FLANK_B_ISFORWARD == FLANK_A_ISFORWARD & FLANK_B_ISFORWARD == TRUE & FLANK_A_END_POS < FLANK_B_START_POS & FLANK_B_DEL != ERROR_NUMBER & FLANK_B_CHROM != PLASMID ~ as.integer(FLANK_A_DEL + FLANK_B_DEL),
-                               Type!= "WT" & Type!="SNV" & FLANK_B_CHROM == FOCUS_CONTIG & FLANK_B_ISFORWARD == FLANK_A_ISFORWARD & FLANK_B_ISFORWARD == FALSE & FLANK_A_END_POS > FLANK_B_START_POS & FLANK_B_DEL != ERROR_NUMBER & FLANK_B_CHROM != PLASMID ~ as.integer(FLANK_A_DEL + FLANK_B_DEL),
-                               TRUE ~ ERROR_NUMBER))%>%
+                               Type!= "WT" & Type!="SNV" & FLANK_B_CHROM == FILE.FOCUS_CONTIG & FLANK_B_ISFORWARD == FLANK_A_ISFORWARD & FLANK_B_ISFORWARD == TRUE & FLANK_A_END_POS < FLANK_B_START_POS & FLANK_B_DEL != GLOBAL.ERROR_NUMBER & FLANK_B_CHROM != FILE.PLASMID ~ as.integer(FLANK_A_DEL + FLANK_B_DEL),
+                               Type!= "WT" & Type!="SNV" & FLANK_B_CHROM == FILE.FOCUS_CONTIG & FLANK_B_ISFORWARD == FLANK_A_ISFORWARD & FLANK_B_ISFORWARD == FALSE & FLANK_A_END_POS > FLANK_B_START_POS & FLANK_B_DEL != GLOBAL.ERROR_NUMBER & FLANK_B_CHROM != FILE.PLASMID ~ as.integer(FLANK_A_DEL + FLANK_B_DEL),
+                               TRUE ~ GLOBAL.ERROR_NUMBER))%>%
 
     #correct MH if delSize == 0
     mutate(MH = if_else(delSize <= 0,
@@ -1111,7 +1087,7 @@ for (i in row.names(sample_info)){
     
 
     #remove reads with FLANK_B 's shorter than the minimum.
-    filter(FLANK_B_LEN_MH >= FLANK_B_LEN_MIN)
+    filter(FLANK_B_LEN_MH >= GLOBAL.FLANK_B_LEN_MIN)
   
   function_time("Step 6 took ")
   
@@ -1119,7 +1095,7 @@ for (i in row.names(sample_info)){
   #Process data: step 7
   ###############################################################################
   
-  FILE.data_improved6 = FILE.data_improved5 %>%
+  FILE.data14 = FILE.data13 %>%
   
     #for SIQPlotter delRelativeStart is FLANK_A_DEL (but negative) and delRelativeEnd is FLANK_B_DEL.
     #delRelativeEndTD should include the tandem duplication.
@@ -1127,12 +1103,12 @@ for (i in row.names(sample_info)){
     mutate(
       delRelativeStart = as.integer(FLANK_A_DEL*-1),
       delRelativeStartTD = as.integer(FLANK_A_DEL*-1),
-      delRelativeEnd = if_else(abs(as.integer(FLANK_B_DEL))<=FLANKBEYONDDSB | FLANK_B_CHROM == PLASMID | FLANK_B_CHROM == PLASMID_ALT,
+      delRelativeEnd = if_else(abs(as.integer(FLANK_B_DEL))<=GLOBAL.FLANKBEYONDDSB | FLANK_B_CHROM == FILE.PLASMID | FLANK_B_CHROM == FILE.PLASMID_ALT,
                                as.integer(FLANK_B_DEL),
-                               ERROR_NUMBER),
-      delRelativeEndTD = if_else( (abs(as.integer(FLANK_B_DEL))<=FLANKBEYONDDSB  | FLANK_B_CHROM == PLASMID | FLANK_B_CHROM == PLASMID_ALT) & FLANK_B_DEL!=ERROR_NUMBER,
+                               GLOBAL.ERROR_NUMBER),
+      delRelativeEndTD = if_else( (abs(as.integer(FLANK_B_DEL))<=GLOBAL.FLANKBEYONDDSB  | FLANK_B_CHROM == FILE.PLASMID | FLANK_B_CHROM == FILE.PLASMID_ALT) & FLANK_B_DEL!= GLOBAL.ERROR_NUMBER,
                                as.integer(FLANK_B_DEL-tandemDuplicationLength),
-                               ERROR_NUMBER)) %>%
+                               GLOBAL.ERROR_NUMBER)) %>%
 
   
     
@@ -1169,7 +1145,7 @@ for (i in row.names(sample_info)){
   #for TRANSGUIDE a consensus outcome will be determined
          if (GLOBAL.GROUPSAMEPOS == FALSE){
       
-           FILE.data_improved8pre2 =FILE.data_improved6 %>%
+           FILE.data15 =FILE.data14 %>%
           ungroup()%>%
           separate_longer_delim(cols="MATE_B_END_POS_list", delim = ",") %>%
       group_by(
@@ -1202,7 +1178,15 @@ for (i in row.names(sample_info)){
         TRIM_LEN,
         TANDEM_DUPLICATION,
         tandemDuplicationLength,
-        FLANK_B_TDNA_SIDE
+        FLANK_B_TDNA_SIDE,
+        FLANK_A_ISFORWARD,
+        FOCUS_LOCUS,
+        TDNA_IS_LBRB,
+        TDNA_ALT_IS_LBRB,
+        TDNA_LB_END,
+        TDNA_RB_END,
+        TDNA_ALT_LB_END,
+        TDNA_ALT_RB_END
       )%>%
       summarize(
         ReadCount = n(),
@@ -1219,7 +1203,7 @@ for (i in row.names(sample_info)){
           mutate(Consensus_freq = 1)
       }else{
         
-        FILE.data_improved8pre2 =FILE.data_improved6 %>%
+        FILE.data15 =FILE.data14 %>%
           ungroup()%>%
           separate_longer_delim(cols="MATE_B_END_POS_list", delim = ",") %>%
           group_by(
@@ -1231,7 +1215,15 @@ for (i in row.names(sample_info)){
             TRIM_LEN,
             MATE_FLANK_B_CHROM_AGREE,
             MATE_FLANK_B_CHROM,
-            FLANK_B_TDNA_SIDE
+            FLANK_B_TDNA_SIDE,
+            FLANK_A_ISFORWARD,
+            FOCUS_LOCUS,
+            TDNA_IS_LBRB,
+            TDNA_ALT_IS_LBRB,
+            TDNA_LB_END,
+            TDNA_RB_END,
+            TDNA_ALT_LB_END,
+            TDNA_ALT_RB_END
           )%>%
           summarize(
             ReadCount = n(),
@@ -1288,32 +1280,32 @@ for (i in row.names(sample_info)){
                  tandemDuplicationLength = tandemDuplicationLength_con)
       }
         
-  FILE.data_improved8 =FILE.data_improved8pre2 %>%
+  FILE.data16 =FILE.data15 %>%
       
       #then calculate the difference between start of flank B (in the read) and the position of of flank B at the end of the mate.
       mutate(ANCHOR_DIST = case_when(FLANK_B_ISFORWARD=TRUE & FLANK_B_CHROM == MATE_FLANK_B_CHROM & MATE_B_END_POS_max > FLANK_B_START_POS ~ as.integer(1+MATE_B_END_POS_max - FLANK_B_START_POS),
                                      FLANK_B_ISFORWARD==FALSE & FLANK_B_CHROM == MATE_FLANK_B_CHROM & FLANK_B_START_POS > MATE_B_END_POS_min ~ as.integer(1+FLANK_B_START_POS - MATE_B_END_POS_min),
-                                     TRUE ~ NF_NUMBER)) %>%
+                                     TRUE ~ GLOBAL.NF_NUMBER)) %>%
       #adjust the anchor dist for when the anchor is impossibly far away
-      mutate(ANCHOR_DIST = if_else(ANCHOR_DIST > MAXANCHORDIST & MATE_FLANK_B_CHROM!=PLASMID & MATE_FLANK_B_CHROM!=PLASMID_ALT,
-                                   NF_NUMBER,
+      mutate(ANCHOR_DIST = if_else(ANCHOR_DIST > GLOBAL.MAXANCHORDIST & MATE_FLANK_B_CHROM!=FILE.PLASMID & MATE_FLANK_B_CHROM!= FILE.PLASMID_ALT,
+                                   GLOBAL.NF_NUMBER,
                                    ANCHOR_DIST)) %>%
 
       #determine whether a translocation has occurred
       mutate(Translocation = case_when(Type=="WT" | Type=="SNV" ~ FALSE,
-                                       FOCUS_CONTIG ==  FLANK_B_CHROM & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & delRelativeEnd != ERROR_NUMBER & FLANK_A_ISFORWARD==TRUE & FLANK_A_END_POS < FLANK_B_START_POS & FLANK_B_CHROM != PLASMID   ~ FALSE,
-                                       FOCUS_CONTIG ==  FLANK_B_CHROM & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & delRelativeEnd != ERROR_NUMBER & FLANK_A_ISFORWARD==FALSE & FLANK_B_START_POS < FLANK_A_END_POS & FLANK_B_CHROM != PLASMID ~ FALSE,
+                                       FILE.FOCUS_CONTIG ==  FLANK_B_CHROM & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & delRelativeEnd != GLOBAL.ERROR_NUMBER & FLANK_A_ISFORWARD==TRUE & FLANK_A_END_POS < FLANK_B_START_POS & FLANK_B_CHROM != FILE.PLASMID   ~ FALSE,
+                                       FILE.FOCUS_CONTIG ==  FLANK_B_CHROM & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & delRelativeEnd != GLOBAL.ERROR_NUMBER & FLANK_A_ISFORWARD==FALSE & FLANK_B_START_POS < FLANK_A_END_POS & FLANK_B_CHROM != FILE.PLASMID ~ FALSE,
                                        TRUE ~ TRUE))%>%
       
       #note whether the deletion of the flank B (in case of translocation) has been determined
-      mutate(Translocation_del_resolved = if_else(Translocation == TRUE & delRelativeEnd != ERROR_NUMBER,
+      mutate(Translocation_del_resolved = if_else(Translocation == TRUE & delRelativeEnd != GLOBAL.ERROR_NUMBER,
                                                   TRUE,
                                                   FALSE))%>%
       #if the deletion size cannot be determined it becomes 0 for plotting purposes
-      mutate(delRelativeEnd = if_else(delRelativeEnd == ERROR_NUMBER,
+      mutate(delRelativeEnd = if_else(delRelativeEnd == GLOBAL.ERROR_NUMBER,
                                       0,
                                       delRelativeEnd),
-             delRelativeEndTD = if_else(delRelativeEndTD == ERROR_NUMBER,
+             delRelativeEndTD = if_else(delRelativeEndTD == GLOBAL.ERROR_NUMBER,
                                       0,
                                       delRelativeEndTD))%>%
     
@@ -1331,8 +1323,8 @@ for (i in row.names(sample_info)){
         Type != "WT" & Type != "SNV" & FAKE_DELIN_CHECK == FALSE & delSize != 0 & insSize != 0 & tandemDuplicationLength!=0 ~ "TANDEMDUPLICATION_COMPOUND",
         
 
-        Type != "WT" & Type != "SNV" & FAKE_DELIN_CHECK == FALSE & delSize == 0 & insSize != 0 & tandemDuplicationLength < TD_SIZE_CUTOFF ~ "INSERTION",
-        Type != "WT" & Type != "SNV" & FAKE_DELIN_CHECK == FALSE & delSize == 0 & insSize != 0 & tandemDuplicationLength >= TD_SIZE_CUTOFF ~ "TANDEMDUPLICATION",
+        Type != "WT" & Type != "SNV" & FAKE_DELIN_CHECK == FALSE & delSize == 0 & insSize != 0 & tandemDuplicationLength < GLOBAL.TD_SIZE_CUTOFF ~ "INSERTION",
+        Type != "WT" & Type != "SNV" & FAKE_DELIN_CHECK == FALSE & delSize == 0 & insSize != 0 & tandemDuplicationLength >= GLOBAL.TD_SIZE_CUTOFF ~ "TANDEMDUPLICATION",
         
         Type != "WT" & Type != "SNV" & FAKE_DELIN_CHECK == FALSE & insSize == 0 ~ "DELETION",
         
@@ -1381,7 +1373,15 @@ for (i in row.names(sample_info)){
       Subject,
       FILE_NAME,
       PRIMER_SEQ,
-      TRIM_LEN
+      TRIM_LEN,
+      FLANK_A_ISFORWARD,
+      FOCUS_LOCUS,
+      TDNA_IS_LBRB,
+      TDNA_ALT_IS_LBRB,
+      TDNA_LB_END,
+      TDNA_RB_END,
+      TDNA_ALT_LB_END,
+      TDNA_ALT_RB_END
     ) 
 
    
@@ -1393,7 +1393,7 @@ for (i in row.names(sample_info)){
   ###############################################################################
   
   #calculate the fraction of reads with a certain outcome within a library
-  FILE.data_improved9 = FILE.data_improved8 %>% group_by(FILE_NAME) %>% summarize(ReadCountTotal =
+  FILE.data17 = FILE.data16 %>% group_by(FILE_NAME) %>% summarize(ReadCountTotal =
                                                                                   sum(ReadCount),
                                                                         .groups="drop")
   function_time("Step 8 took ")
@@ -1402,46 +1402,40 @@ for (i in row.names(sample_info)){
   #Process data: step 9
   ###############################################################################
   
-  FILE.data_improved10 = left_join(FILE.data_improved8, FILE.data_improved9, by = "FILE_NAME") %>%
+  FILE.data18 = left_join(FILE.data16, FILE.data17, by = "FILE_NAME") %>%
     mutate(fraction = ReadCount / ReadCountTotal) %>%
     #add columns for all the input options and software version
     mutate(countReadsTotal = NULL,
-           FlankAUltEnd = FlankAUltEnd,
-           Flank_A_isforward = FLANK_A_ISFORWARD,
-           Focus_contig = FOCUS_CONTIG,
-           Genotype = Genotype,
-           DNASample = DNASample,
-           Ecotype = Ecotype,
-           RunID = RunID,
-           Plasmid = PLASMID,
-           Plasmid_alt = PLASMID_ALT,
-           AgroGeno = AgroGeno,
-           RemoveNonTranslocation = REMOVENONTRANS,
-           GroupSamePosition = GROUPSAMEPOS,
-           Primer_match_perfect = Primer_match_perfect,
-           Alias = paste0(Library, "_", RunID),
-           DSB_FW_END = DSB_FW_END,
-           DSB_CONTIG = DSB_CONTIG,
-           TDNA_LB_END = TDNA_LB_END,
-           TDNA_RB_END = TDNA_RB_END,
-           TDNA_IS_LBRB = TDNA_IS_LBRB,
-           TDNA_ALT_LB_END = TDNA_ALT_LB_END,
-           TDNA_ALT_RB_END = TDNA_ALT_RB_END,
-           TDNA_ALT_IS_LBRB = TDNA_ALT_IS_LBRB,
-           FLANKBEYONDDSB = FLANKBEYONDDSB,
-           MinumumReadLength = MINLEN,
-           MAXANCHORDIST = MAXANCHORDIST,
-           program_version = hash,
-           TD_SIZE_CUTOFF = TD_SIZE_CUTOFF,
-           EXECUTE_DSB_AREA_CHECK = EXECUTE_DSB_AREA_CHECK)
+           Focus_contig = FILE.FOCUS_CONTIG,
+           Genotype = FILE.Genotype,
+           DNASample = FILE.DNASample,
+           Ecotype = FILE.Ecotype,
+           RunID = FILE.RunID,
+           Plasmid = FILE.PLASMID,
+           Plasmid_alt = FILE.PLASMID_ALT,
+           AgroGeno = FILE.AgroGeno,
+           EXECUTE_DSB_AREA_CHECK = FILE.EXECUTE_DSB_AREA_CHECK,
+           Alias = paste0(FILE.Sample, "_", FILE.RunID),
+           DSB_FW_END = FILE.DSB_FW_END,
+           DSB_CONTIG = FILE.DSB_CONTIG,
+           MinumumReadLength = GLOBAL.MINLEN,
+           MINANCHORDIST = GLOBAL.MINANCHORDIST,
+           MAXANCHORDIST = GLOBAL.MAXANCHORDIST,
+           program_version = GLOBAL.hash,
+           TD_SIZE_CUTOFF = GLOBAL.TD_SIZE_CUTOFF,
+           ANCHORCUTOFF = GLOBAL.ANCHORCUTOFF,
+           FLANK_B_LEN_MIN = GLOBAL.FLANK_B_LEN_MIN,
+           FLANKBEYONDDSB = GLOBAL.FLANKBEYONDDSB,
+           RemoveNonTranslocation = GLOBAL.REMOVENONTRANS,
+           GroupSamePosition = GLOBAL.GROUPSAMEPOS)
   
 
   
   #write an excel sheet as output
   work_book <- createWorkbook()
   addWorksheet(work_book, "rawData")
-  writeData(work_book, sheet = 1, FILE.data_improved10)
-  saveWorkbook(work_book, file = paste0(output_dir, Sample, "_", RunID, "_CISTRANSGUIDE_V2.xlsx"), overwrite = TRUE)
+  writeData(work_book, sheet = 1, FILE.data18)
+  saveWorkbook(work_book, file = paste0(GLOBAL.output_dir, FILE.Sample, "_", FILE.RunID, "_CISTRANSGUIDE_V2.xlsx"), overwrite = TRUE)
   
   
   function_time("Step 9 took ")
@@ -1543,7 +1537,7 @@ if (GLOBAL.REMOVEPROBLEMS == TRUE) {
   funlog("combining junctions with similar positions")
   #combine junctions with similar positions and get the characteristics of the consensus event from the event the most anchors 
   GLOBAL.total_data_near_positioncombined = GLOBAL.total_data_positioncompare %>%
-    group_by(Alias, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, DNASample, Subject, ID, Focus_contig, Genotype, Ecotype, Plasmid_alt, Family, FlankAUltEnd, AgroGeno, RemoveNonTranslocation, GroupSamePosition, Translocation, Translocation_del_resolved, TANDEM_DUPLICATION, Primer_match_perfect, DSB_FW_END, DSB_OVERHANG, DSB_CONTIG, TDNA_LB_END, TDNA_RB_END, TDNA_IS_LBRB, TDNA_ALT_LB_END, TDNA_ALT_RB_END, TDNA_ALT_IS_LBRB, FLANK_B_TDNA_SIDE)%>%
+    group_by(Alias, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, DNASample, Subject, ID, Focus_contig, Genotype, Ecotype, Plasmid_alt, Family, FlankAUltEnd, AgroGeno, RemoveNonTranslocation, GroupSamePosition, Translocation, Translocation_del_resolved, TANDEM_DUPLICATION, DSB_FW_END, DSB_OVERHANG, DSB_CONTIG, TDNA_LB_END, TDNA_RB_END, TDNA_IS_LBRB, TDNA_ALT_LB_END, TDNA_ALT_RB_END, TDNA_ALT_IS_LBRB, FLANK_B_TDNA_SIDE)%>%
     summarize(AnchorCountSum = sum(AnchorCount), 
               ReadCountSum = sum(ReadCount),
               FLANK_B_START_POS_CON = as.integer(FLANK_B_START_POS[which.max(AnchorCount)]),
@@ -1655,7 +1649,7 @@ if (GLOBAL.REMOVEPROBLEMS == TRUE) {
 }
 
 GLOBAL.wb_flag1 = GLOBAL.wb_flag %>%
-  mutate(RemoveProblematicEvents = REMOVEPROBLEMS)%>%
+  mutate(RemoveProblematicEvents = GLOBAL.REMOVEPROBLEMS)%>%
   #add/ change several things for compatibility with SIQplotteR
   mutate(getHomologyColor = "dummy",
          Barcode = "dummy")%>%

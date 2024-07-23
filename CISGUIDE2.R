@@ -13,9 +13,9 @@ if (require(openxlsx)==FALSE){install.packages("openxlsx", repos = "http://cran.
 ###############################################################################
 GLOBAL.input_dir= "./input/"
 GLOBAL.output_dir= "./output/"
-GLOBAL.GROUPSAMEPOS=FALSE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-GLOBAL.REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
-GLOBAL.REMOVEPROBLEMS=FALSE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
+GLOBAL.GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+GLOBAL.REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
+GLOBAL.REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
 GLOBAL.ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 GLOBAL.MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B.
 GLOBAL.MAXANCHORDIST=2000 #the furthest position that the mate anchor can be, except on T-DNA.
@@ -24,7 +24,7 @@ GLOBAL.MINLEN=90 #this is the minimal read length. if you write NA here, then th
 GLOBAL.LB_SEQUENCES = c("TGGCAGGATATATTGTGGTGTAAAC", "CGGCAGGATATATTCAATTGTAAAT") #the nick is made after the 3rd nt
 GLOBAL.RB_SEQUENCES = c("TGACAGGATATATTGGCGGGTAAAC", "TGGCAGGATATATGCGGTTGTAATT") #the nick is made after the 3rd nt
 GLOBAL.TD_SIZE_CUTOFF = 6 #the smallest TD that is considered as TD (*with regards to the Type variable). Any smaller TD is considered merely an insertion.
-GLOBAL.FASTA_MODE = TRUE #Typically false, if TRANSGUIDE/CISGUIDE library prep and illumina sequencing has been done. TRUE if sequences from another source are being analyzed with this program.
+GLOBAL.FASTA_MODE = FALSE #Typically false, if TRANSGUIDE/CISGUIDE library prep and illumina sequencing has been done. TRUE if sequences from another source are being analyzed with this program.
 
 ###############################################################################
 #set parameters - non-adjustable
@@ -1233,7 +1233,8 @@ for (i in row.names(GLOBAL.sample_info)){
         FLANK_B_TDNA_SIDE,
         FLANK_A_ISFORWARD,
         FOCUS_LOCUS,
-        Primer_on_TDNA
+        Primer_on_TDNA,
+        FlankAUltEnd
       )%>%
       summarize(
         ReadCount = n(),
@@ -1265,7 +1266,8 @@ for (i in row.names(GLOBAL.sample_info)){
             FLANK_B_TDNA_SIDE,
             FLANK_A_ISFORWARD,
             FOCUS_LOCUS,
-            Primer_on_TDNA
+            Primer_on_TDNA,
+            FlankAUltEnd
           )%>%
           summarize(
             ReadCount = n(),
@@ -1418,7 +1420,8 @@ for (i in row.names(GLOBAL.sample_info)){
       TRIM_LEN,
       FLANK_A_ISFORWARD,
       FOCUS_LOCUS,
-      Primer_on_TDNA
+      Primer_on_TDNA,
+      FlankAUltEnd
     ) 
 
    

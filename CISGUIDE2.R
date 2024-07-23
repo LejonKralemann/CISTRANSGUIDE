@@ -1651,7 +1651,7 @@ if (GLOBAL.REMOVEPROBLEMS == TRUE) {
       for (j in GLOBAL.wb_current_family$Alias) {
         #per alias in that family
         
-        GLOBAL.wb_filter_current = total_data_near_positioncombined %>%
+        GLOBAL.wb_filter_current = GLOBAL.total_data_near_positioncombined %>%
           filter(Family != i | Alias == j) %>% #events are either not of the current family, or they belong to the current alias
           group_by(FLANK_B_START_POS) %>%
           mutate(duplicate_position = if_else(n() > 1,
@@ -1679,7 +1679,7 @@ if (GLOBAL.REMOVEPROBLEMS == TRUE) {
       ungroup() %>%
       filter(duplicate_position == FALSE)
     funlog("combining surviving family and nonfamily events")
-    wb_flag = rbind(wb_filter_total, wb_nonfamily)  
+    GLOBAL.wb_flag = rbind(GLOBAL.wb_filter_total, GLOBAL.wb_nonfamily)  
     
   }
 } else{

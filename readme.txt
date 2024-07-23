@@ -27,7 +27,7 @@ Sample_information
 You need to create a file named "Sample_information.txt". This file needs to have one row per sample, each with the fields indicated below. Include a header row. The columns need to occur in the following order.
 
 Sample:						The name of the library sample. Example: "7C1_LB". This name should in principle be unique. If the samples have been sequenced multiple times, they can have the same name, as long as the RunID is different.
-Primer:						The secondary GUIDEseq primer sequence (GSP2). Use 'NA' in fasta mode.
+Primer:						The secondary GUIDEseq primer sequence (GSP2). Use 'NA' in fasta mode. For competitive TRANSGUIDE, extend the primer seq with the barcode directly downstream to only acquire the events from 1 sample. Repeat with the second barcode.
 File_name:					The part before "_R1.fastq.gz" or "_R2.fastq.gz". This name needs to be unique in this list.
 Ref:						The genome reference file name, containing all the chromosomes, as well as the plasmid sequence(s). Example: "pCAS-PPO.fa". Note that the Plasmid sequence in the ref should "break" in the backbone part, not in the T-DNA part.
 P5_adapter:					Enter the full P5 adapter primer, without special characters, in upper case. Degenerate bases allowed but will be automatically changed to N. Use 'NA' in fasta mode.

@@ -1666,7 +1666,7 @@ if (GLOBAL.REMOVEPROBLEMS == TRUE) {
         GLOBAL.wb_filter_current = GLOBAL.total_data_near_positioncombined %>%
           filter(Family != i | Alias == j) %>% #events are either not of the current family, or they belong to the current alias
           group_by(FLANK_B_START_POS) %>%
-          mutate(duplicate_position = if_else(n() > 1,
+          mutate(duplicate_position = if_else(n() > 1 & FILE.FOCUS_CONTIG != FLANK_B_CHROM,
                                               TRUE,
                                               FALSE)) %>%
           
@@ -1684,7 +1684,7 @@ if (GLOBAL.REMOVEPROBLEMS == TRUE) {
     GLOBAL.wb_nonfamily = GLOBAL.total_data_near_positioncombined %>%
       filter(Family == 0) %>%
       group_by(FLANK_B_START_POS) %>%
-      mutate(duplicate_position = if_else(n() > 1,
+      mutate(duplicate_position = if_else(n() > 1 & FILE.FOCUS_CONTIG != FLANK_B_CHROM,
                                           TRUE,
                                           FALSE)) %>%
       
@@ -1698,7 +1698,7 @@ if (GLOBAL.REMOVEPROBLEMS == TRUE) {
   funlog("flagging problems only")
   GLOBAL.wb_flag = GLOBAL.wb %>%
     group_by(FLANK_B_START_POS) %>%
-    mutate(duplicate_position = if_else(n() > 1,
+    mutate(duplicate_position = if_else(n() > 1 & FILE.FOCUS_CONTIG != FLANK_B_CHROM,
                                         TRUE,
                                         FALSE)) %>%
     

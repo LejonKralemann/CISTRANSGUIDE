@@ -35,8 +35,8 @@ P7_adapter:					Enter the full p7 adapter primer, without special characters, in
 Plasmid:					The name of the plasmid as written in the reference file. Example: "pCAS-PPO".
 DSB_CONTIG:					The name of the chromosome on which a DSB is induced (e.g. "Chr4"). If no DSB induction use "NA".
 DSB_FW_END:					The final position before (on 5' end of) the induced DSB, including overhangs.
-Locus_name:					In the case of TRANSGUIDE: "LB" or "RB". (for T-DNA cutting constructs use also one of these, but optionally adjust the position). In the case of cisguide pick a name for the locus in which the induced DSB lies.
-FLANK_A_ORIENT: 			The orientation of the primer and thus of flank A, relative to the reference genome sequence. FW or RV.
+Locus_name:					The name of the locus in which a DSB is made. Use NA when no DSB is made.
+Focus_contig_name: 			The contig of the primers. Can be the plasmid name (TRANSGUIDE), or the name of a chromosome (CISGUIDE).
 DSB_OVERHANG:				If the induced DSB has an overhang, indicate its length here.
 Genotype: 					The name of the genotype of the organism that was sampled.
 Plasmid_alt: 				The name of the second plasmid, if a transformation with multiple plasmids has been performed. Enter "NA" if you only used 1 plasmid.

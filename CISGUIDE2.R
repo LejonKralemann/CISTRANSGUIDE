@@ -14,7 +14,7 @@ if (require(openxlsx)==FALSE){install.packages("openxlsx", repos = "http://cran.
 GLOBAL.input_dir= "./input/"
 GLOBAL.output_dir= "./output/"
 GLOBAL.GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-GLOBAL.REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
+GLOBAL.REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
 GLOBAL.REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
 GLOBAL.ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 GLOBAL.MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B.
@@ -25,6 +25,8 @@ GLOBAL.LB_SEQUENCES = c("TGGCAGGATATATTGTGGTGTAAAC", "CGGCAGGATATATTCAATTGTAAAT"
 GLOBAL.RB_SEQUENCES = c("TGACAGGATATATTGGCGGGTAAAC", "TGGCAGGATATATGCGGTTGTAATT") #the nick is made after the 3rd nt
 GLOBAL.TD_SIZE_CUTOFF = 6 #the smallest TD that is considered as TD (*with regards to the Type variable). Any smaller TD is considered merely an insertion.
 GLOBAL.FASTA_MODE = FALSE #Typically false, if TRANSGUIDE/CISGUIDE library prep and illumina sequencing has been done. TRUE if sequences from another source are being analyzed with this program.
+GLOBAL.TESTNAME = "A01589R:152:HGV25DSXC:3:1145:18222:30295" #name of a read, used for testing
+GLOBAL.DEBUG = TRUE #If true, only the read with GLOBAL.TESTNAME is processed
 
 ###############################################################################
 #set parameters - non-adjustable
@@ -676,11 +678,14 @@ for (i in row.names(GLOBAL.sample_info)){
       ungroup()
   }
   
-
-  FILE.data3  = FILE.data2 %>%
+  if (GLOBAL.DEBUG==TRUE){
+  FILE.data2_2  = FILE.data2 %>%
+    filter(QNAME == GLOBAL.TESTNAME)
+  }else{
+    FILE.data2_2  = FILE.data2
+  }
     
-    
-    #filter(QNAME == "LN503798")%>%
+    FILE.data3  = FILE.data2_2 %>%
     #get the length of the ref seq
     mutate(TOTAL_REF_LEN = nchar(TOTAL_REF)) %>%
     #Count number of Ns and remove any reads with Ns
@@ -700,7 +705,7 @@ for (i in row.names(GLOBAL.sample_info)){
     mutate(AvgBaseQual_1 = mean(utf8ToInt(QUAL_1)-33)) %>%
     mutate(AvgBaseQual_2 = mean(utf8ToInt(QUAL_2)-33)) %>%
     ungroup()
-  
+
   #here remove all reads where flank A and flank B are on the same chromosome
   #for transguide these are typically removed because we are interested in T-DNA-genome junctions
   if (GLOBAL.REMOVENONTRANS==TRUE){
@@ -1234,7 +1239,8 @@ for (i in row.names(GLOBAL.sample_info)){
         FLANK_A_ISFORWARD,
         FOCUS_LOCUS,
         Primer_on_TDNA,
-        FlankAUltEnd
+        FlankAUltEnd,
+        FLANK_A_START_POS
       )%>%
       summarize(
         ReadCount = n(),
@@ -1267,7 +1273,8 @@ for (i in row.names(GLOBAL.sample_info)){
             FLANK_A_ISFORWARD,
             FOCUS_LOCUS,
             Primer_on_TDNA,
-            FlankAUltEnd
+            FlankAUltEnd,
+            FLANK_A_START_POS
           )%>%
           summarize(
             ReadCount = n(),
@@ -1326,20 +1333,25 @@ for (i in row.names(GLOBAL.sample_info)){
         
   FILE.data16 =FILE.data15 %>%
       
-      #then calculate the difference between start of flank B (in the read) and the position of of flank B at the end of the mate.
-      mutate(ANCHOR_DIST = case_when(FLANK_B_ISFORWARD=TRUE & FLANK_B_CHROM == MATE_FLANK_B_CHROM & MATE_B_END_POS_max > FLANK_B_START_POS ~ as.integer(1+MATE_B_END_POS_max - FLANK_B_START_POS),
-                                     FLANK_B_ISFORWARD==FALSE & FLANK_B_CHROM == MATE_FLANK_B_CHROM & FLANK_B_START_POS > MATE_B_END_POS_min ~ as.integer(1+FLANK_B_START_POS - MATE_B_END_POS_min),
+    #determine whether a translocation has occurred
+    mutate(Translocation = case_when(Type=="WT" | Type=="SNV" ~ FALSE,
+                                     FILE.FOCUS_CONTIG ==  FLANK_B_CHROM & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & FLANK_A_ISFORWARD==TRUE & FLANK_A_END_POS < FLANK_B_START_POS ~ FALSE,
+                                     FILE.FOCUS_CONTIG ==  FLANK_B_CHROM & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & FLANK_A_ISFORWARD==FALSE & FLANK_B_START_POS < FLANK_A_END_POS ~ FALSE,
+                                     
+                                     TRUE ~ TRUE))%>% 
+    
+     #then calculate the difference between start of flank B (in the read) and the position of of flank B at the end of the mate.
+      mutate(ANCHOR_DIST = case_when(Translocation == TRUE & FLANK_B_ISFORWARD == TRUE & MATE_FLANK_B_CHROM_AGREE == TRUE & MATE_B_END_POS_max > FLANK_B_START_POS ~ as.integer(1+MATE_B_END_POS_max - FLANK_B_START_POS),
+                                     Translocation == TRUE & FLANK_B_ISFORWARD == FALSE & MATE_FLANK_B_CHROM_AGREE == TRUE & FLANK_B_START_POS > MATE_B_END_POS_min ~ as.integer(1+FLANK_B_START_POS - MATE_B_END_POS_min),
+                                     Translocation == FALSE & FLANK_A_ISFORWARD == TRUE ~ as.integer(1+MATE_B_END_POS_max, FLANK_A_START_POS),
+                                     Translocation == FALSE & FLANK_A_ISFORWARD == FALSE ~ as.integer(1+FLANK_A_START_POS - MATE_B_END_POS_min),
                                      TRUE ~ GLOBAL.NF_NUMBER)) %>%
       #adjust the anchor dist for when the anchor is impossibly far away
       mutate(ANCHOR_DIST = if_else(ANCHOR_DIST > GLOBAL.MAXANCHORDIST & MATE_FLANK_B_CHROM!=FILE.PLASMID & MATE_FLANK_B_CHROM!= FILE.PLASMID_ALT,
                                    GLOBAL.NF_NUMBER,
                                    ANCHOR_DIST)) %>%
 
-      #determine whether a translocation has occurred
-      mutate(Translocation = case_when(Type=="WT" | Type=="SNV" ~ FALSE,
-                                       FILE.FOCUS_CONTIG ==  FLANK_B_CHROM & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & delRelativeEnd != GLOBAL.ERROR_NUMBER & FLANK_A_ISFORWARD==TRUE & FLANK_A_END_POS < FLANK_B_START_POS & FLANK_B_CHROM != FILE.PLASMID   ~ FALSE,
-                                       FILE.FOCUS_CONTIG ==  FLANK_B_CHROM & FLANK_A_ISFORWARD == FLANK_B_ISFORWARD & delRelativeEnd != GLOBAL.ERROR_NUMBER & FLANK_A_ISFORWARD==FALSE & FLANK_B_START_POS < FLANK_A_END_POS & FLANK_B_CHROM != FILE.PLASMID ~ FALSE,
-                                       TRUE ~ TRUE))%>%
+     
       
       #note whether the deletion of the flank B (in case of translocation) has been determined
       mutate(Translocation_del_resolved = if_else(Translocation == TRUE & delRelativeEnd != GLOBAL.ERROR_NUMBER,

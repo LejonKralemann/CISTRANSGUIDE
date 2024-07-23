@@ -316,11 +316,11 @@ for (i in row.names(GLOBAL.sample_info)){
       FILE.LB2_match_RV = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(GLOBAL.LB_SEQUENCES[[2]]))),subject = DNAString(FILE.plasmid_alt_seq),max.mismatch = 0,fixed = TRUE))
       
       
-      for (i in c("LB_match", "LB_match_RV", "LB2_match", "LB2_match_RV")){
+      for (i in c("FILE.LB_match", "FILE.LB_match_RV", "FILE.LB2_match", "FILE.LB2_match_RV")){
         if (nrow(get(i)) > 0 & nrow(get(i)) < 2) {
           
           
-          if (i=="LB_match" | i=="LB2_match"){
+          if (i=="FILE.LB_match" | i=="FILE.LB2_match"){
             FILE.TDNA_ALT_LB_FW = TRUE
             FILE.TDNA_ALT_LB_END = as.numeric(get(i)$start)+3 
           }else{
@@ -343,11 +343,11 @@ for (i in row.names(GLOBAL.sample_info)){
       FILE.RB2_match_RV = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(GLOBAL.RB_SEQUENCES[[2]]))),subject = DNAString(FILE.plasmid_alt_seq),max.mismatch = 0,fixed = TRUE))
       
       
-      for (i in c("RB_match", "RB_match_RV", "RB2_match", "RB2_match_RV")){
+      for (i in c("FILE.RB_match", "FILE.RB_match_RV", "FILE.RB2_match", "FILE.RB2_match_RV")){
         if (nrow(get(i)) > 0 & nrow(get(i)) < 2) {
           
           
-          if (i=="RB_match" | i=="RB2_match"){
+          if (i=="FILE.RB_match" | i=="FILE.RB2_match"){
             FILE.TDNA_ALT_RB_FW = TRUE
             FILE.TDNA_ALT_RB_END = as.numeric(get(i)$start)+2 
           }else{

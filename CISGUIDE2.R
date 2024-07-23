@@ -25,8 +25,8 @@ GLOBAL.LB_SEQUENCES = c("TGGCAGGATATATTGTGGTGTAAAC", "CGGCAGGATATATTCAATTGTAAAT"
 GLOBAL.RB_SEQUENCES = c("TGACAGGATATATTGGCGGGTAAAC", "TGGCAGGATATATGCGGTTGTAATT") #the nick is made after the 3rd nt
 GLOBAL.TD_SIZE_CUTOFF = 6 #the smallest TD that is considered as TD (*with regards to the Type variable). Any smaller TD is considered merely an insertion.
 GLOBAL.FASTA_MODE = FALSE #Typically false, if TRANSGUIDE/CISGUIDE library prep and illumina sequencing has been done. TRUE if sequences from another source are being analyzed with this program.
-GLOBAL.TESTNAME = "A01589R:152:HGV25DSXC:3:1145:18222:30295" #name of a read, used for testing
-GLOBAL.DEBUG = TRUE #If true, only the read with GLOBAL.TESTNAME is processed
+GLOBAL.TESTNAME = "A01589R:152:HGV25DSXC:3:2420:15772:8609" #name of a read, used for testing
+GLOBAL.DEBUG = FALSE #If true, only the read with GLOBAL.TESTNAME is processed
 
 ###############################################################################
 #set parameters - non-adjustable
@@ -919,13 +919,13 @@ for (i in row.names(GLOBAL.sample_info)){
    }else{
      FILE.data10 = FILE.data8 %>%
        mutate(
-         #the following variables are set to FALSE. This does not mean that there is a DSB area that does not match wt sequence, but rather that it has not been determined.
+  #the following variables are set to FALSE. This does not mean that there is a DSB area that does not match wt sequence, but rather that it has not been determined.
        DSB_AREA_INTACT_SEQ1 = FALSE,
-     DSB_AREA_INTACT_SEQ2 = FALSE,
-     DSB_AREA_1MM_SEQ1 = FALSE,
-     DSB_AREA_1MM_SEQ2 = FALSE,
-     DSB_HIT_MULTI_SEQ1 = FALSE,
-     DSB_HIT_MULTI_SEQ2 = FALSE)
+       DSB_AREA_INTACT_SEQ2 = FALSE,
+       DSB_AREA_1MM_SEQ1 = FALSE,
+       DSB_AREA_1MM_SEQ2 = FALSE,
+       DSB_HIT_MULTI_SEQ1 = FALSE,
+       DSB_HIT_MULTI_SEQ2 = FALSE)
      }
   
   
@@ -1305,7 +1305,7 @@ for (i in row.names(GLOBAL.sample_info)){
             DSB_AREA_1MM_SEQ2_con = as.logical(names(which.max(table(DSB_AREA_1MM_SEQ2)))),
             DSB_HIT_MULTI_SEQ1_con = as.logical(names(which.max(table(DSB_HIT_MULTI_SEQ1)))),
             DSB_HIT_MULTI_SEQ2_con = as.logical(names(which.max(table(DSB_HIT_MULTI_SEQ2)))),
-            Type = as.logical(names(which.max(table(Type)))),
+            Type = names(which.max(table(Type))),
             .groups="drop"
           )%>%
           mutate(Consensus_freq = Count_consensus/ReadCount)%>%
@@ -1343,8 +1343,8 @@ for (i in row.names(GLOBAL.sample_info)){
      #then calculate the difference between start of flank B (in the read) and the position of of flank B at the end of the mate.
       mutate(ANCHOR_DIST = case_when(Translocation == TRUE & FLANK_B_ISFORWARD == TRUE & MATE_FLANK_B_CHROM_AGREE == TRUE & MATE_B_END_POS_max > FLANK_B_START_POS ~ as.integer(1+MATE_B_END_POS_max - FLANK_B_START_POS),
                                      Translocation == TRUE & FLANK_B_ISFORWARD == FALSE & MATE_FLANK_B_CHROM_AGREE == TRUE & FLANK_B_START_POS > MATE_B_END_POS_min ~ as.integer(1+FLANK_B_START_POS - MATE_B_END_POS_min),
-                                     Translocation == FALSE & FLANK_A_ISFORWARD == TRUE ~ as.integer(1+MATE_B_END_POS_max, FLANK_A_START_POS),
-                                     Translocation == FALSE & FLANK_A_ISFORWARD == FALSE ~ as.integer(1+FLANK_A_START_POS - MATE_B_END_POS_min),
+                                     Translocation == FALSE & FLANK_A_ISFORWARD == TRUE & MATE_FLANK_B_CHROM_AGREE == TRUE ~ as.integer(1+MATE_B_END_POS_max, FLANK_A_START_POS),
+                                     Translocation == FALSE & FLANK_A_ISFORWARD == FALSE & MATE_FLANK_B_CHROM_AGREE == TRUE ~ as.integer(1+FLANK_A_START_POS - MATE_B_END_POS_min),
                                      TRUE ~ GLOBAL.NF_NUMBER)) %>%
       #adjust the anchor dist for when the anchor is impossibly far away
       mutate(ANCHOR_DIST = if_else(ANCHOR_DIST > GLOBAL.MAXANCHORDIST & MATE_FLANK_B_CHROM!=FILE.PLASMID & MATE_FLANK_B_CHROM!= FILE.PLASMID_ALT,
@@ -1642,7 +1642,7 @@ if (GLOBAL.REMOVEPROBLEMS == TRUE) {
     GLOBAL.wb_flag = GLOBAL.total_data_near_positioncombined %>%
         #then examine positions across samples and remove those that occur multiple times
         group_by(FLANK_B_START_POS) %>%
-        mutate(duplicate_position = if_else(n() > 1,
+        mutate(duplicate_position = if_else(n() > 1 & Type!="WT" & Type !="SNV",
                                             TRUE,
                                             FALSE)) %>%
         ungroup() %>%

@@ -14,10 +14,10 @@ if (require(openxlsx)==FALSE){install.packages("openxlsx", repos = "http://cran.
 GLOBAL.input_dir= "./input/"
 GLOBAL.output_dir= "./output/"
 GLOBAL.GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-GLOBAL.REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
+GLOBAL.REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
 GLOBAL.REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
-GLOBAL.ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
-GLOBAL.MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B.
+GLOBAL.ANCHORCUTOFF=1 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
+GLOBAL.MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B (no overlap with flank A).
 GLOBAL.MAXANCHORDIST=2000 #the furthest position that the mate anchor can be, except on T-DNA.
 GLOBAL.FLANKBEYONDDSB=5000 #how much flank A and flank B are allowed to continue beyond the DSB (not applicable when the focus contig is the T-DNA)
 GLOBAL.MINLEN=90 #this is the minimal read length. if you write NA here, then the software will calculate the minimal read length based on the distance to nick/dsb and FLANK_B_LEN_MIN. Should be at the very least 60bp, but 90bp is more common to have as minimum.
@@ -1642,7 +1642,7 @@ if (GLOBAL.REMOVEPROBLEMS == TRUE) {
     GLOBAL.wb_flag = GLOBAL.total_data_near_positioncombined %>%
         #then examine positions across samples and remove those that occur multiple times
         group_by(FLANK_B_START_POS) %>%
-        mutate(duplicate_position = if_else(n() > 1 & Type!="WT" & Type !="SNV",
+        mutate(duplicate_position = if_else(n() > 1 & Focus_contig != FLANK_B_CHROM,
                                             TRUE,
                                             FALSE)) %>%
         ungroup() %>%
@@ -1666,7 +1666,7 @@ if (GLOBAL.REMOVEPROBLEMS == TRUE) {
         GLOBAL.wb_filter_current = GLOBAL.total_data_near_positioncombined %>%
           filter(Family != i | Alias == j) %>% #events are either not of the current family, or they belong to the current alias
           group_by(FLANK_B_START_POS) %>%
-          mutate(duplicate_position = if_else(n() > 1 & FILE.FOCUS_CONTIG != FLANK_B_CHROM,
+          mutate(duplicate_position = if_else(n() > 1 & Focus_contig != FLANK_B_CHROM,
                                               TRUE,
                                               FALSE)) %>%
           
@@ -1684,7 +1684,7 @@ if (GLOBAL.REMOVEPROBLEMS == TRUE) {
     GLOBAL.wb_nonfamily = GLOBAL.total_data_near_positioncombined %>%
       filter(Family == 0) %>%
       group_by(FLANK_B_START_POS) %>%
-      mutate(duplicate_position = if_else(n() > 1 & FILE.FOCUS_CONTIG != FLANK_B_CHROM,
+      mutate(duplicate_position = if_else(n() > 1 & Focus_contig != FLANK_B_CHROM,
                                           TRUE,
                                           FALSE)) %>%
       
@@ -1698,7 +1698,7 @@ if (GLOBAL.REMOVEPROBLEMS == TRUE) {
   funlog("flagging problems only")
   GLOBAL.wb_flag = GLOBAL.wb %>%
     group_by(FLANK_B_START_POS) %>%
-    mutate(duplicate_position = if_else(n() > 1 & FILE.FOCUS_CONTIG != FLANK_B_CHROM,
+    mutate(duplicate_position = if_else(n() > 1 & Focus_contig != FLANK_B_CHROM,
                                         TRUE,
                                         FALSE)) %>%
     

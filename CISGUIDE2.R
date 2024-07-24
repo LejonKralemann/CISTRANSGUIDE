@@ -1476,15 +1476,13 @@ for (i in row.names(GLOBAL.sample_info)){
            TDNA_IS_LBRB = FILE.TDNA_IS_LBRB,
            TDNA_ALT_IS_LBRB = FILE.TDNA_ALT_IS_LBRB,
            MinumumReadLength = GLOBAL.MINLEN,
-           MINANCHORDIST = GLOBAL.MINANCHORDIST,
-           MAXANCHORDIST = GLOBAL.MAXANCHORDIST,
            program_version = GLOBAL.hash,
            TD_SIZE_CUTOFF = GLOBAL.TD_SIZE_CUTOFF,
-           ANCHORCUTOFF = GLOBAL.ANCHORCUTOFF,
            FLANK_B_LEN_MIN = GLOBAL.FLANK_B_LEN_MIN,
            FLANKBEYONDDSB = GLOBAL.FLANKBEYONDDSB,
            RemoveNonTranslocation = GLOBAL.REMOVENONTRANS,
-           GroupSamePosition = GLOBAL.GROUPSAMEPOS)
+           GroupSamePosition = GLOBAL.GROUPSAMEPOS,
+           MAXANCHORDIST = GLOBAL.MAXANCHORDIST)
   
 
   
@@ -1536,8 +1534,8 @@ if (GLOBAL.REMOVEPROBLEMS == TRUE) {
   funlog("removing problematic events")
   GLOBAL.total_data_positioncompare_pre = GLOBAL.wb %>%
     #first remove problematic events based on characteristics of the events themselves
-    filter(AnchorCount >= ANCHORCUTOFF,
-           ANCHOR_DIST >= MINANCHORDIST,
+    filter(AnchorCount >= GLOBAL.ANCHORCUTOFF,
+           ANCHOR_DIST >= GLOBAL.MINANCHORDIST,
            ANCHOR_DIST <= MAXANCHORDIST,
            Consensus_freq >= 0.75,
            MATE_FLANK_B_CHROM_AGREE == TRUE,
@@ -1706,7 +1704,10 @@ if (GLOBAL.REMOVEPROBLEMS == TRUE) {
 }
 
 GLOBAL.wb_flag1 = GLOBAL.wb_flag %>%
-  mutate(RemoveProblematicEvents = GLOBAL.REMOVEPROBLEMS)%>%
+  #add the options
+  mutate(RemoveProblematicEvents = GLOBAL.REMOVEPROBLEMS,
+         MINANCHORDIST = GLOBAL.MINANCHORDIST,
+         ANCHORCUTOFF = GLOBAL.ANCHORCUTOFF)%>%
   #add/ change several things for compatibility with SIQplotteR
   mutate(getHomologyColor = "dummy",
          Barcode = "dummy")%>%

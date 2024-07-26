@@ -399,46 +399,46 @@ for (i in row.names(GLOBAL.sample_info)){
     FILE.Primer_match = as.data.frame(matchPattern(pattern = FILE.Primer_seq,subject = DNAString(FILE.contig_seq),max.mismatch = 0,fixed = TRUE))
     FILE.Primer_RC_match = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(FILE.Primer_seq))),subject = DNAString(FILE.contig_seq),max.mismatch = 0,fixed = TRUE))
     
+    #in case of a T-DNA primer
     if (FILE.FOCUS_CONTIG == FILE.PLASMID) {
       if (nrow(FILE.Primer_match) > 0 & nrow(FILE.Primer_match) < 2) {
+        FILE.FLANK_A_ISFORWARD = TRUE
         FILE.Primer_pos = as.numeric(FILE.Primer_match$start)
-        if (FILE.Primer_pos > FILE.TDNA_LB_END & FILE.Primer_pos < FILE.TDNA_RB_END) {
+        if (FILE.TDNA_IS_LBRB == TRUE & FILE.Primer_pos > FILE.TDNA_LB_END & FILE.Primer_pos < FILE.TDNA_RB_END) {
           FILE.Primer_on_TDNA = TRUE
-          FILE.FLANK_A_ISFORWARD = TRUE
-          if (FILE.TDNA_IS_LBRB == TRUE) {
-            FILE.FOCUS_LOCUS = "RB"
-            FILE.FlankAUltEnd = FILE.TDNA_RB_END
-          } else{
-            FILE.FOCUS_LOCUS = "LB"
-            FILE.FlankAUltEnd = FILE.TDNA_LB_END
-          }
-        } else{
-          FILE.Primer_on_TDNA = FALSE
-          FILE.FOCUS_LOCUS = "OTHER"
+          FILE.FOCUS_LOCUS = "RB"
+          FILE.FlankAUltEnd = FILE.TDNA_RB_END
+        }else if (FILE.TDNA_IS_LBRB == FALSE & FILE.Primer_pos < FILE.TDNA_LB_END & FILE.Primer_pos > FILE.TDNA_RB_END){
+          FILE.Primer_on_TDNA = TRUE
+          FILE.FOCUS_LOCUS = "LB"
+          FILE.FlankAUltEnd = FILE.TDNA_LB_END
+        }else{
+          funlog("Program cannot determine the end of flank A, moving to next sample")
+          next
         }
       } else  if (nrow(FILE.Primer_RC_match) > 0 & nrow(FILE.Primer_RC_match) < 2) {
+        FILE.FLANK_A_ISFORWARD = FALSE
         FILE.Primer_pos = as.numeric(FILE.Primer_RC_match$end)
-        if (FILE.Primer_pos > FILE.TDNA_LB_END & FILE.Primer_pos < FILE.TDNA_RB_END) {
+        if (FILE.TDNA_IS_LBRB == TRUE & FILE.Primer_pos > FILE.TDNA_LB_END & FILE.Primer_pos < FILE.TDNA_RB_END) {
           FILE.Primer_on_TDNA = TRUE
-          FILE.FLANK_A_ISFORWARD = FALSE
-          if (FILE.TDNA_IS_LBRB == TRUE) {
-            FILE.FOCUS_LOCUS = "LB"
-            FILE.FlankAUltEnd = FILE.TDNA_LB_END
-          } else{
-            FILE.FOCUS_LOCUS = "RB"
-            FILE.FlankAUltEnd = FILE.TDNA_RB_END
-          }
-        } else{
-          FILE.Primer_on_TDNA = FALSE
-          FILE.FOCUS_LOCUS = "OTHER"
+          FILE.FOCUS_LOCUS = "LB"
+          FILE.FlankAUltEnd = FILE.TDNA_LB_END
+        }else if (FILE.TDNA_IS_LBRB == FALSE & FILE.Primer_pos < FILE.TDNA_LB_END & FILE.Primer_pos > FILE.TDNA_RB_END) {
+          FILE.Primer_on_TDNA = TRUE
+          FILE.FOCUS_LOCUS = "RB"
+          FILE.FlankAUltEnd = FILE.TDNA_RB_END
+        }else{
+          funlog("Program cannot determine the end of flank A, moving to next sample")
+          next
         }
       } else if (nrow(FILE.Primer_match) > 1 | nrow(FILE.Primer_RC_match) > 1) {
-        funlog("Primer found several times on this contig")
+        funlog("Primer found several times on this contig, moving to next sample")
         next
       } else{
-        funlog("Primer not found")
+        funlog("Primer not found, moving to next sample")
         next
       }
+      #if the primer is located on a chromosome (next to an induced DSB)
     } else{
       FILE.FOCUS_LOCUS = FILE.LOCUS_NAME
       FILE.Primer_on_TDNA = FALSE

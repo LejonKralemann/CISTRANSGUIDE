@@ -1345,7 +1345,7 @@ for (i in row.names(GLOBAL.sample_info)){
      #then calculate the difference between start of flank B (in the read) and the position of of flank B at the end of the mate.
       mutate(ANCHOR_DIST = case_when(Translocation == TRUE & FLANK_B_ISFORWARD == TRUE & MATE_FLANK_B_CHROM_AGREE == TRUE & MATE_B_END_POS_max > FLANK_B_START_POS ~ as.integer(1+MATE_B_END_POS_max - FLANK_B_START_POS),
                                      Translocation == TRUE & FLANK_B_ISFORWARD == FALSE & MATE_FLANK_B_CHROM_AGREE == TRUE & FLANK_B_START_POS > MATE_B_END_POS_min ~ as.integer(1+FLANK_B_START_POS - MATE_B_END_POS_min),
-                                     Translocation == FALSE & FLANK_A_ISFORWARD == TRUE & MATE_FLANK_B_CHROM_AGREE == TRUE ~ as.integer(1+MATE_B_END_POS_max, FLANK_A_START_POS),
+                                     Translocation == FALSE & FLANK_A_ISFORWARD == TRUE & MATE_FLANK_B_CHROM_AGREE == TRUE ~ as.integer(1+MATE_B_END_POS_max - FLANK_A_START_POS),
                                      Translocation == FALSE & FLANK_A_ISFORWARD == FALSE & MATE_FLANK_B_CHROM_AGREE == TRUE ~ as.integer(1+FLANK_A_START_POS - MATE_B_END_POS_min),
                                      TRUE ~ GLOBAL.NF_NUMBER)) %>%
       #adjust the anchor dist for when the anchor is impossibly far away

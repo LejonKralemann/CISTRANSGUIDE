@@ -70,5 +70,8 @@ About the output
 In the case of microhomology, the output gives you the end of flank A and flank B including the microhomology.
 
 countEvents:	the number of read pairs associated with this event
+AnchorCount:	the number of distinct non-primer reads. indicates the original number of DNA fragments in your sample.
+ANCHOR_DIST:	in case of a primer read with translocation, this is the distance between the start of flank B on the primer read, and end of flank b on the non-primer read. in the case of a primer read that stays on the same contig, this is the distance between the start of the primer read, and end of the non-primer read. Note that if there are deletions or insertions in the contig, then this value does not match the original fragment length. 
+
 
 The output can be analysed with SIQPlotteR: https://siq.researchlumc.nl/SIQPlotteR/

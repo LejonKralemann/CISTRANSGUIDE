@@ -413,7 +413,7 @@ for (i in row.names(GLOBAL.sample_info)){
           FILE.FOCUS_LOCUS = "LB"
           FILE.FlankAUltEnd = FILE.TDNA_LB_END
         }else{
-          funlog("Program cannot determine the end of flank A, moving to next sample")
+          funlog("Primer not within the T-DNA, moving to the next sample")
           next
         }
       } else  if (nrow(FILE.Primer_RC_match) > 0 & nrow(FILE.Primer_RC_match) < 2) {
@@ -428,14 +428,14 @@ for (i in row.names(GLOBAL.sample_info)){
           FILE.FOCUS_LOCUS = "RB"
           FILE.FlankAUltEnd = FILE.TDNA_RB_END
         }else{
-          funlog("Program cannot determine the end of flank A, moving to next sample")
+          funlog("Primer not within the T-DNA, moving to the next sample")
           next
         }
       } else if (nrow(FILE.Primer_match) > 1 | nrow(FILE.Primer_RC_match) > 1) {
-        funlog("Primer found several times on this contig, moving to next sample")
+        funlog("Primer found several times on this contig, moving to the next sample")
         next
       } else{
-        funlog("Primer not found, moving to next sample")
+        funlog("Primer not found, moving to the next sample")
         next
       }
       #if the primer is located on a chromosome (next to an induced DSB)
@@ -452,10 +452,10 @@ for (i in row.names(GLOBAL.sample_info)){
         FILE.FlankAUltEnd = FILE.DSB_FW_END + 1
         FILE.Primer_pos = as.numeric(FILE.Primer_RC_match$end)
       } else if (nrow(FILE.Primer_match) > 1 | nrow(FILE.Primer_RC_match) > 1) {
-        funlog("Primer found several times on this contig")
+        funlog("Primer found several times on this contig, moving to the next sample")
         next
       } else{
-        funlog("Primer not found")
+        funlog("Primer not found, moving to the next sample")
         next
       }
     }

@@ -238,6 +238,7 @@ for (i in row.names(GLOBAL.sample_info)){
     next
   }
   
+  
   #find the LB
   if (is.na(FILE.TDNA_LB_END)){
     FILE.LB_match = as.data.frame(matchPattern(pattern = GLOBAL.LB_SEQUENCES[[1]], subject = DNAString(FILE.plasmid_seq), max.mismatch = 0, fixed=TRUE))
@@ -310,6 +311,12 @@ for (i in row.names(GLOBAL.sample_info)){
     
     if (FILE.PLASMID_ALT != ""){
       FILE.plasmid_alt_seq = as.character(eval(parse(text = paste0("FILE.genomeseq$`", FILE.PLASMID_ALT, "`"))))
+      
+      #check whether alternative plasmid can be found in ref
+      if (isEmpty(FILE.plasmid_alt_seq)==TRUE){
+        funlog(paste0("Plasmid name ", FILE.PLASMID_ALT, " not found in ", FILE.REF, " . Moving to next sample."))
+        next
+      }
       
       #find the LB
       FILE.LB_match = as.data.frame(matchPattern(pattern = GLOBAL.LB_SEQUENCES[[1]], subject = DNAString(FILE.plasmid_alt_seq), max.mismatch = 0, fixed=TRUE))

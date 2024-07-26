@@ -13,10 +13,10 @@ if (require(openxlsx)==FALSE){install.packages("openxlsx", repos = "http://cran.
 ###############################################################################
 GLOBAL.input_dir= "./input/"
 GLOBAL.output_dir= "./output/"
-GLOBAL.GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-GLOBAL.REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
-GLOBAL.REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors.
-GLOBAL.ANCHORCUTOFF=1 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
+GLOBAL.GROUPSAMEPOS=FALSE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+GLOBAL.REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
+GLOBAL.REMOVEPROBLEMS=FALSE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors. Cannot be used for CISGUIDE, because duplicate positions between samples are expected.
+GLOBAL.ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 GLOBAL.MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B (no overlap with flank A).
 GLOBAL.MAXANCHORDIST=2000 #the furthest position that the mate anchor can be, except on T-DNA.
 GLOBAL.FLANKBEYONDDSB=5000 #how much flank A and flank B are allowed to continue beyond the DSB (not applicable when the focus contig is the T-DNA)
@@ -395,69 +395,71 @@ for (i in row.names(GLOBAL.sample_info)){
   
   if (GLOBAL.FASTA_MODE==FALSE){  
     
-  #this checks whether primer can be found, checks what the orientation of flank A is, whether the primer matches the plasmid or not
-  FILE.Primer_match = as.data.frame(matchPattern(pattern = FILE.Primer_seq, subject = DNAString(FILE.contig_seq), max.mismatch = 0, fixed=TRUE))
-  FILE.Primer_RC_match = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(FILE.Primer_seq))), subject = DNAString(FILE.contig_seq), max.mismatch = 0, fixed=TRUE))
-  
-  if (FILE.FOCUS_CONTIG == FILE.PLASMID){
-  if (nrow(FILE.Primer_match) > 0 & nrow(FILE.Primer_match) < 2){
-    FILE.Primer_pos = as.numeric(FILE.Primer_match$start)
-    if (FILE.Primer_pos > FILE.TDNA_LB_END & FILE.Primer_pos < FILE.TDNA_RB_END){
-      FILE.Primer_on_TDNA=TRUE
-      FILE.FLANK_A_ISFORWARD=TRUE
-      if (FILE.TDNA_IS_LBRB == TRUE){
-      FILE.FOCUS_LOCUS="RB"
-      FILE.FlankAUltEnd = FILE.TDNA_RB_END  
-      }else{
-        FILE.FOCUS_LOCUS="LB"
-        FILE.FlankAUltEnd = FILE.TDNA_LB_END
-      }
-    }else{
-      FILE.Primer_on_TDNA=FALSE
-      FILE.FOCUS_LOCUS="OTHER"
-    }
-  }else  if (nrow(FILE.Primer_RC_match) > 0 & nrow(FILE.Primer_RC_match) < 2){
-    FILE.Primer_pos = as.numeric(FILE.Primer_RC_match$end)
-    if (FILE.Primer_pos > FILE.TDNA_LB_END & FILE.Primer_pos < FILE.TDNA_RB_END){
-      FILE.Primer_on_TDNA=TRUE
-      FILE.FLANK_A_ISFORWARD=FALSE
-      if (FILE.TDNA_IS_LBRB == TRUE){
-        FILE.FOCUS_LOCUS="LB"
-        FILE.FlankAUltEnd = FILE.TDNA_LB_END
-      }else{
-        FILE.FOCUS_LOCUS="RB"
-        FILE.FlankAUltEnd = FILE.TDNA_RB_END  
-      }
-    }else{
-      FILE.Primer_on_TDNA=FALSE
-      FILE.FOCUS_LOCUS="OTHER"
-    }
-    }else if (nrow(FILE.Primer_match) >1 | nrow(FILE.Primer_RC_match) >1){
-    funlog("Primer found several times on this contig")
-    next
-  }else{
-    funlog("Primer not found")
-    next
-  }
-  }else{
-    FILE.FOCUS_LOCUS=FILE.LOCUS_NAME
-    FILE.Primer_on_TDNA=FALSE
+    #this checks whether primer can be found, checks what the orientation of flank A is, whether the primer matches the plasmid or not
+    FILE.Primer_match = as.data.frame(matchPattern(pattern = FILE.Primer_seq,subject = DNAString(FILE.contig_seq),max.mismatch = 0,fixed = TRUE))
+    FILE.Primer_RC_match = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(FILE.Primer_seq))),subject = DNAString(FILE.contig_seq),max.mismatch = 0,fixed = TRUE))
     
-      if (nrow(FILE.Primer_match) > 0 & nrow(FILE.Primer_match) < 2){
-        FILE.FLANK_A_ISFORWARD=TRUE
-        FILE.FlankAUltEnd = FILE.DSB_FW_END
-      }else if (nrow(FILE.Primer_RC_match) > 0 & nrow(FILE.Primer_RC_match) < 2){
-        FILE.FLANK_A_ISFORWARD=FALSE
-        FILE.FlankAUltEnd = FILE.DSB_FW_END+1
-      }else if (nrow(FILE.Primer_match) >1 | nrow(FILE.Primer_RC_match) >1){
+    if (FILE.FOCUS_CONTIG == FILE.PLASMID) {
+      if (nrow(FILE.Primer_match) > 0 & nrow(FILE.Primer_match) < 2) {
+        FILE.Primer_pos = as.numeric(FILE.Primer_match$start)
+        if (FILE.Primer_pos > FILE.TDNA_LB_END & FILE.Primer_pos < FILE.TDNA_RB_END) {
+          FILE.Primer_on_TDNA = TRUE
+          FILE.FLANK_A_ISFORWARD = TRUE
+          if (FILE.TDNA_IS_LBRB == TRUE) {
+            FILE.FOCUS_LOCUS = "RB"
+            FILE.FlankAUltEnd = FILE.TDNA_RB_END
+          } else{
+            FILE.FOCUS_LOCUS = "LB"
+            FILE.FlankAUltEnd = FILE.TDNA_LB_END
+          }
+        } else{
+          FILE.Primer_on_TDNA = FALSE
+          FILE.FOCUS_LOCUS = "OTHER"
+        }
+      } else  if (nrow(FILE.Primer_RC_match) > 0 & nrow(FILE.Primer_RC_match) < 2) {
+        FILE.Primer_pos = as.numeric(FILE.Primer_RC_match$end)
+        if (FILE.Primer_pos > FILE.TDNA_LB_END & FILE.Primer_pos < FILE.TDNA_RB_END) {
+          FILE.Primer_on_TDNA = TRUE
+          FILE.FLANK_A_ISFORWARD = FALSE
+          if (FILE.TDNA_IS_LBRB == TRUE) {
+            FILE.FOCUS_LOCUS = "LB"
+            FILE.FlankAUltEnd = FILE.TDNA_LB_END
+          } else{
+            FILE.FOCUS_LOCUS = "RB"
+            FILE.FlankAUltEnd = FILE.TDNA_RB_END
+          }
+        } else{
+          FILE.Primer_on_TDNA = FALSE
+          FILE.FOCUS_LOCUS = "OTHER"
+        }
+      } else if (nrow(FILE.Primer_match) > 1 | nrow(FILE.Primer_RC_match) > 1) {
         funlog("Primer found several times on this contig")
         next
-      }else{
+      } else{
         funlog("Primer not found")
         next
       }
-  }
-  
+    } else{
+      FILE.FOCUS_LOCUS = FILE.LOCUS_NAME
+      FILE.Primer_on_TDNA = FALSE
+      
+      if (nrow(FILE.Primer_match) > 0 & nrow(FILE.Primer_match) < 2) {
+        FILE.FLANK_A_ISFORWARD = TRUE
+        FILE.FlankAUltEnd = FILE.DSB_FW_END
+        FILE.Primer_pos = as.numeric(FILE.Primer_match$start)
+      } else if (nrow(FILE.Primer_RC_match) > 0 & nrow(FILE.Primer_RC_match) < 2) {
+        FILE.FLANK_A_ISFORWARD = FALSE
+        FILE.FlankAUltEnd = FILE.DSB_FW_END + 1
+        FILE.Primer_pos = as.numeric(FILE.Primer_RC_match$end)
+      } else if (nrow(FILE.Primer_match) > 1 | nrow(FILE.Primer_RC_match) > 1) {
+        funlog("Primer found several times on this contig")
+        next
+      } else{
+        funlog("Primer not found")
+        next
+      }
+    }
+    
   ####################  acquire the DSB AREA SEQ  #####################
   
  

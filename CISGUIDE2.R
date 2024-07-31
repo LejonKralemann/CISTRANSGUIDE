@@ -196,6 +196,7 @@ for (i in row.names(GLOBAL.sample_info)){
   FILE.FOCUS_CONTIG = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Focus_contig_name))#Same as DSB_contig, or same as plasmid
   FILE.LOCUS_NAME = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Locus_name))#LB or RB if TRANSGUIDE, or a name of a locus if CISGUIDE
   FILE.Primer_seq = str_replace_all(toupper(as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Primer))), "TCAGACGTGTGCTCTTCCGATCT", "")
+  FILE.Species = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Species))
   
   #the following variables can be supplied via the sample information sheet, but NA is also allowed, then the software will look.
   FILE.TDNA_LB_END = as.integer(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(TDNA_LB_END))
@@ -1475,6 +1476,7 @@ for (i in row.names(GLOBAL.sample_info)){
            Plasmid = FILE.PLASMID,
            Plasmid_alt = FILE.PLASMID_ALT,
            AgroGeno = FILE.AgroGeno,
+           Species = FILE.Species,
            Alias = paste0(FILE.Sample, "_", FILE.RunID),
            DSB_FW_END = FILE.DSB_FW_END,
            DSB_CONTIG = FILE.DSB_CONTIG,

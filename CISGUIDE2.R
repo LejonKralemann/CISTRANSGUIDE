@@ -196,6 +196,7 @@ for (i in row.names(GLOBAL.sample_info)){
   FILE.FOCUS_CONTIG = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Focus_contig_name))#Same as DSB_contig, or same as plasmid
   FILE.LOCUS_NAME = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Locus_name))#LB or RB if TRANSGUIDE, or a name of a locus if CISGUIDE
   FILE.Primer_seq = str_replace_all(toupper(as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Primer))), "TCAGACGTGTGCTCTTCCGATCT", "")
+  FILE.Species = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Species))
   
   #the following variables can be supplied via the sample information sheet, but NA is also allowed, then the software will look.
   FILE.TDNA_LB_END = as.integer(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(TDNA_LB_END))
@@ -1475,6 +1476,7 @@ for (i in row.names(GLOBAL.sample_info)){
            Plasmid = FILE.PLASMID,
            Plasmid_alt = FILE.PLASMID_ALT,
            AgroGeno = FILE.AgroGeno,
+           Species = FILE.Species,
            Alias = paste0(FILE.Sample, "_", FILE.RunID),
            DSB_FW_END = FILE.DSB_FW_END,
            DSB_CONTIG = FILE.DSB_CONTIG,
@@ -1601,7 +1603,7 @@ if (GLOBAL.REMOVEPROBLEMS == TRUE) {
   funlog("combining junctions with similar positions")
   #combine junctions with similar positions and get the characteristics of the consensus event from the event the most anchors 
   GLOBAL.total_data_near_positioncombined = GLOBAL.total_data_positioncompare %>%
-    group_by(Alias, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, DNASample, Subject, ID, Focus_contig, Genotype, Ecotype, Plasmid_alt, Family, FlankAUltEnd, AgroGeno, RemoveNonTranslocation, GroupSamePosition, Translocation, Translocation_del_resolved, TANDEM_DUPLICATION, DSB_FW_END, DSB_OVERHANG, DSB_CONTIG, FLANK_B_TDNA_SIDE)%>%
+    group_by(Alias, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, DNASample, Subject, ID, Focus_contig, Genotype, Ecotype, Plasmid_alt, Family, FlankAUltEnd, AgroGeno, Species, RemoveNonTranslocation, GroupSamePosition, Translocation, Translocation_del_resolved, TANDEM_DUPLICATION, DSB_FW_END, DSB_OVERHANG, DSB_CONTIG, FLANK_B_TDNA_SIDE)%>%
     summarize(AnchorCountSum = sum(AnchorCount), 
               ReadCountSum = sum(ReadCount),
               FLANK_B_START_POS_CON = as.integer(FLANK_B_START_POS[which.max(AnchorCount)]),

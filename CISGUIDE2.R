@@ -183,6 +183,7 @@ for (i in row.names(GLOBAL.sample_info)){
   ####################  continue general variables acquired from the information sheet  #####################
   
   FILE.DSB_CONTIG = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(DSB_CONTIG))#chromosome name or NA
+  if (is.na(FILE.DSB_CONTIG) | FILE.DSB_CONTIG=="NA"){FILE.DSB_CONTIG=""}
   FILE.Genotype = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Genotype))
   FILE.PLASMID = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Plasmid))
   FILE.PLASMID_ALT = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Plasmid_alt))
@@ -193,8 +194,10 @@ for (i in row.names(GLOBAL.sample_info)){
   FILE.Ecotype = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Ecotype))
   FILE.AgroGeno = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(AgroGeno))
   FILE.DSB_FW_END = as.integer(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(DSB_FW_END)) #end of left flank before DSB
+  if (is.na(FILE.DSB_FW_END) | FILE.DSB_FW_END=="NA"){FILE.DSB_FW_END=0}
   FILE.FOCUS_CONTIG = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Focus_contig_name))#Same as DSB_contig, or same as plasmid
-  FILE.LOCUS_NAME = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Locus_name))#LB or RB if TRANSGUIDE, or a name of a locus if CISGUIDE
+  FILE.LOCUS_NAME = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Locus_name))#name of the genomic locus in which a DSB is made
+  if (is.na(FILE.LOCUS_NAME) | FILE.LOCUS_NAME=="NA"){FILE.LOCUS_NAME=""}
   FILE.Primer_seq = str_replace_all(toupper(as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Primer))), "TCAGACGTGTGCTCTTCCGATCT", "")
   FILE.Species = as.character(GLOBAL.sample_info %>% filter(row.names(GLOBAL.sample_info) %in% i) %>% select(Species))
   

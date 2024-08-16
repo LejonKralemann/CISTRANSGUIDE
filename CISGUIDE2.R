@@ -13,19 +13,20 @@ if (require(openxlsx)==FALSE){install.packages("openxlsx", repos = "http://cran.
 ###############################################################################
 GLOBAL.input_dir= "./input/"
 GLOBAL.output_dir= "./output/"
-GLOBAL.GROUPSAMEPOS=FALSE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-GLOBAL.REMOVENONTRANS=FALSE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
-GLOBAL.REMOVEPROBLEMS=FALSE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors. Cannot be used for CISGUIDE, because duplicate positions between samples are expected.
+GLOBAL.GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+GLOBAL.REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
+GLOBAL.REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors. Cannot be used for CISGUIDE, because duplicate positions between samples are expected.
 GLOBAL.ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 GLOBAL.MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B (no overlap with flank A).
 GLOBAL.MAXANCHORDIST=2000 #the furthest position that the mate anchor can be, except on T-DNA.
 GLOBAL.FLANKBEYONDDSB=5000 #how much flank A and flank B are allowed to continue beyond the DSB (not applicable when the focus contig is the T-DNA)
 GLOBAL.MINLEN=90 #this is the minimal read length. if you write NA here, then the software will calculate the minimal read length based on the distance to nick/dsb and FLANK_B_LEN_MIN. Should be at the very least 60bp, but 90bp is more common to have as minimum.
 GLOBAL.LB_SEQUENCES = c("TGGCAGGATATATTGTGGTGTAAAC", "CGGCAGGATATATTCAATTGTAAAT") #the nick is made after the 3rd nt
-GLOBAL.RB_SEQUENCES = c("TGACAGGATATATTGGCGGGTAAAC", "TGGCAGGATATATGCGGTTGTAATT") #the nick is made after the 3rd nt
+GLOBAL.RB_SEQUENCES = c("TGACAGGATATATTGGCGGGTAAAC", "TGGCAGGATATATGCGGTTGTAATT", "TGGCAGGATATATACCGTTGTAATT") #the nick is made after the 3rd nt
+
 GLOBAL.TD_SIZE_CUTOFF = 6 #the smallest TD that is considered as TD (*with regards to the Type variable). Any smaller TD is considered merely an insertion.
 GLOBAL.FASTA_MODE = FALSE #Typically false, if TRANSGUIDE/CISGUIDE library prep and illumina sequencing has been done. TRUE if sequences from another source are being analyzed with this program.
-GLOBAL.TESTNAME = "A01589R:152:HGV25DSXC:3:2420:15772:8609" #name of a read, used for testing
+GLOBAL.TESTNAME = "A00379:751:HLNC3DSX5:4:1371:15582:32769" #name of a read, used for testing
 GLOBAL.DEBUG = FALSE #If true, only the read with GLOBAL.TESTNAME is processed
 
 ###############################################################################
@@ -281,14 +282,16 @@ for (i in row.names(GLOBAL.sample_info)){
     FILE.RB_match_RV = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(GLOBAL.RB_SEQUENCES[[1]]))), subject = DNAString(FILE.plasmid_seq), max.mismatch = 0, fixed=TRUE))
     FILE.RB2_match = as.data.frame(matchPattern(pattern = GLOBAL.RB_SEQUENCES[[2]],subject = DNAString(FILE.plasmid_seq),max.mismatch = 0,fixed = TRUE))
     FILE.RB2_match_RV = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(GLOBAL.RB_SEQUENCES[[2]]))),subject = DNAString(FILE.plasmid_seq),max.mismatch = 0,fixed = TRUE))
+    FILE.RB3_match = as.data.frame(matchPattern(pattern = GLOBAL.RB_SEQUENCES[[3]],subject = DNAString(FILE.plasmid_seq),max.mismatch = 0,fixed = TRUE))
+    FILE.RB3_match_RV = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(GLOBAL.RB_SEQUENCES[[3]]))),subject = DNAString(FILE.plasmid_seq),max.mismatch = 0,fixed = TRUE))
     FILE.TDNA_RB_END = NA
     FILE.TDNA_RB_FW = NA
     
-    for (i in c("FILE.RB_match", "FILE.RB_match_RV", "FILE.RB2_match", "FILE.RB2_match_RV")){
+    for (i in c("FILE.RB_match", "FILE.RB_match_RV", "FILE.RB2_match", "FILE.RB2_match_RV", "FILE.RB3_match", "FILE.RB3_match_RV")){
       if (nrow(get(i)) > 0 & nrow(get(i)) < 2) {
         
         
-        if (i=="FILE.RB_match" | i=="FILE.RB2_match"){
+        if (i=="FILE.RB_match" | i=="FILE.RB2_match" | i=="FILE.RB3_match"){
           FILE.TDNA_RB_FW = TRUE
           FILE.TDNA_RB_END = as.numeric(get(i)$start)+2 
         }else{

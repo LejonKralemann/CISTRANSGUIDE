@@ -16,7 +16,7 @@ GLOBAL.output_dir= "./output/"
 GLOBAL.GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
 GLOBAL.REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
 GLOBAL.REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors. Cannot be used for CISGUIDE, because duplicate positions between samples are expected.
-GLOBAL.ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
+GLOBAL.ANCHORCUTOFF=1 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 GLOBAL.MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B (no overlap with flank A).
 GLOBAL.MAXANCHORDIST=2000 #the furthest position that the mate anchor can be, except on T-DNA.
 GLOBAL.FLANKBEYONDDSB=5000 #how much flank A and flank B are allowed to continue beyond the DSB (not applicable when the focus contig is the T-DNA)
@@ -25,9 +25,9 @@ GLOBAL.LB_SEQUENCES = c("TGGCAGGATATATTGTGGTGTAAAC", "CGGCAGGATATATTCAATTGTAAAT"
 GLOBAL.RB_SEQUENCES = c("TGACAGGATATATTGGCGGGTAAAC", "TGGCAGGATATATGCGGTTGTAATT", "TGGCAGGATATATACCGTTGTAATT") #the nick is made after the 3rd nt
 
 GLOBAL.TD_SIZE_CUTOFF = 6 #the smallest TD that is considered as TD (*with regards to the Type variable). Any smaller TD is considered merely an insertion.
-GLOBAL.FASTA_MODE = FALSE #Typically false, if TRANSGUIDE/CISGUIDE library prep and illumina sequencing has been done. TRUE if sequences from another source are being analyzed with this program.
-GLOBAL.TESTNAME = "A00379:751:HLNC3DSX5:4:1371:15582:32769" #name of a read, used for testing
-GLOBAL.DEBUG = FALSE #If true, only the read with GLOBAL.TESTNAME is processed
+GLOBAL.FASTA_MODE = TRUE #Typically false, if TRANSGUIDE/CISGUIDE library prep and illumina sequencing has been done. TRUE if sequences from another source are being analyzed with this program.
+GLOBAL.TESTNAME = "GTGM0134-0029-1-003" #name of a read, used for testing
+GLOBAL.DEBUG = TRUE #If true, only the read with GLOBAL.TESTNAME is processed
 
 ###############################################################################
 #set parameters - non-adjustable
@@ -577,44 +577,59 @@ for (i in row.names(GLOBAL.sample_info)){
       Primer_RC_match = as.data.frame(matchPattern(pattern = as.character(reverseComplement(DNAString(FILE.data1$PRIMER_SEQ[[j_int]]))), subject = DNAString(FILE.contig_seq), max.mismatch = 0, fixed=TRUE))
     if (FILE.FOCUS_CONTIG == FILE.PLASMID){
       if (nrow(Primer_match) > 0 & nrow(Primer_match) < 2){
+        FILE.data1$FLANK_A_ISFORWARD[[j_int]]=TRUE
         FILE.data1$Primer_pos[[j_int]] = as.numeric(Primer_match$start)
-        if (FILE.data1$Primer_pos[[j_int]] > FILE.TDNA_LB_END & FILE.data1$Primer_pos[[j_int]] < FILE.TDNA_RB_END){
+        if (FILE.TDNA_IS_LBRB == TRUE & FILE.data1$Primer_pos[[j_int]] > FILE.TDNA_LB_END & FILE.data1$Primer_pos[[j_int]] < FILE.TDNA_RB_END){
           FILE.data1$Primer_on_TDNA[[j_int]]=TRUE
-          FILE.data1$FLANK_A_ISFORWARD[[j_int]]=TRUE
-          if (FILE.TDNA_IS_LBRB == TRUE){
-            FILE.data1$FOCUS_LOCUS[[j_int]]="RB"
-            FILE.data1$FlankAUltEnd[[j_int]] = FILE.TDNA_RB_END
-            FILE.data1$Primer_OK[[j_int]]=TRUE
-          }else{
-            FILE.data1$FOCUS_LOCUS[[j_int]]="LB"
-            FILE.data1$FlankAUltEnd[[j_int]] = FILE.TDNA_LB_END
-            FILE.data1$Primer_OK[[j_int]]=TRUE
-          }
+          FILE.data1$FOCUS_LOCUS[[j_int]]="RB"
+          FILE.data1$FlankAUltEnd[[j_int]] = FILE.TDNA_RB_END
+          FILE.data1$Primer_OK[[j_int]]=TRUE
+        }else if (FILE.TDNA_IS_LBRB == FALSE & FILE.data1$Primer_pos[[j_int]] < FILE.TDNA_LB_END & FILE.data1$Primer_pos[[j_int]] > FILE.TDNA_RB_END){
+          FILE.data1$Primer_on_TDNA[[j_int]]=TRUE
+          FILE.data1$FOCUS_LOCUS[[j_int]]="LB"
+          FILE.data1$FlankAUltEnd[[j_int]] = FILE.TDNA_LB_END
+          FILE.data1$Primer_OK[[j_int]]=TRUE
         }else{
+          #primer not on T-DNA
+          if (GLOBAL.DEBUG==TRUE){
+            funlog("Warning: primer not on T-DNA. Continuing anyway.")
+          }
           FILE.data1$Primer_OK[[j_int]]=FALSE
         }
+        
       }else  if (nrow(Primer_RC_match) > 0 & nrow(Primer_RC_match) < 2){
+        FILE.data1$FLANK_A_ISFORWARD[[j_int]]=FALSE
         FILE.data1$Primer_pos[[j_int]] = as.numeric(Primer_RC_match$end)
-        if (FILE.data1$Primer_pos[[j_int]] > FILE.TDNA_LB_END & FILE.data1$Primer_pos[[j_int]] < FILE.TDNA_RB_END){
+        if (FILE.TDNA_IS_LBRB == TRUE & FILE.data1$Primer_pos[[j_int]] > FILE.TDNA_LB_END & FILE.data1$Primer_pos[[j_int]] < FILE.TDNA_RB_END){
           FILE.data1$Primer_on_TDNA[[j_int]]=TRUE
-          FILE.data1$FLANK_A_ISFORWARD[[j_int]]=FALSE
-          if (FILE.TDNA_IS_LBRB == TRUE){
-            FILE.data1$FOCUS_LOCUS[[j_int]]="LB"
-            FILE.data1$FlankAUltEnd[[j_int]] = FILE.TDNA_LB_END
-            FILE.data1$Primer_OK[[j_int]]=TRUE
-          }else{
-            FILE.data1$FOCUS_LOCUS[[j_int]]="RB"
-            FILE.data1$FlankAUltEnd[[j_int]] = FILE.TDNA_RB_END
-            FILE.data1$Primer_OK[[j_int]]=TRUE
-          }
+          FILE.data1$FOCUS_LOCUS[[j_int]]="LB"
+          FILE.data1$FlankAUltEnd[[j_int]] = FILE.TDNA_LB_END
+          FILE.data1$Primer_OK[[j_int]]=TRUE
+        }else if (FILE.TDNA_IS_LBRB == FALSE & FILE.data1$Primer_pos[[j_int]] < FILE.TDNA_LB_END & FILE.data1$Primer_pos[[j_int]] > FILE.TDNA_RB_END){
+          FILE.data1$Primer_on_TDNA[[j_int]]=TRUE
+          FILE.data1$Primer_OK[[j_int]]=TRUE
+          FILE.data1$FOCUS_LOCUS[[j_int]]="RB"
+          FILE.data1$FlankAUltEnd[[j_int]] = FILE.TDNA_RB_END
         }else{
+          #primer not on T-DNA
+          if (GLOBAL.DEBUG==TRUE){
+            funlog("Warning: primer not on T-DNA. Continuing anyway.")
+          }
           FILE.data1$Primer_OK[[j_int]]=FALSE
         }
+        
+
       }else if (nrow(Primer_match) >1 | nrow(Primer_RC_match) >1){
         #primer found multiple times
+        if (GLOBAL.DEBUG==TRUE){
+        funlog("Warning: primer found multiple times. Continuing anyway.")
+        }
         FILE.data1$Primer_OK[[j_int]]=FALSE
       }else{
         #primer not found
+        if (GLOBAL.DEBUG==TRUE){
+          funlog("Warning: primer not found. Continuing anyway.")
+        }
         FILE.data1$Primer_OK[[j_int]]=FALSE
       }
     }else{
@@ -633,9 +648,15 @@ for (i in row.names(GLOBAL.sample_info)){
         FILE.data1$Primer_OK[[j_int]]=TRUE
       }else if (nrow(Primer_match) >1 | nrow(Primer_RC_match) >1){
         #primer found multiple times
+        if (GLOBAL.DEBUG==TRUE){
+          funlog("Warning: primer found multiple times. Continuing anyway.")
+        }
         FILE.data1$Primer_OK[[j_int]]=FALSE
       }else{
         #primer not found
+        if (GLOBAL.DEBUG==TRUE){
+          funlog("Warning: primer not found. Continuing anyway.")
+        }
         FILE.data1$Primer_OK[[j_int]]=FALSE
       }
     }

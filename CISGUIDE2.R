@@ -1472,8 +1472,7 @@ for (i in row.names(GLOBAL.sample_info)){
       FOCUS_LOCUS,
       Primer_on_TDNA,
       FlankAUltEnd,
-      SEQ_1_LEN_max = max(SEQ_1_LEN)
-
+      SEQ_1_LEN_max
     ) 
 
    

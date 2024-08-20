@@ -1,12 +1,12 @@
 ###############################################################################
 #install and load packages
 ###############################################################################
-if (require(Biostrings)==FALSE){install.packages("Biostrings", repos = "http://cran.us.r-project.org")}
+if (require(BiocManager)==FALSE) {install.packages("BiocManager")}
+if (require(Biostrings)==FALSE){BiocManager::install("Biostrings")}
 if (require(stringi)==FALSE){install.packages("stringi", repos = "http://cran.us.r-project.org")}
 if (require(stringdist)==FALSE){install.packages("stringdist", repos = "http://cran.us.r-project.org")}
 if (require(tidyverse)==FALSE){install.packages("tidyverse", repos = "http://cran.us.r-project.org")}
 if (require(openxlsx)==FALSE){install.packages("openxlsx", repos = "http://cran.us.r-project.org")}
-
 
 ###############################################################################
 #set parameters - adjustable
@@ -23,11 +23,10 @@ GLOBAL.FLANKBEYONDDSB=5000 #how much flank A and flank B are allowed to continue
 GLOBAL.MINLEN=90 #this is the minimal read length. if you write NA here, then the software will calculate the minimal read length based on the distance to nick/dsb and FLANK_B_LEN_MIN. Should be at the very least 60bp, but 90bp is more common to have as minimum.
 GLOBAL.LB_SEQUENCES = c("TGGCAGGATATATTGTGGTGTAAAC", "CGGCAGGATATATTCAATTGTAAAT") #the nick is made after the 3rd nt
 GLOBAL.RB_SEQUENCES = c("TGACAGGATATATTGGCGGGTAAAC", "TGGCAGGATATATGCGGTTGTAATT", "TGGCAGGATATATACCGTTGTAATT") #the nick is made after the 3rd nt
-
 GLOBAL.TD_SIZE_CUTOFF = 6 #the smallest TD that is considered as TD (*with regards to the Type variable). Any smaller TD is considered merely an insertion.
 GLOBAL.FASTA_MODE = TRUE #Typically false, if TRANSGUIDE/CISGUIDE library prep and illumina sequencing has been done. TRUE if sequences from another source are being analyzed with this program.
 GLOBAL.TESTNAME = "GTGM0134-0029-1-003" #name of a read, used for testing
-GLOBAL.DEBUG = TRUE #If true, only the read with GLOBAL.TESTNAME is processed
+GLOBAL.DEBUG = FALSE #If true, only the read with GLOBAL.TESTNAME is processed
 
 ###############################################################################
 #set parameters - non-adjustable

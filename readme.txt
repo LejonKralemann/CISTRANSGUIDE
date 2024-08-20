@@ -79,6 +79,6 @@ The output can be analysed with SIQPlotteR: https://siq.researchlumc.nl/SIQPlott
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 About the fasta mode
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-You have to run the "Preprocessing_fasta.sh" to change the fasta file in a fastq file resembling raw illumina output. Then you run the "CISGUIDE_primary2.sh"
+You have to run the "Preprocessing_fasta.sh" or "Preprocessing_genbank.sh" to change the fasta file in a fastq file resembling raw illumina output. Then you run the "CISGUIDE_primary2.sh"
 Note that unless you are sure that the fasta sequences always start or end with T-DNA, you should run the primary script twice, the second time exchanging the R1 and R2
 suffixes in the Sample_information.txt file. Both need to be separately analysed with the R program, also on fasta mode.  

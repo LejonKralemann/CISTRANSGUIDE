@@ -1288,6 +1288,7 @@ for (i in row.names(GLOBAL.sample_info)){
         #select the extreme mate positions
         MATE_B_END_POS_max = max(as.integer(MATE_B_END_POS_list)),
         MATE_B_END_POS_min = min(as.integer(MATE_B_END_POS_list)),
+        SEQ_1_LEN_max = max(SEQ_1_LEN),
         .groups="drop"
       )%>%
           mutate(Consensus_freq = 1)
@@ -1342,6 +1343,7 @@ for (i in row.names(GLOBAL.sample_info)){
             DSB_HIT_MULTI_SEQ1_con = as.logical(names(which.max(table(DSB_HIT_MULTI_SEQ1)))),
             DSB_HIT_MULTI_SEQ2_con = as.logical(names(which.max(table(DSB_HIT_MULTI_SEQ2)))),
             Type = names(which.max(table(Type))),
+            SEQ_1_LEN_max = max(SEQ_1_LEN),
             .groups="drop"
           )%>%
           mutate(Consensus_freq = Count_consensus/ReadCount)%>%
@@ -1469,7 +1471,8 @@ for (i in row.names(GLOBAL.sample_info)){
       FLANK_A_ISFORWARD,
       FOCUS_LOCUS,
       Primer_on_TDNA,
-      FlankAUltEnd
+      FlankAUltEnd,
+      SEQ_1_LEN_max = max(SEQ_1_LEN)
     ) 
 
    
@@ -1648,6 +1651,7 @@ if (GLOBAL.REMOVEPROBLEMS == TRUE) {
               SEQ_2_con_CON = SEQ_2_con[which.max(AnchorCount)],
               TRIM_LEN_CON = as.integer(TRIM_LEN[which.max(AnchorCount)]),
               RunID_CON = RunID[which.max(AnchorCount)],
+              SEQ_1_LEN_max_CON = max(SEQ_1_LEN_max),
               .groups="drop"
               )%>%
     rename(FLANK_B_START_POS = FLANK_B_START_POS_CON,
@@ -1666,7 +1670,8 @@ if (GLOBAL.REMOVEPROBLEMS == TRUE) {
            SEQ_2_con = SEQ_2_con_CON,
            RunID = RunID_CON,
            TRIM_LEN = TRIM_LEN_CON,
-           ReadCount = ReadCountSum)
+           ReadCount = ReadCountSum,
+           SEQ_1_LEN_max = SEQ_1_LEN_max_CON)
 
   #get a list of families
   GLOBAL.wb_family = GLOBAL.sample_info2 %>% select(Family) %>% distinct() %>% filter(Family!=0)

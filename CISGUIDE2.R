@@ -16,17 +16,17 @@ GLOBAL.output_dir= "./output/"
 GLOBAL.GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
 GLOBAL.REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
 GLOBAL.REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors. Cannot be used for CISGUIDE, because duplicate positions between samples are expected.
-GLOBAL.ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
+GLOBAL.ANCHORCUTOFF=1 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 GLOBAL.MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B (no overlap with flank A).
 GLOBAL.MAXANCHORDIST=2000 #the furthest position that the mate anchor can be, except on T-DNA.
 GLOBAL.FLANKBEYONDDSB=5000 #how much flank A and flank B are allowed to continue beyond the DSB (not applicable when the focus contig is the T-DNA)
-GLOBAL.MINLEN=90 #this is the minimal read length. if you write NA here, then the software will calculate the minimal read length based on the distance to nick/dsb and FLANK_B_LEN_MIN. Should be at the very least 60bp, but 90bp is more common to have as minimum.
+GLOBAL.MINLEN=150 #this is the minimal read length. if you write NA here, then the software will calculate the minimal read length based on the distance to nick/dsb and FLANK_B_LEN_MIN. Should be at the very least 60bp, but 90bp is more common to have as minimum.
 GLOBAL.LB_SEQUENCES = c("TGGCAGGATATATTGTGGTGTAAAC", "CGGCAGGATATATTCAATTGTAAAT") #the nick is made after the 3rd nt
 GLOBAL.RB_SEQUENCES = c("TGACAGGATATATTGGCGGGTAAAC", "TGGCAGGATATATGCGGTTGTAATT", "TGGCAGGATATATACCGTTGTAATT") #the nick is made after the 3rd nt
 GLOBAL.TD_SIZE_CUTOFF = 6 #the smallest TD that is considered as TD (*with regards to the Type variable). Any smaller TD is considered merely an insertion.
-GLOBAL.FASTA_MODE = FALSE #Typically false, if TRANSGUIDE/CISGUIDE library prep and illumina sequencing has been done. TRUE if sequences from another source are being analyzed with this program.
-GLOBAL.TESTNAME = "GTGM0134-0029-1-003" #name of a read, used for testing
-GLOBAL.DEBUG = FALSE #If true, only the read with GLOBAL.TESTNAME is processed
+GLOBAL.FASTA_MODE = TRUE #Typically false, if TRANSGUIDE/CISGUIDE library prep and illumina sequencing has been done. TRUE if sequences from another source are being analyzed with this program.
+GLOBAL.TESTNAME = "GTGM0094-0027-1-003_1" #name of a read, used for testing
+GLOBAL.DEBUG = TRUE #If true, only the read with GLOBAL.TESTNAME is processed
 
 ###############################################################################
 #set parameters - non-adjustable
@@ -540,26 +540,40 @@ for (i in row.names(GLOBAL.sample_info)){
     
     FILE.data1 = FILE.data  %>%
     #first determine if the read is T-DNA:genome or genome:T-DNA. If genome:T-DNA, reverse the sequence and change the B_POS
-    mutate(fasta_orient = case_when(A_CHROM == FILE.PLASMID & FLANK_B_CHROM != FILE.PLASMID ~ "TDNA-genome",
-                                    A_CHROM != FILE.PLASMID & FLANK_B_CHROM == FILE.PLASMID ~ "genome-TDNA",
+    mutate(fasta_orient = case_when(A_CHROM == FILE.FOCUS_CONTIG & FLANK_B_CHROM != FILE.FOCUS_CONTIG ~ "TDNA-genome",
+                                    A_CHROM != FILE.FOCUS_CONTIG & FLANK_B_CHROM == FILE.FOCUS_CONTIG ~ "genome-TDNA",
                                     TRUE ~ "Other"))%>%
-      rowwise()%>%
+    rowwise()%>%
     mutate(SEQ_1_NEW = if_else(fasta_orient == "genome-TDNA",
-                               as.character(reverseComplement(DNAString(SEQ_1))),
+                               SEQ_2,
                                SEQ_1))%>%
+    mutate(SEQ_2_NEW = if_else(fasta_orient == "genome-TDNA",
+                                 SEQ_1,
+                                 SEQ_2))%>%
     mutate(B_POS_NEW = if_else(fasta_orient == "genome-TDNA",
                                A_POS,
                                B_POS))%>%
     mutate(FLANK_B_ORIENT_NEW = case_when(fasta_orient == "genome-TDNA" & A_ORIENT == "FW" ~ "RV",
                           fasta_orient == "genome-TDNA" & A_ORIENT == "RV" ~ "FW",
                           TRUE ~ FLANK_B_ORIENT))%>%
-      mutate(FLANK_B_CHROM_NEW = if_else(fasta_orient == "genome-TDNA",
+    mutate(FLANK_B_CHROM_NEW = if_else(fasta_orient == "genome-TDNA",
                                        A_CHROM,
                                        FLANK_B_CHROM))%>%
-      mutate(SEQ_1 = SEQ_1_NEW,
-             B_POS = B_POS_NEW,
-             FLANK_B_ORIENT = FLANK_B_ORIENT_NEW,
-             FLANK_B_CHROM = FLANK_B_CHROM_NEW)%>%
+    mutate(MATE_FLANK_B_CHROM_NEW = if_else(fasta_orient == "genome-TDNA",
+                                            A_CHROM,
+                                            MATE_FLANK_B_CHROM))%>%
+    mutate(MATE_B_ORIENT_NEW = if_else(FLANK_B_ORIENT_NEW == "FW",
+                                       "RV",
+                                       "FW"))%>%
+    mutate(MATE_B_POS_NEW = B_POS_NEW)%>%
+    mutate(SEQ_1 = SEQ_1_NEW,
+           SEQ_2 = SEQ_2_NEW,
+           B_POS = B_POS_NEW,
+           FLANK_B_ORIENT = FLANK_B_ORIENT_NEW,
+           FLANK_B_CHROM = FLANK_B_CHROM_NEW,
+           MATE_FLANK_B_CHROM = MATE_FLANK_B_CHROM_NEW,
+           MATE_B_ORIENT = MATE_B_ORIENT_NEW,
+           MATE_B_POS = MATE_B_POS_NEW)%>%
     #make the first 30 bp a fake primer, and find where the primer matches  
     rowwise()%>%
     mutate(PRIMER_SEQ = substr(SEQ_1, 1, 30))%>%

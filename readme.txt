@@ -62,7 +62,8 @@ General notes
 
 -p	Set work path. default: home directory
 -f	Switches to fasta mode if TRUE. default: FALSE.
--t 	Trimming length. Value indicate maximum number of nt to keep. default: 999999 (meaning no trimming is performed).
+-t	Trimming length. Value indicate maximum number of nt to keep. default: 999999 (meaning no trimming is performed).
+-m	mapping length. Only m bases from the read ends are mapped, by default 30.
 
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 About the output

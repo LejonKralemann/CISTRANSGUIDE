@@ -28,6 +28,7 @@ fi
 WORKPATH=~
 FASTASWITCH="FALSE"
 CURRENTTRIMLEN=999999
+MAPLEN=30
 StartTime=$(date +%s)
 Help()
 {
@@ -37,9 +38,10 @@ Help()
    echo "p     Set work path. default: home directory"
    echo "f     Switches to fasta mode if TRUE. default: FALSE."
    echo "t     Sets trimming length. Value indicate maximum number of nt to keep. default:999999 (meaning no trimming is performed)."
+   echo "m     Sets mapping length. Value indicate maximum number of nt at the ends of the reads to use in mapping. Default:30. Can be reduced to find longer deletions, or increased to counter mapping ambiguity"
    echo
 }
-while getopts "hp:f:d:k:t:" option; do
+while getopts "hp:f:d:k:t:m:" option; do
    case $option in
       h) # display Help
          Help
@@ -53,6 +55,9 @@ while getopts "hp:f:d:k:t:" option; do
 		 ;;
       t) #duplicate filtering options
          CURRENTTRIMLEN=$OPTARG
+		 ;;
+      m) #mapping length
+         MAPLEN=$OPTARG
 		 ;;
      \?) # Invalid option
          echo "Error: Invalid option. Exiting."
@@ -333,10 +338,10 @@ fi
 #Mapping
 ################################################################################################################
 
-echo "Extracting the first and last 30bp of the reverse read, and the first 30 bp of the forward read"
-awk 'NR % 2 {print} !(NR % 2) {print substr($1,1,30)}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_paired.fastq > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_paired_first30.fastq
-awk 'NR % 2 {print} !(NR % 2) {print substr($1,1,30)}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired.fastq > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired_first30.fastq
-awk 'NR % 2 {print} !(NR % 2) {print substr($1,length($1)-29,length($1))}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired.fastq > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired_last30.fastq
+echo "Extracting the first and last 30bp of the reverse read, and the first ${MAPLEN} bp of the forward read"
+awk 'NR % 2 {print} !(NR % 2) {print substr($1,1,${MAPLEN})}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_paired.fastq > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_paired_first30.fastq
+awk 'NR % 2 {print} !(NR % 2) {print substr($1,1,${MAPLEN})}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired.fastq > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired_first30.fastq
+awk 'NR % 2 {print} !(NR % 2) {print substr($1,length($1)-(${MAPLEN}-1),length($1))}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired.fastq > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired_last30.fastq
 
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired.fastq | 
 awk -v FS="\t" 'ORS=NR%4?FS:RS' |
@@ -398,14 +403,14 @@ samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSA
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -F 0x10 |
-awk -v OFS="\t" -v FS="\t" '{ if ($5>1 && $6=="30M"){print $1, $3, "FW", $4}}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt
+awk -v OFS="\t" -v FS="\t" -v MAPLEN="$MAPLEN" '{ if ($5>1 && $6==MAPLEN"M"){print $1, $3, "FW", $4}}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt
 #this is QNAME, CHROM, ORIENT, POS
 
 samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30.bam |
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -f 0x10 |
-awk -v OFS="\t" -v FS="\t" '{ if ($5>1 && $6=="30M"){print $1, $3, "RV", $4}}' >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt
+awk -v OFS="\t" -v FS="\t" -v MAPLEN="$MAPLEN" '{ if ($5>1 && $6==MAPLEN"M"){print $1, $3, "RV", $4}}' >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt
 #this is QNAME, CHROM, ORIENT, POS
 
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt | sort -k 1,1  > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names_sorted.txt
@@ -417,14 +422,14 @@ samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSA
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -F 0x10 |
-awk -v OFS="\t" -v FS="\t" '{ if ($5>1 && $6=="30M"){print $1, $3, $4, $5, "FW"}}'  > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names.txt
+awk -v OFS="\t" -v FS="\t" -v MAPLEN="$MAPLEN" '{ if ($5>1 && $6==MAPLEN"M"){print $1, $3, $4, $5, "FW"}}'  > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names.txt
 #this is QNAME, CHROM, POS, MAPQ, ORIENT
 
 samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30.bam |
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -f 0x10 |
-awk -v OFS="\t" -v FS="\t" '{ if ($5>1 && $6=="30M"){print $1, $3, $4, $5, "RV"}}'  >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names.txt
+awk -v OFS="\t" -v FS="\t" -v MAPLEN="$MAPLEN" '{ if ($5>1 && $6==MAPLEN"M"){print $1, $3, $4, $5, "RV"}}'  >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names.txt
 #this is QNAME, CHROM, POS, MAPQ, ORIENT
 
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names.txt | sort -k 1,1  > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names_sorted.txt
@@ -433,13 +438,13 @@ samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSA
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -F 0x10 |
-awk -v OFS="\t" -v FS="\t" '{ if ($5>1 && $6=="30M"){print $1, $3, $4, $5, "FW"}}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names.txt
+awk -v OFS="\t" -v FS="\t" -v MAPLEN="$MAPLEN" '{ if ($5>1 && $6==MAPLEN"M"){print $1, $3, $4, $5, "FW"}}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names.txt
 #this is QNAME, CHROM, POS, MAPQ, orientation
 samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30.bam |
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -f 0x10 |
-awk -v OFS="\t" -v FS="\t" '{ if ($5>1 && $6=="30M"){print $1, $3, $4, $5, "RV"}}' >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names.txt
+awk -v OFS="\t" -v FS="\t" -v MAPLEN="$MAPLEN" '{ if ($5>1 && $6==MAPLEN"M"){print $1, $3, $4, $5, "RV"}}' >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names.txt
 #this is QNAME, CHROM, POS, MAPQ, orientation
 
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names.txt | sort -k 1,1  > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names_sorted.txt

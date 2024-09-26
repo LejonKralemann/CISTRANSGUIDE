@@ -11,7 +11,7 @@ if (require(openxlsx)==FALSE){install.packages("openxlsx", repos = "http://cran.
 ###############################################################################
 #set mode
 ###############################################################################
-GLOBAL.FASTA_MODE = TRUE #Typically false, if TRANSGUIDE/CISGUIDE library prep and illumina sequencing has been done. TRUE if sequences from another source are being analyzed with this program.
+GLOBAL.FASTA_MODE = FALSE #Typically false, if TRANSGUIDE/CISGUIDE library prep and illumina sequencing has been done. TRUE if sequences from another source are being analyzed with this program.
 #adjustable parameters are automatically optimized for fasta mode if FASTA_MODE==TRUE
 
 ###############################################################################
@@ -32,6 +32,7 @@ GLOBAL.RB_SEQUENCES = c("TGACAGGATATATTGGCGGGTAAAC", "TGGCAGGATATATGCGGTTGTAATT"
 GLOBAL.TD_SIZE_CUTOFF = 6 #the smallest TD that is considered as TD (*with regards to the Type variable). Any smaller TD is considered merely an insertion.
 GLOBAL.TESTNAME = "GTGM0094-0027-1-003_1" #name of a read, used for testing
 GLOBAL.DEBUG = FALSE #If true, only the read with GLOBAL.TESTNAME is processed
+GLOBAL.UNGROUPMATES = TRUE #if true, it separates events based on the mate position. FALSE is usually recommended, except in cases where the mate position is really important.
 
 ###############################################################################
 #set parameters - non-adjustable
@@ -802,8 +803,6 @@ for (i in row.names(GLOBAL.sample_info)){
   
   
   
-  
-  
   FILE.data6 = FILE.data5 %>%
     
     #count reads, taking the highest quals
@@ -1263,6 +1262,7 @@ for (i in row.names(GLOBAL.sample_info)){
   #here grouping will occur to determine the number of anchors.
   #for TRANSGUIDE a consensus outcome will be determined
          if (GLOBAL.GROUPSAMEPOS == FALSE){
+           if (GLOBAL.UNGROUPMATES == FALSE){
       
            FILE.data15 =FILE.data14 %>%
           ungroup()%>%
@@ -1318,6 +1318,66 @@ for (i in row.names(GLOBAL.sample_info)){
         .groups="drop"
       )%>%
           mutate(Consensus_freq = 1)
+           #if it is important that the mates are kept separate
+           }else{
+             FILE.data15 =FILE.data14 %>%
+               ungroup()%>%
+               separate_longer_delim(cols="MATE_B_END_POS_list", delim = ",") %>%
+               group_by(
+                 FILE_NAME,
+                 PRIMER_SEQ,
+                 delRelativeStart,
+                 delRelativeStartTD,
+                 delRelativeEnd,
+                 delRelativeEndTD,
+                 FLANK_A_LEN,
+                 FLANK_A_END_POS,
+                 FLANK_B_CHROM,
+                 FLANK_B_START_POS,
+                 MATE_FLANK_B_CHROM_AGREE,
+                 MATE_FLANK_B_CHROM,
+                 FLANK_B_ISFORWARD,
+                 FILLER,
+                 MH,
+                 insSize,
+                 delSize,
+                 homologyLength,
+                 FAKE_DELIN_CHECK,
+                 DSB_AREA_INTACT_SEQ1,
+                 DSB_AREA_INTACT_SEQ2,
+                 DSB_AREA_1MM_SEQ1,
+                 DSB_AREA_1MM_SEQ2,
+                 DSB_HIT_MULTI_SEQ1,
+                 DSB_HIT_MULTI_SEQ2,
+                 Type,
+                 TRIM_LEN,
+                 TANDEM_DUPLICATION,
+                 tandemDuplicationLength,
+                 FLANK_B_TDNA_SIDE,
+                 FLANK_A_ISFORWARD,
+                 FOCUS_LOCUS,
+                 Primer_on_TDNA,
+                 FlankAUltEnd,
+                 FLANK_A_START_POS,
+                 MATE_B_END_POS_list
+               )%>%
+               summarize(
+                 ReadCount = n(),
+                 SEQ_1_con = names(which.max(table(SEQ_1_trimmed))),
+                 Name = dplyr::first(QNAME_first),
+                 Count_consensus = max(table(SEQ_1)),
+                 SEQ_2_con = names(which.max(table(SEQ_2_first))),
+                 SEQ_1_LEN_max = max(SEQ_1_LEN),
+                 .groups="drop"
+               )%>%
+               mutate(Consensus_freq = 1,
+                      MATE_B_END_POS_max = MATE_B_END_POS_list,
+                      MATE_B_END_POS_min = MATE_B_END_POS_list,
+                      AnchorCount = 1)
+           }
+           
+           
+           
       }else{
         
         FILE.data15 =FILE.data14 %>%

@@ -837,6 +837,7 @@ for (i in row.names(GLOBAL.sample_info)){
     arrange(desc(AvgBaseQual_1), desc(AvgBaseQual_2)) %>%
     summarize(QNAME_first = dplyr::first(QNAME),
               SEQ_2_first = dplyr::first(SEQ_2),
+              SEQ_2_list = toString(SEQ_2),
               MATE_B_END_POS_list = toString(MATE_B_END_POS),
               .groups="drop"
               )%>%
@@ -1322,7 +1323,7 @@ for (i in row.names(GLOBAL.sample_info)){
            }else{
              FILE.data15 =FILE.data14 %>%
                ungroup()%>%
-               separate_longer_delim(cols="MATE_B_END_POS_list", delim = ",") %>%
+               separate_longer_delim(cols=c("MATE_B_END_POS_list","SEQ_2_list"), delim = ",") %>%
                group_by(
                  FILE_NAME,
                  PRIMER_SEQ,
@@ -1359,21 +1360,22 @@ for (i in row.names(GLOBAL.sample_info)){
                  Primer_on_TDNA,
                  FlankAUltEnd,
                  FLANK_A_START_POS,
-                 MATE_B_END_POS_list
+                 MATE_B_END_POS_list,
+                 SEQ_2_list
                )%>%
                summarize(
                  ReadCount = n(),
                  SEQ_1_con = names(which.max(table(SEQ_1_trimmed))),
                  Name = dplyr::first(QNAME_first),
                  Count_consensus = max(table(SEQ_1)),
-                 SEQ_2_con = names(which.max(table(SEQ_2_first))),
                  SEQ_1_LEN_max = max(SEQ_1_LEN),
                  .groups="drop"
                )%>%
                mutate(Consensus_freq = 1,
                       MATE_B_END_POS_max = as.integer(MATE_B_END_POS_list),
                       MATE_B_END_POS_min = as.integer(MATE_B_END_POS_list),
-                      AnchorCount = 1)
+                      AnchorCount = 1,
+                      SEQ_2_con = SEQ_2_list)
            }
            
            

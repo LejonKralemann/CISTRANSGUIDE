@@ -29,6 +29,7 @@ WORKPATH=~
 FASTASWITCH="FALSE"
 CURRENTTRIMLEN=999999
 MAPLEN=30
+MINQUAL=30
 StartTime=$(date +%s)
 Help()
 {
@@ -407,14 +408,14 @@ samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSA
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -F 0x10 |
-awk -v OFS="\t" -v FS="\t" -v MAPLEN="$MAPLEN" '{ if ($5>1 && $6==MAPLEN"M"){print $1, $3, "FW", $4}}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt
+awk -v OFS="\t" -v FS="\t" -v MINQUAL="$MINQUAL" '{ if ($5>1 && $6==MINQUAL"M"){print $1, $3, "FW", $4}}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt
 #this is QNAME, CHROM, ORIENT, POS
 
 samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30.bam |
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -f 0x10 |
-awk -v OFS="\t" -v FS="\t" -v MAPLEN="$MAPLEN" '{ if ($5>1 && $6==MAPLEN"M"){print $1, $3, "RV", $4}}' >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt
+awk -v OFS="\t" -v FS="\t" -v MINQUAL="$MINQUAL" '{ if ($5>1 && $6==MINQUAL"M"){print $1, $3, "RV", $4}}' >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt
 #this is QNAME, CHROM, ORIENT, POS
 
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names.txt | sort -k 1,1  > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_forward_first30_names_sorted.txt
@@ -426,14 +427,14 @@ samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSA
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -F 0x10 |
-awk -v OFS="\t" -v FS="\t" -v MAPLEN="$MAPLEN" '{ if ($5>1 && $6==MAPLEN"M"){print $1, $3, $4, $5, "FW"}}'  > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names.txt
+awk -v OFS="\t" -v FS="\t" -v MINQUAL="$MINQUAL" '{ if ($5>1 && $6==MINQUAL"M"){print $1, $3, $4, $5, "FW"}}'  > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names.txt
 #this is QNAME, CHROM, POS, MAPQ, ORIENT
 
 samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30.bam |
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -f 0x10 |
-awk -v OFS="\t" -v FS="\t" -v MAPLEN="$MAPLEN" '{ if ($5>1 && $6==MAPLEN"M"){print $1, $3, $4, $5, "RV"}}'  >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names.txt
+awk -v OFS="\t" -v FS="\t" -v MINQUAL="$MINQUAL" '{ if ($5>1 && $6==MINQUAL"M"){print $1, $3, $4, $5, "RV"}}'  >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names.txt
 #this is QNAME, CHROM, POS, MAPQ, ORIENT
 
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names.txt | sort -k 1,1  > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_first30_names_sorted.txt
@@ -442,13 +443,13 @@ samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSA
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -F 0x10 |
-awk -v OFS="\t" -v FS="\t" -v MAPLEN="$MAPLEN" '{ if ($5>1 && $6==MAPLEN"M"){print $1, $3, $4, $5, "FW"}}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names.txt
+awk -v OFS="\t" -v FS="\t" -v MINQUAL="$MINQUAL" '{ if ($5>1 && $6==MINQUAL"M"){print $1, $3, $4, $5, "FW"}}' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names.txt
 #this is QNAME, CHROM, POS, MAPQ, orientation
 samtools view -uF 0x100 ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30.bam |
 samtools view -uF 0x4 |
 samtools view -uF 0x800 |
 samtools view -f 0x10 |
-awk -v OFS="\t" -v FS="\t" -v MAPLEN="$MAPLEN" '{ if ($5>1 && $6==MAPLEN"M"){print $1, $3, $4, $5, "RV"}}' >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names.txt
+awk -v OFS="\t" -v FS="\t" -v MINQUAL="$MINQUAL" '{ if ($5>1 && $6==MINQUAL"M"){print $1, $3, $4, $5, "RV"}}' >> ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names.txt
 #this is QNAME, CHROM, POS, MAPQ, orientation
 
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names.txt | sort -k 1,1  > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${CURRENTSAMPLE}_reverse_last30_names_sorted.txt

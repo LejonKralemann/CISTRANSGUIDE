@@ -338,10 +338,10 @@ fi
 #Mapping
 ################################################################################################################
 
-echo "Extracting the first and last 30bp of the reverse read, and the first ${MAPLEN} bp of the forward read"
-awk 'NR % 2 {print} !(NR % 2) {print substr($1,1,${MAPLEN})}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_paired.fastq > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_paired_first30.fastq
-awk 'NR % 2 {print} !(NR % 2) {print substr($1,1,${MAPLEN})}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired.fastq > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired_first30.fastq
-awk 'NR % 2 {print} !(NR % 2) {print substr($1,length($1)-(${MAPLEN}-1),length($1))}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired.fastq > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired_last30.fastq
+echo "Extracting the first and last ${MAPLEN} bp of the reverse read, and the first ${MAPLEN} bp of the forward read"
+awk -v MAPLEN="$MAPLEN" 'NR % 2 {print} !(NR % 2) {print substr($1,1,MAPLEN)}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_paired.fastq > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_paired_first30.fastq
+awk -v MAPLEN="$MAPLEN" 'NR % 2 {print} !(NR % 2) {print substr($1,1,MAPLEN)}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired.fastq > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired_first30.fastq
+awk -v MAPLEN="$MAPLEN" 'NR % 2 {print} !(NR % 2) {print substr($1,length($1)-(MAPLEN-1),length($1))}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired.fastq > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired_last30.fastq
 
 echo "Get the R2 names,seqs, and quals"
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired.fastq | 

@@ -52,6 +52,8 @@ Family:						Indicate here if some samples are related and therefore junctions c
 AgroGeno:					Genotype/strain of Agrobacterium that was used in the transformation.
 TDNA_ALT_LB_END:			LB position on the alternative T-DNA plasmid. "NA" if no alternative plasmid, or if you want the program to look for the position.
 TDNA_ALT_RB_END:			Same as previous but for RB.
+Species:					The name of the species of the transformed plant.
+Experiment:					The name of the experiment that the sample belongs to.
 
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 General notes

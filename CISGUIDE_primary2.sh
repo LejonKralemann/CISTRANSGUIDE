@@ -343,18 +343,22 @@ awk 'NR % 2 {print} !(NR % 2) {print substr($1,1,${MAPLEN})}' ${WORKPATH}/${CURR
 awk 'NR % 2 {print} !(NR % 2) {print substr($1,1,${MAPLEN})}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired.fastq > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired_first30.fastq
 awk 'NR % 2 {print} !(NR % 2) {print substr($1,length($1)-(${MAPLEN}-1),length($1))}' ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired.fastq > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired_last30.fastq
 
+echo "Get the R2 names,seqs, and quals"
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_reverse_paired.fastq | 
 awk -v FS="\t" 'ORS=NR%4?FS:RS' |
 sed -E 's/[[:space:]]/\t/g' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R2.txt
 
+echo "Get the R1 names,seqs, and quals"
 cat ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/${i}_forward_paired.fastq |
 awk -v FS="\t" 'ORS=NR%4?FS:RS' |
 sed -E 's/[[:space:]]/\t/g' > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1.txt
 
+echo "Combine the R1 and R2 names,seqs, and quals"
 paste ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R2.txt ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1.txt |
 awk -v OFS="\t" -v FS="\t" '{print $1, $3, $5, $8, $10}' | sort -k 1,1 |
 cut -c 2- > ${WORKPATH}/${CURRENTSAMPLE}_${CURRENTRUNID}/R1R2.txt
 #this file contains the QNAME, SEQ1, QUAL1, SEQ2, QUAL2
+
 echo "## $(( $(date +%s) - ${StartTime} )) seconds elapsed ##"
 
 echo "Mapping" ${i}

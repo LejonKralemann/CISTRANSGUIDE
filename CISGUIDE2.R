@@ -19,9 +19,9 @@ GLOBAL.FASTA_MODE = FALSE #Typically false, if TRANSGUIDE/CISGUIDE library prep 
 ###############################################################################
 GLOBAL.input_dir= "./input/"
 GLOBAL.output_dir= "./output/"
-GLOBAL.GROUPSAMEPOS=FALSE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
+GLOBAL.GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
 GLOBAL.REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
-GLOBAL.REMOVEPROBLEMS=FALSE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors. Cannot be used for CISGUIDE, because duplicate positions between samples are expected.
+GLOBAL.REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors. Cannot be used for CISGUIDE, because duplicate positions between samples are expected.
 GLOBAL.ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
 GLOBAL.MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B (no overlap with flank A).
 GLOBAL.MAXANCHORDIST=2000 #the furthest position that the mate anchor can be, except on T-DNA.
@@ -1771,7 +1771,7 @@ if (GLOBAL.REMOVEPROBLEMS == TRUE) {
 
     GLOBAL.wb_flag = GLOBAL.total_data_near_positioncombined %>%
         #then examine positions across samples and remove those that occur multiple times
-        group_by(FLANK_B_START_POS) %>%
+        group_by(Species, FLANK_B_CHROM, FLANK_B_START_POS) %>%
         mutate(duplicate_position = if_else(n() > 1 & Focus_contig != FLANK_B_CHROM,
                                             TRUE,
                                             FALSE)) %>%
@@ -1795,7 +1795,7 @@ if (GLOBAL.REMOVEPROBLEMS == TRUE) {
         
         GLOBAL.wb_filter_current = GLOBAL.total_data_near_positioncombined %>%
           filter(Family != i | Alias == j) %>% #events are either not of the current family, or they belong to the current alias
-          group_by(FLANK_B_START_POS) %>%
+          group_by(Species, FLANK_B_CHROM, FLANK_B_START_POS) %>%
           mutate(duplicate_position = if_else(n() > 1 & Focus_contig != FLANK_B_CHROM,
                                               TRUE,
                                               FALSE)) %>%
@@ -1813,7 +1813,7 @@ if (GLOBAL.REMOVEPROBLEMS == TRUE) {
     funlog("Fetching non-duplicate position events not belonging to a family")
     GLOBAL.wb_nonfamily = GLOBAL.total_data_near_positioncombined %>%
       filter(Family == 0) %>%
-      group_by(FLANK_B_START_POS) %>%
+      group_by(Species, FLANK_B_CHROM, FLANK_B_START_POS) %>%
       mutate(duplicate_position = if_else(n() > 1 & Focus_contig != FLANK_B_CHROM,
                                           TRUE,
                                           FALSE)) %>%

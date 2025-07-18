@@ -1655,7 +1655,9 @@ GLOBAL.missing_columns = GLOBAL.wb_pre %>%
          TDNA_ALT_RB_END = NA,
          TDNA_ALT_IS_LBRB = NA,
          TANDEM_DUPLICATION = NA,
-         FLANK_B_TDNA_SIDE = NA)
+         FLANK_B_TDNA_SIDE = NA,
+         FILLER = NA,
+         TANDEM_DUPLICATION = NA)
 
 GLOBAL.wb = left_join(GLOBAL.wb_pre, GLOBAL.missing_columns)
 
@@ -1720,7 +1722,7 @@ if (GLOBAL.REMOVEPROBLEMS == TRUE) {
     filter(!is.na(Family) & !is.na(Name))
   
   funlog("combining junctions with similar positions")
-  #combine junctions with similar positions and get the characteristics of the consensus event from the event the most anchors 
+  #combine junctions with similar positions and get the characteristics of the consensus event from the event with the most anchors 
   GLOBAL.total_data_near_positioncombined = GLOBAL.total_data_positioncompare %>%
     group_by(Alias, FLANK_B_CHROM, Plasmid, FLANK_B_ISFORWARD, DNASample, Subject, ID, Focus_contig, Genotype, Ecotype, Plasmid_alt, Family, FlankAUltEnd, AgroGeno, Species, RemoveNonTranslocation, GroupSamePosition, Translocation, Translocation_del_resolved, TANDEM_DUPLICATION, DSB_FW_END, DSB_OVERHANG, DSB_CONTIG, FLANK_B_TDNA_SIDE, Experiment)%>%
     summarize(AnchorCountSum = sum(AnchorCount), 

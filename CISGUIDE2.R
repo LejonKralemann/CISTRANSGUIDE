@@ -11,7 +11,7 @@ if (require(openxlsx)==FALSE){install.packages("openxlsx", repos = "http://cran.
 ###############################################################################
 #set mode
 ###############################################################################
-GLOBAL.FASTA_MODE = FALSE #Typically false, if TRANSGUIDE/CISGUIDE library prep and illumina sequencing has been done. TRUE if sequences from another source are being analyzed with this program.
+GLOBAL.FASTA_MODE = FALSE #FALSE by default (for when TRANSGUIDE/CISGUIDE library prep and illumina sequencing has been done). TRUE if sequences from another source are being analyzed with this program.
 #adjustable parameters are automatically optimized for fasta mode if FASTA_MODE==TRUE
 
 ###############################################################################
@@ -19,20 +19,20 @@ GLOBAL.FASTA_MODE = FALSE #Typically false, if TRANSGUIDE/CISGUIDE library prep 
 ###############################################################################
 GLOBAL.input_dir= "./input/"
 GLOBAL.output_dir= "./output/"
-GLOBAL.GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE.
-GLOBAL.REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly.
-GLOBAL.REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors. Cannot be used for CISGUIDE, because duplicate positions between samples are expected.
-GLOBAL.ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed) 
-GLOBAL.MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B (no overlap with flank A).
-GLOBAL.MAXANCHORDIST=2000 #the furthest position that the mate anchor can be, except on T-DNA.
-GLOBAL.FLANKBEYONDDSB=5000 #how much flank A and flank B are allowed to continue beyond the DSB (not applicable when the focus contig is the T-DNA)
-GLOBAL.MINLEN=150 #this is the minimal read length. if you write NA here, then the software will calculate the minimal read length based on the distance to nick/dsb and FLANK_B_LEN_MIN. Should be at the very least 60bp, but 90bp is more common to have as minimum.
-GLOBAL.LB_SEQUENCES = c("TGGCAGGATATATTGTGGTGTAAAC", "CGGCAGGATATATTCAATTGTAAAT", "CGGCAGGATATATGGCAGTGTAAAC", "CGGCAGGATATATTCAAATGTAAAT", "TGGCAGGATATATCGAGGTGTAAAA")  #the nick is made after the 3rd nt
-GLOBAL.RB_SEQUENCES = c("TGACAGGATATATTGGCGGGTAAAC", "TGGCAGGATATATGCGGTTGTAATT", "TGGCAGGATATATACCGTTGTAATT", "TGGCAGGATATATTGGGGTGTCAAT", "TGGCAGGATATATGTGGTTGTAATT") #the nick is made after the 3rd nt
-GLOBAL.TD_SIZE_CUTOFF = 6 #the smallest TD that is considered as TD (*with regards to the Type variable). Any smaller TD is considered merely an insertion.
+GLOBAL.GROUPSAMEPOS=TRUE #if true, it combines reads with the same genomic pos, which helps in removing artefacts. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Default is TRUE.
+GLOBAL.REMOVENONTRANS=TRUE #if true, it only considers translocations. Typically used for TRANSGUIDE, but disabled for CISGUIDE. Note that some translocations on the same chromosome will also be removed thusly. Default is TRUE.
+GLOBAL.REMOVEPROBLEMS=TRUE #if true it removes all problematic reads from the combined datafile. Note if this is false, no duplicate filtering will be performed, because first reads due to barcode hopping need to be removed by removing events with few anchors. Cannot be used for CISGUIDE, because duplicate positions between samples are expected. Default is TRUE.
+GLOBAL.ANCHORCUTOFF=3 #each event needs to have at least this number of anchors, otherwise it is marked as problematic (and potentially removed). Default is 3. 
+GLOBAL.MINANCHORDIST=150 #should be matching a situation where the mate is 100% flank B (no overlap with flank A). Default is 150.
+GLOBAL.MAXANCHORDIST=2000 #the furthest position that the mate anchor can be, except on T-DNA. Default is 2000.
+GLOBAL.FLANKBEYONDDSB=5000 #how much flank A and flank B are allowed to continue beyond the DSB (not applicable when the focus contig is the T-DNA). Default is 5000.
+GLOBAL.MINLEN=150 #this is the minimal read length. if you write NA here, then the software will calculate the minimal read length based on the distance to nick/dsb and FLANK_B_LEN_MIN. Should be at the very least 60bp, but 90bp is more common to have as minimum. The default is 150.
+GLOBAL.LB_SEQUENCES = c("TGGCAGGATATATTGTGGTGTAAAC", "CGGCAGGATATATTCAATTGTAAAT", "CGGCAGGATATATGGCAGTGTAAAC", "CGGCAGGATATATTCAAATGTAAAT", "TGGCAGGATATATCGAGGTGTAAAA")  #the nick is made after the 3rd nt. It is recommended to keep all the sequences, and optionally add missing ones.
+GLOBAL.RB_SEQUENCES = c("TGACAGGATATATTGGCGGGTAAAC", "TGGCAGGATATATGCGGTTGTAATT", "TGGCAGGATATATACCGTTGTAATT", "TGGCAGGATATATTGGGGTGTCAAT", "TGGCAGGATATATGTGGTTGTAATT")  #the nick is made after the 3rd nt. It is recommended to keep all the sequences, and optionally add missing ones.
+GLOBAL.TD_SIZE_CUTOFF = 6 #the smallest TD that is considered as TD (*with regards to the Type variable). Any smaller TD is considered merely an insertion. The default is 6.
 GLOBAL.TESTNAME = "GTGM0094-0027-1-003_1" #name of a read, used for testing
 GLOBAL.DEBUG = FALSE #If true, only the read with GLOBAL.TESTNAME is processed
-GLOBAL.UNGROUPMATES = FALSE #if true, it separates events based on the mate position. FALSE is usually recommended, except in cases where the mate position is really important.
+GLOBAL.UNGROUPMATES = FALSE #if true, it separates events based on the mate position. FALSE is usually recommended (and default), except in cases where the mate position is really important.
 
 ###############################################################################
 #set parameters - non-adjustable

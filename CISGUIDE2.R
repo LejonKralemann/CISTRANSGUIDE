@@ -41,7 +41,7 @@ GLOBAL.NF_NUMBER = as.integer(-99999999) #don't change
 GLOBAL.ERROR_NUMBER = as.integer(99999999) #don't change
 GLOBAL.hash=system("git rev-parse HEAD", intern=TRUE)
 GLOBAL.hash_little=substr(GLOBAL.hash, 1, 8)
-GLOBAL.sample_info = read.csv(paste0(GLOBAL.input_dir, "Sample_information.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
+GLOBAL.sample_info = read.table(paste0(GLOBAL.input_dir, "Sample_information.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
 GLOBAL.TIME_START=round(as.numeric(Sys.time())*1000, digits=0)
 GLOBAL.FLANK_B_LEN_MIN = 30 #minimum length of flank B. Also determines the size of DSB_AREA_SEQ. do not change because the preprocessing program will still be set at 30.
 GLOBAL.MINMAPQUALA = 42 #minimum mapping quality (phred). 42 means a perfect, unambiguous match (well, should be)
@@ -186,7 +186,7 @@ for (i in row.names(GLOBAL.sample_info)){
       FILE.CurrentFileSize = (file.info((paste0(GLOBAL.input_dir, FILE.Sample, "_", FILE.RunID, "_A.txt"))))$size
     }
   
-  FILE.data = read.csv(paste0(GLOBAL.input_dir, FILE.Sample, "_", FILE.RunID, "_A.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
+  FILE.data = read.table(paste0(GLOBAL.input_dir, FILE.Sample, "_", FILE.RunID, "_A.txt"), sep = "\t", header=T, stringsAsFactors = FALSE, comment.char="}")
   if (nrow(FILE.data)==0){
     funlog("Primary processed file empty, moving to the next sample")
     next
@@ -1856,7 +1856,7 @@ addWorksheet(GLOBAL.work_book2, "rawData")
 writeData(GLOBAL.work_book2, sheet = 1, GLOBAL.wb_flag1)
 
 #Write an additional sheet with read number info
-GLOBAL.read_numbers_info = read.csv(paste0(GLOBAL.input_dir, "read_numbers.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
+GLOBAL.read_numbers_info = read.table(paste0(GLOBAL.input_dir, "read_numbers.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
 GLOBAL.wb_numbers = GLOBAL.read_numbers_info %>% 
   mutate(Alias = paste0(Sample, "_", RunID))%>%
   mutate(Sample = NULL,

@@ -39,7 +39,7 @@ GLOBAL.UNGROUPMATES = FALSE #if true, it separates events based on the mate posi
 ###############################################################################
 GLOBAL.NF_NUMBER = as.integer(-99999999) #don't change
 GLOBAL.ERROR_NUMBER = as.integer(99999999) #don't change
-GLOBAL.hash=system("git rev-parse HEAD", intern=TRUE)
+GLOBAL.hash=tryCatch(stop("error123_version_number_not_found"), finally= system("git rev-parse HEAD", intern=TRUE))
 GLOBAL.hash_little=substr(GLOBAL.hash, 1, 8)
 GLOBAL.sample_info = read.table(paste0(GLOBAL.input_dir, "Sample_information.txt"), sep = "\t", header=T, stringsAsFactors = FALSE)
 GLOBAL.TIME_START=round(as.numeric(Sys.time())*1000, digits=0)
